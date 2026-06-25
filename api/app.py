@@ -35,6 +35,7 @@ from api.routers import (
     backup_router,
     chat_router,
     contributors_router,
+    discussions_router,
     errors_router,
     faq_router,
     fraud_router,
@@ -138,6 +139,7 @@ app.include_router(monitoring_router)
 app.include_router(loyalty_router)
 app.include_router(models_router)
 app.include_router(contributors_router)
+app.include_router(discussions_router)
 app.include_router(mentorship_router)
 app.include_router(notifications_router)
 app.include_router(onboarding_router)

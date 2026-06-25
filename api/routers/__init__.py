@@ -3,6 +3,7 @@ from api.routers.accounts import router as accounts_router
 from api.routers.auth import router as auth_router
 from api.routers.backup import router as backup_router
 from api.routers.chat import router as chat_router
+from api.routers.discussions import router as discussions_router
 from api.routers.errors import router as errors_router
 from api.routers.faq import router as faq_router
 from api.routers.fraud import router as fraud_router
@@ -22,6 +23,7 @@ __all__ = [
     "backup_router",
     "chat_router",
     "contributors_router",
+    "discussions_router",
     "auth_router",
     "errors_router",
     "faq_router",
