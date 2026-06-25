@@ -132,8 +132,10 @@ class E2ETestReporter:
                     <th>Error</th>
                 </tr>
                 {''.join(
-                    f"<tr><td>{t['name']}</td><td class='{t['status']}'>{t['status']}</td><td>{t['duration']:.3f}</td><td>{t.get('error', '')}</td></tr>"
-                    for t in report_data['tests'][:50]  # Limit to 50 for readability
+                    f"<tr><td>{t['name']}</td><td class='{t['status']}'>"
+                    f"{t['status']}</td><td>{t['duration']:.3f}</td>"
+                    f"<td>{t.get('error', '')}</td></tr>"
+                    for t in report_data['tests'][:50]
                 )}
             </table>
         </body>
