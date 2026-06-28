@@ -17,6 +17,7 @@ from astroml.llm.provider import MockLLMProvider
 from astroml.llm.providers.embedding_router import build_default_router
 from api.services.llm_suggest import AutocompleteService
 from api.services.llm_search import SemanticSearchService
+from api.services.llm_cost import CostMonitoringService
 from api.database import get_db
 from api.models.orm import LLMFeedback
 from api.schemas import (
@@ -28,6 +29,7 @@ from api.schemas import (
     SuggestionResponse,
     SearchRequest,
     SearchResponse,
+    CostDashboardResponse,
 )
 from api.auth.dependencies import get_current_auth, AuthContext
 from typing import List, Dict, Any, AsyncGenerator
@@ -43,6 +45,7 @@ embedding_cache = EmbeddingCache()
 embedding_router = build_default_router()
 suggest_service = AutocompleteService()
 search_service = SemanticSearchService()
+cost_service = CostMonitoringService()
 
 # Drift monitor — dimension inferred lazily from first observed vector.
 # Default to 384 (HuggingFace MiniLM-L6-v2 fallback dim); reconfigured at
@@ -74,6 +77,13 @@ async def suggest_query(q: str, max_results: int = 5, auth: AuthContext = Depend
 async def semantic_search(request: SearchRequest, auth: AuthContext = Depends(get_current_auth)):
     try:
         return await search_service.search(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/costs/dashboard", response_model=CostDashboardResponse)
+async def get_cost_dashboard(auth: AuthContext = Depends(get_current_auth)):
+    try:
+        return cost_service.get_dashboard()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
