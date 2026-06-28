@@ -47,6 +47,47 @@ class FraudAlertsResponse(BaseModel):
     total: int
 
 
+class FraudExplanationOut(BaseModel):
+    alert_id: int
+    explanation: str
+    generated_in_ms: float
+    cached: bool
+
+
+class TransactionSummaryOut(BaseModel):
+    hash: str
+    amount: float
+    asset_code: str
+    destination_account: Optional[str] = None
+    created_at: str
+
+
+class PrioritizedAlertOut(BaseModel):
+    id: int
+    account_id: str
+    pattern: Optional[str] = None
+    risk_score: float
+    risk_level: str
+    priority_score: float
+    priority_level: str
+    explanation: str
+    detected_at: datetime
+    recent_transactions: List[TransactionSummaryOut]
+    account_activity_score: float
+    is_duplicate: bool = False
+    duplicate_of: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PrioritizedAlertsResponse(BaseModel):
+    data: List[PrioritizedAlertOut]
+    deduplication_reduction_pct: int
+    total_processed: int
+    total_remaining: int
+
+
 class RiskPoint(BaseModel):
     date: str
     score: float
@@ -134,6 +175,11 @@ class ModelMetricsOut(BaseModel):
     auc_roc: Optional[float] = None    # alias populated from auc for compatibility
     drift_score: Optional[float] = None
     recorded_at: Optional[datetime] = None
+    
+    # LLM Tracking
+    llm_cost: Optional[float] = None
+    llm_prompt_tokens: Optional[int] = None
+    llm_completion_tokens: Optional[int] = None
 
 
 class PerformancePoint(BaseModel):
@@ -580,6 +626,91 @@ class SupportTicketOut(BaseModel):
         from_attributes = True
 
 
+# ─── Feedback (issue #308) ──────────────────────────────────────────────────
+
+FEEDBACK_CATEGORIES = {"bug", "feature", "general"}
+FEEDBACK_STATUSES = {"open", "planned", "in_progress", "completed", "declined"}
+ROADMAP_STATUSES = ("planned", "in_progress", "completed")
+
+
+class FeedbackIn(BaseModel):
+    category: str = Field(min_length=1, max_length=16)
+    message: str = Field(min_length=1, max_length=5000)
+    email: Optional[str] = Field(default=None, max_length=254)
+    screenshot: Optional[str] = None  # data URL: data:image/png;base64,...
+
+    @field_validator("category")
+    @classmethod
+    def _valid_category(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v not in FEEDBACK_CATEGORIES:
+            raise ValueError("category must be one of: bug, feature, general")
+        return v
+
+    @field_validator("message")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("message must not be blank")
+        return v.strip()
+
+    @field_validator("screenshot")
+    @classmethod
+    def _valid_screenshot(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith("data:image/"):
+            raise ValueError("screenshot must be an image data URL")
+        return v
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    category: str
+    message: str
+    status: str
+    github_issue_url: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ContactSubmitResponse(BaseModel):
     message: str
     ticket: SupportTicketOut
+
+
+class FeedbackListResponse(BaseModel):
+    data: List[FeedbackOut]
+    page: int
+    page_size: int
+    total: int
+
+
+class FeedbackStatusUpdate(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def _valid_status(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v not in FEEDBACK_STATUSES:
+            raise ValueError("invalid status")
+        return v
+
+
+class RoadmapItem(BaseModel):
+    id: int
+    category: str
+    message: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class RoadmapResponse(BaseModel):
+    planned: List[RoadmapItem]
+    in_progress: List[RoadmapItem]
+    completed: List[RoadmapItem]

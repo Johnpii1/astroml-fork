@@ -16,3 +16,6 @@ __all__ = [
     "default_llm_usage_tracker",
 ]
 
+from .model_registry import ModelRegistry
+
+__all__ = ["MLflowTracker", "ModelRegistry"]
