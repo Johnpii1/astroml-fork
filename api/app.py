@@ -42,6 +42,7 @@ from api.routers import (
     contributors_router,
     errors_router,
     faq_router,
+    feedback_router,
     fraud_router,
     loyalty_router,
     mentorship_router,
@@ -56,6 +57,9 @@ from api.routers import (
     streaming_router,
     llm_usage_router,
     llm_cache_metrics_router,
+    llm_router,
+    reports_router,
+    alerts_router,
 )
 
 
@@ -164,6 +168,7 @@ app.include_router(mentorship_router)
 app.include_router(notifications_router)
 app.include_router(onboarding_router)
 app.include_router(faq_router)
+app.include_router(feedback_router)
 app.include_router(validation_router)
 app.include_router(backup_router)
 app.include_router(chat_router)
@@ -172,6 +177,9 @@ app.include_router(streaming_router)
 app.include_router(llm_usage_router)
 app.include_router(llm_cache_metrics_router)
 
+app.include_router(llm_router)
+app.include_router(reports_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health", tags=["ops"])
