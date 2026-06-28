@@ -1,10 +1,11 @@
 """Pydantic schemas shared across all API routers."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ─── Fraud ────────────────────────────────────────────────────────────────────
@@ -44,6 +45,47 @@ class FraudAlertsResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class FraudExplanationOut(BaseModel):
+    alert_id: int
+    explanation: str
+    generated_in_ms: float
+    cached: bool
+
+
+class TransactionSummaryOut(BaseModel):
+    hash: str
+    amount: float
+    asset_code: str
+    destination_account: Optional[str] = None
+    created_at: str
+
+
+class PrioritizedAlertOut(BaseModel):
+    id: int
+    account_id: str
+    pattern: Optional[str] = None
+    risk_score: float
+    risk_level: str
+    priority_score: float
+    priority_level: str
+    explanation: str
+    detected_at: datetime
+    recent_transactions: List[TransactionSummaryOut]
+    account_activity_score: float
+    is_duplicate: bool = False
+    duplicate_of: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PrioritizedAlertsResponse(BaseModel):
+    data: List[PrioritizedAlertOut]
+    deduplication_reduction_pct: int
+    total_processed: int
+    total_remaining: int
 
 
 class RiskPoint(BaseModel):
@@ -125,15 +167,26 @@ class LoyaltySummaryOut(BaseModel):
 
 class ModelMetricsOut(BaseModel):
     accuracy: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
     f1: Optional[float] = None
+    f1_score: Optional[float] = None   # alias populated from f1 for compatibility
     auc: Optional[float] = None
+    auc_roc: Optional[float] = None    # alias populated from auc for compatibility
     drift_score: Optional[float] = None
     recorded_at: Optional[datetime] = None
+    
+    # LLM Tracking
+    llm_cost: Optional[float] = None
+    llm_prompt_tokens: Optional[int] = None
+    llm_completion_tokens: Optional[int] = None
 
 
 class PerformancePoint(BaseModel):
     date: str
     accuracy: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
     f1: Optional[float] = None
     auc: Optional[float] = None
 
@@ -431,3 +484,233 @@ class DigestEmailOut(BaseModel):
     period: str
     notifications_count: int
     generated_at: datetime
+
+
+# ─── Onboarding ────────────────────────────────────────────────────────────
+
+class OnboardingStepIn(BaseModel):
+    step: str
+
+
+class OnboardingChecklistItem(BaseModel):
+    step: str
+    label: str
+    completed: bool
+
+
+class OnboardingProgressOut(BaseModel):
+    github_username: str
+    checklist: List[OnboardingChecklistItem]
+    completed_count: int
+    total_steps: int
+    progress_pct: int
+    is_complete: bool
+    started_at: str
+    last_updated: str
+
+
+# ─── FAQ (issue #307) ───────────────────────────────────────────────────────────
+
+class FAQOut(BaseModel):
+    id: int
+    category: str
+    question: str
+    answer: str
+    order: int
+    is_published: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FAQIn(BaseModel):
+    category: str = Field(..., min_length=1, max_length=64)
+    question: str = Field(..., min_length=1, max_length=512)
+    answer: str = Field(..., min_length=1)
+    order: int = Field(default=0, ge=0)
+    is_published: bool = True
+
+
+class FAQUpdateIn(BaseModel):
+    category: Optional[str] = Field(None, min_length=1, max_length=64)
+    question: Optional[str] = Field(None, min_length=1, max_length=512)
+    answer: Optional[str] = Field(None, min_length=1)
+    order: Optional[int] = Field(None, ge=0)
+    is_published: Optional[bool] = None
+
+
+class FAQListResponse(BaseModel):
+    data: List[FAQOut]
+    categories: List[str]
+    total: int
+
+
+class FAQFeedbackIn(BaseModel):
+    is_helpful: bool
+    user_comment: Optional[str] = None
+
+
+class FAQFeedbackOut(BaseModel):
+    id: int
+    faq_id: int
+    is_helpful: bool
+    user_comment: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FAQSuggestionIn(BaseModel):
+    question: str = Field(..., min_length=1, max_length=512)
+    suggested_answer: Optional[str] = None
+    category: Optional[str] = Field(None, max_length=64)
+
+
+class FAQSuggestionOut(BaseModel):
+    id: int
+    question: str
+    suggested_answer: Optional[str] = None
+    category: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FAQSuggestionListResponse(BaseModel):
+    data: List[FAQSuggestionOut]
+    page: int
+    page_size: int
+    total: int
+
+
+# ─── Contact / Support tickets (issue #305) ─────────────────────────────────
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class ContactFormIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=254)
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=5000)
+    # reCAPTCHA token from the frontend widget; optional when verification is off.
+    recaptcha_token: Optional[str] = None
+
+    @field_validator("name", "subject", "message")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("must not be blank")
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        v = v.strip()
+        if not _EMAIL_RE.match(v):
+            raise ValueError("invalid email address")
+        return v
+
+
+class SupportTicketOut(BaseModel):
+    reference: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Feedback (issue #308) ──────────────────────────────────────────────────
+
+FEEDBACK_CATEGORIES = {"bug", "feature", "general"}
+FEEDBACK_STATUSES = {"open", "planned", "in_progress", "completed", "declined"}
+ROADMAP_STATUSES = ("planned", "in_progress", "completed")
+
+
+class FeedbackIn(BaseModel):
+    category: str = Field(min_length=1, max_length=16)
+    message: str = Field(min_length=1, max_length=5000)
+    email: Optional[str] = Field(default=None, max_length=254)
+    screenshot: Optional[str] = None  # data URL: data:image/png;base64,...
+
+    @field_validator("category")
+    @classmethod
+    def _valid_category(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v not in FEEDBACK_CATEGORIES:
+            raise ValueError("category must be one of: bug, feature, general")
+        return v
+
+    @field_validator("message")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("message must not be blank")
+        return v.strip()
+
+    @field_validator("screenshot")
+    @classmethod
+    def _valid_screenshot(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith("data:image/"):
+            raise ValueError("screenshot must be an image data URL")
+        return v
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    category: str
+    message: str
+    status: str
+    github_issue_url: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ContactSubmitResponse(BaseModel):
+    message: str
+    ticket: SupportTicketOut
+
+
+class FeedbackListResponse(BaseModel):
+    data: List[FeedbackOut]
+    page: int
+    page_size: int
+    total: int
+
+
+class FeedbackStatusUpdate(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def _valid_status(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v not in FEEDBACK_STATUSES:
+            raise ValueError("invalid status")
+        return v
+
+
+class RoadmapItem(BaseModel):
+    id: int
+    category: str
+    message: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class RoadmapResponse(BaseModel):
+    planned: List[RoadmapItem]
+    in_progress: List[RoadmapItem]
+    completed: List[RoadmapItem]

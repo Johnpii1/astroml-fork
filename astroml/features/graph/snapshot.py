@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Generator, Iterable, Iterator, List, Optional, Sequence, Set, Tuple
 import bisect
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from ...cache import cached_graph_snapshot
+
 
 
 # Issue #199 — default chunk size for the streaming graph builder. SQLAlchemy
@@ -30,7 +32,7 @@ def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> List[Edge]:
         return list(edges)
     return sorted(edges, key=lambda e: e.timestamp)
 
-
+@cached_graph_snapshot(ttl_seconds=1800)
 def window_snapshot(
     edges: Sequence[Edge],
     start_ts: int,
@@ -71,7 +73,7 @@ def window_snapshot(
 
     return nodes, window_edges
 
-
+@cached_graph_snapshot(ttl_seconds=1800)
 def snapshot_last_n_days(
     edges: Sequence[Edge],
     now_ts: int,

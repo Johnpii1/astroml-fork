@@ -47,6 +47,9 @@ from astroml.features.schema_validation import (
     FEATURE_VALUE_SCHEMA,
 )
 
+from ..cache import cache_feature_store
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -821,6 +824,7 @@ class FeatureStore:
         
         return result
     
+    @cache_feature_store(ttl_seconds=900)
     def get_feature(
         self,
         feature_name: str,

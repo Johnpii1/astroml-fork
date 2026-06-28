@@ -5,6 +5,8 @@ calculation using existing feature modules and manages the computation pipeline.
 """
 
 from __future__ import annotations
+from ..cache import cached_feature
+
 
 import logging
 from abc import ABC, abstractmethod
@@ -184,6 +186,7 @@ class BaseFeatureComputer(ABC):
         self._parameters[name] = value
     
     @abstractmethod
+    @cached_feature(ttl_seconds=900)
     def compute(
         self,
         data: pd.DataFrame,

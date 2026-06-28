@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useTransactionHistory } from '../../hooks/useTransactionHistory'
 import { TransactionHistoryTable } from './TransactionHistoryTable'
+import { SkeletonTransactionHistory } from '../Skeletons'
 
 export function TransactionHistoryPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(0)
   const pageSize = 20
   
@@ -23,25 +26,29 @@ export function TransactionHistoryPage() {
     setPage(0) // Reset to first page when filters change
   }
 
+  if (loading) return <SkeletonTransactionHistory />
+
   return (
     <div style={{ display: 'grid', gap: 24 }}>
-      <div>
-        <h1 style={{ margin: '0 0 16px 0', fontSize: 28, fontWeight: 700 }}>Transaction History</h1>
-        <p style={{ margin: 0, color: '#666' }}>
-          View and search Stellar blockchain transactions
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <div>
+          <h1 style={{ margin: '0 0 16px 0', fontSize: 28, fontWeight: 700 }}>{t('transactions.title')}</h1>
+          <p style={{ margin: 0, color: 'var(--text-muted, #666)' }}>
+            {t('transactions.subtitle')}
+          </p>
+        </div>
       </div>
 
       <div style={{
         padding: 16,
-        backgroundColor: '#f9f9f9',
+        backgroundColor: 'var(--bg-secondary, #f9f9f9)',
         borderRadius: 8,
-        border: '1px solid #e0e0e0',
+        border: '1px solid var(--border-color, #e0e0e0)',
       }}>
         <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#555' }}>
-              Source Account
+            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary, #555)' }}>
+              {t('transactions.filters.source_account')}
             </label>
             <input
               type="text"
@@ -51,16 +58,18 @@ export function TransactionHistoryPage() {
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #ddd',
+                border: '1px solid var(--border-color, #ddd)',
                 borderRadius: 4,
                 fontSize: 14,
+                background: 'var(--bg-primary, #fff)',
+                color: 'var(--text-primary, #1a202c)',
               }}
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#555' }}>
-              Operation Type
+            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary, #555)' }}>
+              {t('transactions.filters.operation_type')}
             </label>
             <select
               value={filters.operationType || ''}
@@ -68,23 +77,25 @@ export function TransactionHistoryPage() {
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #ddd',
+                border: '1px solid var(--border-color, #ddd)',
                 borderRadius: 4,
                 fontSize: 14,
+                background: 'var(--bg-primary, #fff)',
+                color: 'var(--text-primary, #1a202c)',
               }}
             >
-              <option value="">All Types</option>
-              <option value="payment">Payment</option>
-              <option value="create_account">Create Account</option>
-              <option value="change_trust">Change Trust</option>
-              <option value="path_payment">Path Payment</option>
-              <option value="manage_buy_offer">Manage Buy Offer</option>
+              <option value="">{t('transactions.filters.all_types')}</option>
+              <option value="payment">{t('transactions.filters.types.payment')}</option>
+              <option value="create_account">{t('transactions.filters.types.create_account')}</option>
+              <option value="change_trust">{t('transactions.filters.types.change_trust')}</option>
+              <option value="path_payment">{t('transactions.filters.types.path_payment')}</option>
+              <option value="manage_buy_offer">{t('transactions.filters.types.manage_buy_offer')}</option>
             </select>
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#555' }}>
-              Start Date
+            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary, #555)' }}>
+              {t('transactions.filters.start_date')}
             </label>
             <input
               type="date"
@@ -93,16 +104,18 @@ export function TransactionHistoryPage() {
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #ddd',
+                border: '1px solid var(--border-color, #ddd)',
                 borderRadius: 4,
                 fontSize: 14,
+                background: 'var(--bg-primary, #fff)',
+                color: 'var(--text-primary, #1a202c)',
               }}
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: '#555' }}>
-              End Date
+            <label style={{ display: 'block', marginBottom: 4, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary, #555)' }}>
+              {t('transactions.filters.end_date')}
             </label>
             <input
               type="date"
@@ -111,9 +124,11 @@ export function TransactionHistoryPage() {
               style={{
                 width: '100%',
                 padding: '8px 12px',
-                border: '1px solid #ddd',
+                border: '1px solid var(--border-color, #ddd)',
                 borderRadius: 4,
                 fontSize: 14,
+                background: 'var(--bg-primary, #fff)',
+                color: 'var(--text-primary, #1a202c)',
               }}
             />
           </div>
@@ -124,15 +139,15 @@ export function TransactionHistoryPage() {
             onClick={() => setFilters({})}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#6c757d',
-              color: 'white',
+              background: 'var(--text-muted, #6c757d)',
+              color: '#fff',
               border: 'none',
               borderRadius: 4,
               cursor: 'pointer',
               fontSize: 13,
             }}
           >
-            Clear Filters
+            {t('transactions.filters.clear')}
           </button>
         </div>
       </div>
@@ -146,8 +161,8 @@ export function TransactionHistoryPage() {
       />
 
       {history && (
-        <div style={{ fontSize: 13, color: '#666', textAlign: 'center' }}>
-          Showing {Math.min((page + 1) * pageSize, history.total)} of {history.total} transactions
+        <div style={{ fontSize: 13, color: 'var(--text-secondary, #666)', textAlign: 'center' }}>
+          {t('transactions.showing', { start: Math.min((page + 1) * pageSize, history.total), total: history.total })}
         </div>
       )}
     </div>

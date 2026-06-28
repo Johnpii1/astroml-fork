@@ -75,6 +75,32 @@ services:
       start_period: 40s
     restart: unless-stopped
 
+  # Celery worker — issue #296
+  celery-worker:
+    build: .
+    command: celery -A astroml.tasks.celery_app worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      - astroml-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Flower — Celery monitoring UI — issue #296
+  flower:
+    build: .
+    command: celery -A astroml.tasks.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    networks:
+      - astroml-network
+    depends_on:
+      - celery-worker
+    restart: unless-stopped
+
   # Feature Store Service
   feature-store:
     build:

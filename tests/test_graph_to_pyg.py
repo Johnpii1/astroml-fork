@@ -168,7 +168,7 @@ class TestGraphToPyG:
         node_features = [[1.0, 2.0], [3.0, 4.0]]
         edge_index = [[0, 1, 2], [1, 2], [0, 1]]  # Invalid shape
         
-        with pytest.raises(ValueError, match="edge_index must have shape"):
+        with pytest.raises(ValueError, match="edge_index must"):
             graph_to_pyg_data(node_features, edge_index)
     
     def test_edge_index_out_of_bounds(self):

@@ -110,11 +110,13 @@ class FraudAlert(Base):
     risk_level: Mapped[str] = mapped_column(String(16), nullable=False)  # low/medium/high
     description: Mapped[Optional[str]] = mapped_column(Text)
     detected_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
     __table_args__ = (
         Index("ix_api_fraud_alerts_account_id", "account_id"),
         Index("ix_api_fraud_alerts_detected_at", "detected_at"),
         Index("ix_api_fraud_alerts_risk_level", "risk_level"),
+        Index("ix_api_fraud_alerts_resolved", "resolved"),
     )
 
     @staticmethod
@@ -185,17 +187,26 @@ class ModelRegistry(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     version: Mapped[str] = mapped_column(String(64), nullable=False)
     path: Mapped[str] = mapped_column(Text, nullable=False)
+    owner: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    tags: Mapped[Optional[list]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    mlflow_run_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     metrics: Mapped[Optional[dict]] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql")
     )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="inactive"
     )  # inactive | active | deprecated
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        _ID, nullable=True
+    )  # Lineage: parent model version id
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
     __table_args__ = (
         Index("ix_model_registry_name_version", "name", "version", unique=True),
         Index("ix_model_registry_status", "status"),
+        Index("ix_model_registry_parent_id", "parent_id"),
     )
 
 
@@ -434,6 +445,150 @@ class NotificationLog(Base):
     __table_args__ = (
         Index("ix_notification_logs_notification_id", "notification_id"),
         Index("ix_notification_logs_status", "status"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# FAQ (issue #307)
+# ---------------------------------------------------------------------------
+
+class FAQ(Base):
+    """FAQ item with categorization and search support."""
+
+    __tablename__ = "faqs"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    question: Mapped[str] = mapped_column(String(512), nullable=False)
+    answer: Mapped[str] = mapped_column(Text, nullable=False)
+    order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    is_published: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_faqs_category", "category"),
+        Index("ix_faqs_is_published", "is_published"),
+        Index("ix_faqs_order", "order"),
+    )
+
+
+class FAQFeedback(Base):
+    """User feedback on FAQ helpfulness."""
+
+    __tablename__ = "faq_feedback"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    faq_id: Mapped[int] = mapped_column(_ID, nullable=False)
+    is_helpful: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    user_comment: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_faq_feedback_faq_id", "faq_id"),
+    )
+
+
+class FAQSuggestion(Base):
+    """User-submitted FAQ suggestions."""
+
+    __tablename__ = "faq_suggestions"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    question: Mapped[str] = mapped_column(String(512), nullable=False)
+    suggested_answer: Mapped[Optional[str]] = mapped_column(Text)
+    category: Mapped[Optional[str]] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="pending"
+    )  # pending|approved|rejected
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_faq_suggestions_status", "status"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Audit Log (issue #332)
+# ---------------------------------------------------------------------------
+
+class AuditLog(Base):
+    """Immutable audit log for sensitive API operations."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    user_id: Mapped[Optional[int]] = mapped_column(_ID)  # NULL for system events
+    username: Mapped[Optional[str]] = mapped_column(String(64))
+    auth_type: Mapped[Optional[str]] = mapped_column(String(16))  # jwt|api_key|none
+    action: Mapped[str] = mapped_column(String(64), nullable=False)  # login|logout|create|update|delete
+    resource_type: Mapped[Optional[str]] = mapped_column(String(64))  # user|account|transaction|model
+    resource_id: Mapped[Optional[str]] = mapped_column(String(256))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))  # IPv6 support
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    request_path: Mapped[Optional[str]] = mapped_column(String(512))
+    request_method: Mapped[Optional[str]] = mapped_column(String(8))
+    status_code: Mapped[Optional[int]] = mapped_column(Integer)
+    details: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )
+
+    __table_args__ = (
+        Index("ix_audit_logs_timestamp", "timestamp"),
+        Index("ix_audit_logs_user_id", "user_id"),
+        Index("ix_audit_logs_action", "action"),
+        Index("ix_audit_logs_resource_type", "resource_type"),
+        Index("ix_audit_logs_timestamp_action", "timestamp", "action"),
+    )
+
+
+class SupportTicket(Base):
+    """Support ticket generated from a contact-form submission (issue #305)."""
+
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    reference: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(254), nullable=False)
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="open")
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_support_tickets_reference", "reference"),
+        Index("ix_support_tickets_email", "email"),
+        Index("ix_support_tickets_status", "status"),
+    )
+
+
+class Feedback(Base):
+    """In-app user feedback: bug reports, feature requests, general comments (#308)."""
+
+    __tablename__ = "feedback"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(16), nullable=False)  # bug|feature|general
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(254))
+    # Optional screenshot stored as a data URL (data:image/png;base64,...).
+    screenshot: Mapped[Optional[str]] = mapped_column(Text)
+    # open|planned|in_progress|completed|declined — drives the public roadmap.
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="open")
+    github_issue_url: Mapped[Optional[str]] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_feedback_category", "category"),
+        Index("ix_feedback_status", "status"),
+        Index("ix_feedback_created_at", "created_at"),
     )
 
 
