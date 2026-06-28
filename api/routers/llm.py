@@ -15,6 +15,7 @@ from astroml.llm.embedding_drift import EmbeddingDriftMonitor
 from astroml.llm.memory import ConversationMemory
 from astroml.llm.provider import MockLLMProvider
 from astroml.llm.providers.embedding_router import build_default_router
+from api.services.llm_suggest import AutocompleteService
 from api.database import get_db
 from api.models.orm import LLMFeedback
 from api.schemas import (
@@ -23,6 +24,7 @@ from api.schemas import (
     LLMFeedbackOut,
     LLMFeedbackTrend,
     LLMPromptImprovement,
+    SuggestionResponse,
 )
 from api.auth.dependencies import get_current_auth, AuthContext
 from typing import List, Dict, Any, AsyncGenerator
@@ -36,6 +38,7 @@ memory = ConversationMemory()
 llm_provider = MockLLMProvider()
 embedding_cache = EmbeddingCache()
 embedding_router = build_default_router()
+suggest_service = AutocompleteService()
 
 # Drift monitor — dimension inferred lazily from first observed vector.
 # Default to 384 (HuggingFace MiniLM-L6-v2 fallback dim); reconfigured at
@@ -55,6 +58,13 @@ class ExplainRequest(BaseModel):
 
 class ExplainResponse(BaseModel):
     explanation: str
+
+@router.get("/suggest", response_model=SuggestionResponse)
+async def suggest_query(q: str, max_results: int = 5, auth: AuthContext = Depends(get_current_auth)):
+    try:
+        return suggest_service.suggest(q, max_results)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/explain", response_model=ExplainResponse)
 async def explain_transaction(request: ExplainRequest, auth: AuthContext = Depends(get_current_auth)):
