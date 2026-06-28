@@ -615,3 +615,123 @@ class ModelVersion(Base):
             name="ck_model_versions_status",
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# A/B Testing Framework
+# ---------------------------------------------------------------------------
+
+class Experiment(Base):
+    """A/B test experiment for comparing models or prompts."""
+
+    __tablename__ = "experiments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    experiment_type: Mapped[str] = mapped_column(String(32), nullable=False)  # 'model', 'prompt'
+    status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="draft")
+    traffic_allocation: Mapped[float] = mapped_column(Numeric, nullable=False, server_default="1.0")
+    start_at: Mapped[Optional[datetime]] = mapped_column()
+    end_at: Mapped[Optional[datetime]] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    variants: Mapped[list[Variant]] = relationship(
+        back_populates="experiment",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_experiments_type", "experiment_type"),
+        Index("ix_experiments_status", "status"),
+        Index("ix_experiments_start_at", "start_at"),
+        CheckConstraint(
+            "experiment_type IN ('model', 'prompt')",
+            name="ck_experiments_type",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'running', 'paused', 'completed', 'archived')",
+            name="ck_experiments_status",
+        ),
+        CheckConstraint(
+            "traffic_allocation >= 0 AND traffic_allocation <= 1",
+            name="ck_experiments_traffic_allocation",
+        ),
+    )
+
+
+class Variant(Base):
+    """A variant in an A/B test experiment."""
+
+    __tablename__ = "variants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("experiments.id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    traffic_weight: Mapped[float] = mapped_column(Numeric, nullable=False, server_default="0.5")
+    is_control: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    model_version_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("model_versions.id")
+    )
+    config: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )  # For prompt variants or model config
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    experiment: Mapped[Experiment] = relationship(back_populates="variants")
+    model_version: Mapped[Optional[ModelVersion]] = relationship()
+    results: Mapped[list[ExperimentResult]] = relationship(
+        back_populates="variant",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("experiment_id", "name", name="uq_variants_experiment_name"),
+        Index("ix_variants_experiment_id", "experiment_id"),
+        Index("ix_variants_model_version_id", "model_version_id"),
+        CheckConstraint(
+            "traffic_weight >= 0 AND traffic_weight <= 1",
+            name="ck_variants_traffic_weight",
+        ),
+    )
+
+
+class ExperimentResult(Base):
+    """Individual result from an A/B test experiment."""
+
+    __tablename__ = "experiment_results"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    variant_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("variants.id"), nullable=False
+    )
+    user_id: Mapped[Optional[str]] = mapped_column(String(128))  # Optional user identifier
+    session_id: Mapped[Optional[str]] = mapped_column(String(128))  # For session-based analysis
+    metrics: Mapped[dict] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False
+    )  # e.g., {"accuracy": 0.95, "latency_ms": 100}
+    metadata: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )  # Additional context
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    # Relationships
+    variant: Mapped[Variant] = relationship(back_populates="results")
+
+    __table_args__ = (
+        Index("ix_experiment_results_variant_id", "variant_id"),
+        Index("ix_experiment_results_user_id", "user_id"),
+        Index("ix_experiment_results_session_id", "session_id"),
+        Index("ix_experiment_results_created_at", "created_at"),
+    )
