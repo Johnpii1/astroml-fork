@@ -1,10 +1,11 @@
 """Pydantic schemas shared across all API routers."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ─── Fraud ────────────────────────────────────────────────────────────────────
@@ -44,6 +45,47 @@ class FraudAlertsResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class FraudExplanationOut(BaseModel):
+    alert_id: int
+    explanation: str
+    generated_in_ms: float
+    cached: bool
+
+
+class TransactionSummaryOut(BaseModel):
+    hash: str
+    amount: float
+    asset_code: str
+    destination_account: Optional[str] = None
+    created_at: str
+
+
+class PrioritizedAlertOut(BaseModel):
+    id: int
+    account_id: str
+    pattern: Optional[str] = None
+    risk_score: float
+    risk_level: str
+    priority_score: float
+    priority_level: str
+    explanation: str
+    detected_at: datetime
+    recent_transactions: List[TransactionSummaryOut]
+    account_activity_score: float
+    is_duplicate: bool = False
+    duplicate_of: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PrioritizedAlertsResponse(BaseModel):
+    data: List[PrioritizedAlertOut]
+    deduplication_reduction_pct: int
+    total_processed: int
+    total_remaining: int
 
 
 class RiskPoint(BaseModel):
@@ -133,6 +175,11 @@ class ModelMetricsOut(BaseModel):
     auc_roc: Optional[float] = None    # alias populated from auc for compatibility
     drift_score: Optional[float] = None
     recorded_at: Optional[datetime] = None
+    
+    # LLM Tracking
+    llm_cost: Optional[float] = None
+    llm_prompt_tokens: Optional[int] = None
+    llm_completion_tokens: Optional[int] = None
 
 
 class PerformancePoint(BaseModel):
@@ -539,3 +586,46 @@ class FAQSuggestionListResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+# ─── Contact / Support tickets (issue #305) ─────────────────────────────────
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class ContactFormIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=254)
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=5000)
+    # reCAPTCHA token from the frontend widget; optional when verification is off.
+    recaptcha_token: Optional[str] = None
+
+    @field_validator("name", "subject", "message")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("must not be blank")
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, v: str) -> str:
+        v = v.strip()
+        if not _EMAIL_RE.match(v):
+            raise ValueError("invalid email address")
+        return v
+
+
+class SupportTicketOut(BaseModel):
+    reference: str
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ContactSubmitResponse(BaseModel):
+    message: str
+    ticket: SupportTicketOut

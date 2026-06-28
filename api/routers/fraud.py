@@ -27,14 +27,23 @@ from api.schemas import (
     FraudAlertOut,
     FraudAlertsResponse,
     FraudStatsResponse,
+    FraudExplanationOut,
     RiskPoint,
     ScoreRequest,
     ScoreResponse,
+    PrioritizedAlertsResponse,
+    PrioritizedAlertOut,
+    TransactionSummaryOut,
 )
+from api.services.alert_prioritization import alert_prioritizer
 from api.services.scorer import invalidate_scorer_cache, load_scorer
+from api.models.orm import FraudAlert, ApiTransaction
+from astroml.llm.explainer import FraudExplainer
+import time
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/fraud", tags=["fraud"])
+explainer = FraudExplainer()
 
 
 def _get_scorer():
@@ -123,6 +132,108 @@ def get_fraud_stats(db: Session = Depends(get_sync_db)):
             RiskPoint(date=str(row.day), score=round(float(row.avg_score), 4))
             for row in daily
         ],
+    )
+
+
+@router.get("/{id}/explanation", response_model=FraudExplanationOut)
+def get_fraud_explanation(id: int, db: Session = Depends(get_sync_db)):
+    """Generate an explanation for a fraud alert, citing evidence."""
+    alert = db.get(FraudAlert, id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+        
+    # Fetch recent transactions as evidence
+    txs = db.scalars(
+        select(ApiTransaction)
+        .where(ApiTransaction.source_account == alert.account_id)
+        .order_by(ApiTransaction.created_at.desc())
+        .limit(10)
+    ).all()
+    
+    tx_dicts = [
+        {
+            "hash": tx.hash,
+            "amount": float(tx.amount) if tx.amount else 0.0,
+            "asset_code": tx.asset_code or "XLM",
+            "destination_account": tx.destination_account,
+            "ledger_sequence": tx.ledger_sequence
+        } for tx in txs
+    ]
+    
+    start_time = time.time()
+    
+    explanation = explainer.generate_explanation(
+        alert_id=alert.id,
+        account_id=alert.account_id,
+        pattern=alert.pattern or "unknown",
+        score=alert.risk_score,
+        transactions=tx_dicts
+    )
+    
+    end_time = time.time()
+    elapsed_ms = (end_time - start_time) * 1000.0
+    
+    return FraudExplanationOut(
+        alert_id=alert.id,
+        explanation=explanation,
+        generated_in_ms=elapsed_ms,
+        cached=elapsed_ms < 100.0  # Simple heuristic for now
+    )
+
+
+@router.get("/alerts/prioritized", response_model=PrioritizedAlertsResponse)
+@router.get("/api/v1/alerts/prioritized", response_model=PrioritizedAlertsResponse, include_in_schema=False)
+def get_prioritized_alerts(
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_sync_db),
+):
+    """Get prioritized, deduplicated fraud alerts."""
+    # Fetch recent alerts
+    alerts = db.scalars(
+        select(FraudAlert)
+        .order_by(FraudAlert.detected_at.desc())
+        .limit(limit * 2)  # Fetch extra to account for deduplication
+    ).all()
+
+    total_processed = len(alerts)
+
+    # Process alerts
+    processed, reduction_pct = alert_prioritizer.process_alerts(db, alerts)
+
+    # Convert to output model
+    data = []
+    for enriched in processed:
+        data.append(
+            PrioritizedAlertOut(
+                id=enriched.alert.id,
+                account_id=enriched.alert.account_id,
+                pattern=enriched.alert.pattern,
+                risk_score=enriched.alert.risk_score,
+                risk_level=enriched.alert.risk_level,
+                priority_score=enriched.priority_score,
+                priority_level=enriched.priority_level,
+                explanation=enriched.explanation,
+                detected_at=enriched.alert.detected_at,
+                recent_transactions=[
+                    TransactionSummaryOut(
+                        hash=tx["hash"],
+                        amount=tx["amount"],
+                        asset_code=tx["asset_code"],
+                        destination_account=tx["destination_account"],
+                        created_at=tx["created_at"],
+                    ) for tx in enriched.recent_transactions
+                ],
+                account_activity_score=enriched.account_activity_score,
+                is_duplicate=enriched.is_duplicate,
+                duplicate_of=enriched.duplicate_of,
+            )
+        )
+
+    return PrioritizedAlertsResponse(
+        data=data[:limit],
+        deduplication_reduction_pct=reduction_pct,
+        total_processed=total_processed,
+        total_remaining=len(data),
     )
 
 

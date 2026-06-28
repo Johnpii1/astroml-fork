@@ -27,13 +27,18 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.auth.middleware import AuthMiddleware
+from api.audit_middleware import AuditLoggingMiddleware
 from api.config import settings
 from api.database import get_async_session_factory
+from api.tracing import setup_tracing
+from api.validation_middleware import ValidationMiddleware
 from api.routers import (
     accounts_router,
+    audit_router,
     auth_router,
     backup_router,
     chat_router,
+    contact_router,
     contributors_router,
     discussions_router,
     errors_router,
@@ -45,12 +50,20 @@ from api.routers import (
     monitoring_router,
     notifications_router,
     onboarding_router,
+    rate_limit_router,
     transactions_router,
     validation_router,
     ws_router,
+    streaming_router,
+    llm_router,
+    reports_router,
+    alerts_router,
 )
 from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
+
+# Setup distributed tracing (issue #336)
+_tracer_provider = setup_tracing()
 
 
 @asynccontextmanager
@@ -113,6 +126,8 @@ app = FastAPI(
 )
 
 app.add_middleware(AuthMiddleware)
+app.add_middleware(ValidationMiddleware)
+app.add_middleware(AuditLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -131,7 +146,10 @@ async def _latency_middleware(request: Request, call_next):
 
 
 app.include_router(auth_router)
+app.include_router(audit_router)
+app.include_router(rate_limit_router)
 app.include_router(errors_router)
+app.include_router(contact_router)
 app.include_router(transactions_router)
 app.include_router(fraud_router)
 app.include_router(accounts_router)
@@ -148,6 +166,10 @@ app.include_router(validation_router)
 app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
+app.include_router(streaming_router)
+app.include_router(llm_router)
+app.include_router(reports_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health", tags=["ops"])

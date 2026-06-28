@@ -60,7 +60,8 @@ jobs:
       if: matrix.flavor == 'cpu'
       # Issue #204: -p no:randomly prevents non-deterministic ordering;
       # --forked (if available) isolates shared-state flakiness in test_dedupe.
-      run: pytest -v -m "not gpu" -p no:randomly --tb=short
+      # Issue #338: Run property-based tests with coverage reporting.
+      run: pytest -v -m "not gpu" -p no:randomly --tb=short --cov=astroml --cov-report=xml --cov-report=term
 
     - name: Run pytest (GPU)
       if: matrix.flavor == 'gpu'

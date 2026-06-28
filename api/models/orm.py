@@ -187,17 +187,26 @@ class ModelRegistry(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     version: Mapped[str] = mapped_column(String(64), nullable=False)
     path: Mapped[str] = mapped_column(Text, nullable=False)
+    owner: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    tags: Mapped[Optional[list]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=True
+    )
+    mlflow_run_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     metrics: Mapped[Optional[dict]] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql")
     )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="inactive"
     )  # inactive | active | deprecated
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        _ID, nullable=True
+    )  # Lineage: parent model version id
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
     __table_args__ = (
         Index("ix_model_registry_name_version", "name", "version", unique=True),
         Index("ix_model_registry_status", "status"),
+        Index("ix_model_registry_parent_id", "parent_id"),
     )
 
 
@@ -498,6 +507,62 @@ class FAQSuggestion(Base):
 
     __table_args__ = (
         Index("ix_faq_suggestions_status", "status"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Audit Log (issue #332)
+# ---------------------------------------------------------------------------
+
+class AuditLog(Base):
+    """Immutable audit log for sensitive API operations."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    user_id: Mapped[Optional[int]] = mapped_column(_ID)  # NULL for system events
+    username: Mapped[Optional[str]] = mapped_column(String(64))
+    auth_type: Mapped[Optional[str]] = mapped_column(String(16))  # jwt|api_key|none
+    action: Mapped[str] = mapped_column(String(64), nullable=False)  # login|logout|create|update|delete
+    resource_type: Mapped[Optional[str]] = mapped_column(String(64))  # user|account|transaction|model
+    resource_id: Mapped[Optional[str]] = mapped_column(String(256))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))  # IPv6 support
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    request_path: Mapped[Optional[str]] = mapped_column(String(512))
+    request_method: Mapped[Optional[str]] = mapped_column(String(8))
+    status_code: Mapped[Optional[int]] = mapped_column(Integer)
+    details: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )
+
+    __table_args__ = (
+        Index("ix_audit_logs_timestamp", "timestamp"),
+        Index("ix_audit_logs_user_id", "user_id"),
+        Index("ix_audit_logs_action", "action"),
+        Index("ix_audit_logs_resource_type", "resource_type"),
+        Index("ix_audit_logs_timestamp_action", "timestamp", "action"),
+    )
+
+
+class SupportTicket(Base):
+    """Support ticket generated from a contact-form submission (issue #305)."""
+
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    reference: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(254), nullable=False)
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="open")
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_support_tickets_reference", "reference"),
+        Index("ix_support_tickets_email", "email"),
+        Index("ix_support_tickets_status", "status"),
     )
 
 

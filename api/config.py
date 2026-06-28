@@ -30,5 +30,23 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # Distributed Tracing (issue #336)
+    tracing_enabled: bool = False
+    tracing_exporter: str = "jaeger"  # jaeger|zipkin|console
+    tracing_sample_rate: float = 0.1  # 10% sampling by default
+    jaeger_agent_host: str = "localhost"
+    jaeger_agent_port: int = 6831
+    zipkin_endpoint: str = "http://localhost:9411/api/v2/spans"
+    service_name: str = "astroml-api"
+
+    # Contact form / support tickets (issue #305)
+    # Empty reCAPTCHA secret disables spam verification (dev/test default).
+    contact_recaptcha_secret: str = ""
+    contact_recaptcha_min_score: float = 0.5  # reCAPTCHA v3 score threshold
+    # Empty SendGrid key → emails are logged instead of sent (dev/test default).
+    sendgrid_api_key: str = ""
+    contact_email_from: str = "no-reply@astroml.dev"
+    contact_support_email: str = "support@astroml.dev"
+
 
 settings = Settings()

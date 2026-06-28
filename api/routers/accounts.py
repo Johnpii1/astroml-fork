@@ -6,6 +6,8 @@ Endpoints:
   GET /api/v1/accounts/{public_key}/transactions    — account transactions
   GET /api/v1/accounts/{public_key}/fraud-summary   — fraud alert summary
   GET /api/v1/accounts/{public_key}/loyalty         — loyalty points/tier
+
+Issue #330: Redis caching for account summaries with time-based invalidation.
 """
 from __future__ import annotations
 
@@ -26,7 +28,42 @@ from api.schemas import (
     TransactionsResponse,
 )
 
+# Issue #330: Import caching infrastructure
+try:
+    from astroml.cache.redis_cache import RedisCache, CacheKeyPrefix, get_cache_stats
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
 router = APIRouter(prefix="/api/v1/accounts", tags=["accounts"])
+
+
+# Issue #330: Cache helper functions
+def _get_account_cache_key(public_key: str, endpoint: str) -> str:
+    """Generate cache key for account data."""
+    return f"account:{endpoint}:{public_key}"
+
+
+def _get_from_cache(cache_key: str):
+    """Get data from cache if available."""
+    if not CACHE_AVAILABLE:
+        return None
+    try:
+        cache = RedisCache()
+        return cache.get(cache_key)
+    except Exception:
+        return None
+
+
+def _set_cache(cache_key: str, data, ttl_seconds: int = 300):
+    """Set data in cache with TTL."""
+    if not CACHE_AVAILABLE:
+        return
+    try:
+        cache = RedisCache()
+        cache.set(cache_key, data, ttl_seconds)
+    except Exception:
+        pass
 
 
 async def _require_account(public_key: str, db: AsyncSession):
@@ -117,15 +154,26 @@ async def get_account_transactions(
 
 @router.get("/{public_key}/fraud-summary", response_model=FraudSummaryOut)
 async def get_account_fraud_summary(public_key: str, db: AsyncSession = Depends(get_db)):
-    """Return fraud alert summary for an account."""
+    """Return fraud alert summary for an account.
+    
+    Issue #330: Cached with 5-minute TTL for performance.
+    """
+    # Issue #330: Check cache first
+    cache_key = _get_account_cache_key(public_key, "fraud-summary")
+    cached = _get_from_cache(cache_key)
+    if cached is not None:
+        return cached
+
     await _require_account(public_key, db)
 
     try:
         from api.models.orm import FraudAlert  # noqa: PLC0415
     except ImportError:
-        return FraudSummaryOut(
+        result = FraudSummaryOut(
             account_id=public_key, total_alerts=0, high_risk=0, medium_risk=0, low_risk=0
         )
+        _set_cache(cache_key, result, ttl_seconds=300)
+        return result
 
     async def _count(level: str) -> int:
         result = await db.execute(
@@ -148,7 +196,7 @@ async def get_account_fraud_summary(public_key: str, db: AsyncSession = Depends(
     )
     total = total_result.scalar_one() or 0
 
-    return FraudSummaryOut(
+    result = FraudSummaryOut(
         account_id=public_key,
         total_alerts=total,
         high_risk=await _count("high"),
@@ -156,17 +204,52 @@ async def get_account_fraud_summary(public_key: str, db: AsyncSession = Depends(
         low_risk=await _count("low"),
         latest_score=latest,
     )
+    
+    # Issue #330: Cache the result
+    _set_cache(cache_key, result, ttl_seconds=300)
+    return result
 
 
 @router.get("/{public_key}/loyalty", response_model=LoyaltySummaryOut)
 async def get_account_loyalty(public_key: str, db: AsyncSession = Depends(get_db)):
-    """Return loyalty tier and points balance for an account."""
+    """Return loyalty tier and points balance for an account.
+    
+    Issue #330: Cached with 5-minute TTL for performance.
+    """
+    # Issue #330: Check cache first
+    cache_key = _get_account_cache_key(public_key, "loyalty")
+    cached = _get_from_cache(cache_key)
+    if cached is not None:
+        return cached
+
     await _require_account(public_key, db)
     # Loyalty data is served by the loyalty router; this is a convenience summary.
     # Returns defaults when loyalty tables are not yet populated.
-    return LoyaltySummaryOut(
+    result = LoyaltySummaryOut(
         account_id=public_key,
         points_balance=0,
         tier_id="bronze",
         tier_name="Bronze",
     )
+    
+    # Issue #330: Cache the result
+    _set_cache(cache_key, result, ttl_seconds=300)
+    return result
+
+
+# Issue #330: Cache metrics endpoint
+@router.get("/_cache/stats", tags=["cache"])
+def get_cache_metrics():
+    """Return cache hit/miss statistics for monitoring.
+    
+    Issue #330: Cache hit metrics for observability.
+    """
+    if not CACHE_AVAILABLE:
+        return {"hits": 0, "misses": 0, "hit_rate": 0.0, "errors": 0, "available": False}
+    
+    try:
+        stats = get_cache_stats()
+        stats["available"] = True
+        return stats
+    except Exception:
+        return {"hits": 0, "misses": 0, "hit_rate": 0.0, "errors": 0, "available": False}
