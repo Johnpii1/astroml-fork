@@ -32,6 +32,7 @@ __all__ = [
     "chat_router",
     "contact_router",
     "contributors_router",
+    "discussions_router",
     "auth_router",
     "errors_router",
     "faq_router",

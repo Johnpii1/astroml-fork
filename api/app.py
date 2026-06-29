@@ -40,6 +40,7 @@ from api.routers import (
     chat_router,
     contact_router,
     contributors_router,
+    discussions_router,
     errors_router,
     faq_router,
     feedback_router,
@@ -157,6 +158,7 @@ app.include_router(monitoring_router)
 app.include_router(loyalty_router)
 app.include_router(models_router)
 app.include_router(contributors_router)
+app.include_router(discussions_router)
 app.include_router(mentorship_router)
 app.include_router(notifications_router)
 app.include_router(onboarding_router)
