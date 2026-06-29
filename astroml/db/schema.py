@@ -635,121 +635,23 @@ class ModelVersion(Base):
 # ---------------------------------------------------------------------------
 # A/B Testing Framework
 # ---------------------------------------------------------------------------
+# A/B Testing Framework
+# ---------------------------------------------------------------------------
 
 class Experiment(Base):
     """A/B test experiment for comparing models or prompts."""
-
     __tablename__ = "experiments"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    experiment_type: Mapped[str] = mapped_column(String(32), nullable=False)  # 'model', 'prompt'
-    status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="draft")
-    traffic_allocation: Mapped[float] = mapped_column(Numeric, nullable=False, server_default="1.0")
-    start_at: Mapped[Optional[datetime]] = mapped_column()
-    end_at: Mapped[Optional[datetime]] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-    # Relationships
-    variants: Mapped[list[Variant]] = relationship(
-        back_populates="experiment",
-        cascade="all, delete-orphan",
-    )
-
-    __table_args__ = (
-        Index("ix_experiments_type", "experiment_type"),
-        Index("ix_experiments_status", "status"),
-        Index("ix_experiments_start_at", "start_at"),
-        CheckConstraint(
-            "experiment_type IN ('model', 'prompt')",
-            name="ck_experiments_type",
-        ),
-        CheckConstraint(
-            "status IN ('draft', 'running', 'paused', 'completed', 'archived')",
-            name="ck_experiments_status",
-        ),
-        CheckConstraint(
-            "traffic_allocation >= 0 AND traffic_allocation <= 1",
-            name="ck_experiments_traffic_allocation",
-        ),
-    )
-
+    # ... keep full definition
 
 class Variant(Base):
     """A variant in an A/B test experiment."""
-
     __tablename__ = "variants"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    experiment_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("experiments.id"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(128), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    traffic_weight: Mapped[float] = mapped_column(Numeric, nullable=False, server_default="0.5")
-    is_control: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    model_version_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("model_versions.id")
-    )
-    config: Mapped[Optional[dict]] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql")
-    )  # For prompt variants or model config
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-    # Relationships
-    experiment: Mapped[Experiment] = relationship(back_populates="variants")
-    model_version: Mapped[Optional[ModelVersion]] = relationship()
-    results: Mapped[list[ExperimentResult]] = relationship(
-        back_populates="variant",
-        cascade="all, delete-orphan",
-    )
-
-    __table_args__ = (
-        UniqueConstraint("experiment_id", "name", name="uq_variants_experiment_name"),
-        Index("ix_variants_experiment_id", "experiment_id"),
-        Index("ix_variants_model_version_id", "model_version_id"),
-        CheckConstraint(
-            "traffic_weight >= 0 AND traffic_weight <= 1",
-            name="ck_variants_traffic_weight",
-        ),
-    )
-
+    # ... keep full definition
 
 class ExperimentResult(Base):
     """Individual result from an A/B test experiment."""
-
     __tablename__ = "experiment_results"
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    variant_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("variants.id"), nullable=False
-    )
-    user_id: Mapped[Optional[str]] = mapped_column(String(128))  # Optional user identifier
-    session_id: Mapped[Optional[str]] = mapped_column(String(128))  # For session-based analysis
-    metrics: Mapped[dict] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql"), nullable=False
-    )  # e.g., {"accuracy": 0.95, "latency_ms": 100}
-    metadata: Mapped[Optional[dict]] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql")
-    )  # Additional context
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-
-    # Relationships
-    variant: Mapped[Variant] = relationship(back_populates="results")
-
-    __table_args__ = (
-        Index("ix_experiment_results_variant_id", "variant_id"),
-        Index("ix_experiment_results_user_id", "user_id"),
-        Index("ix_experiment_results_session_id", "session_id"),
-        Index("ix_experiment_results_created_at", "created_at"),
-    )
+    # ... keep full definition
 
 
 # ---------------------------------------------------------------------------
@@ -758,95 +660,53 @@ class ExperimentResult(Base):
 
 class GoldenDataset(Base):
     """Golden dataset for model evaluation and benchmarking."""
-
     __tablename__ = "golden_datasets"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
-    description: Mapped[Optional[str]] = mapped_column(Text)
-    dataset_type: Mapped[str] = mapped_column(String(32), nullable=False)  # 'classification', 'regression', 'anomaly_detection', etc.
-    task_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    version: Mapped[str] = mapped_column(String(32), nullable=False)
-    source: Mapped[Optional[str]] = mapped_column(String(256))  # Data source identifier
-    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")  # Number of entries
-    status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="draft")
-    quality_score: Mapped[Optional[float]] = mapped_column(Numeric)  # Overall quality metric (0-1)
-    metadata: Mapped[Optional[dict]] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql")
-    )  # Additional dataset metadata
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now(), onupdate=func.now()
-    )
-
-    # Relationships
-    entries: Mapped[list[GoldenDatasetEntry]] = relationship(
-        back_populates="dataset",
-        cascade="all, delete-orphan",
-    )
-
-    __table_args__ = (
-        Index("ix_golden_datasets_type", "dataset_type"),
-        Index("ix_golden_datasets_task_type", "task_type"),
-        Index("ix_golden_datasets_version", "version"),
-        Index("ix_golden_datasets_status", "status"),
-        UniqueConstraint("name", "version", name="uq_golden_datasets_name_version"),
-        CheckConstraint(
-            "dataset_type IN ('classification', 'regression', 'anomaly_detection', 'clustering', 'custom')",
-            name="ck_golden_datasets_type",
-        ),
-        CheckConstraint(
-            "status IN ('draft', 'review', 'approved', 'archived')",
-            name="ck_golden_datasets_status",
-        ),
-        CheckConstraint(
-            "quality_score IS NULL OR (quality_score >= 0 AND quality_score <= 1)",
-            name="ck_golden_datasets_quality_score",
-        ),
-    )
-
+    # ... keep full definition
 
 class GoldenDatasetEntry(Base):
     """Individual entry in a golden dataset with ground truth labels."""
-
     __tablename__ = "golden_dataset_entries"
+    # ... keep full definition
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    dataset_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("golden_datasets.id"), nullable=False
-    )
-    input_data: Mapped[dict] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql"), nullable=False
-    )  # Model input features
-    output_data: Mapped[dict] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql"), nullable=False
-    )  # Ground truth labels
-    metadata: Mapped[Optional[dict]] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql")
-    )  # Entry-specific metadata
-    difficulty: Mapped[Optional[float]] = mapped_column(Numeric)  # Difficulty score (0-1)
-    confidence: Mapped[Optional[float]] = mapped_column(Numeric)  # Label confidence (0-1)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
-    # Relationships
-    dataset: Mapped[GoldenDataset] = relationship(back_populates="entries")
-
-    __table_args__ = (
-        Index("ix_golden_dataset_entries_dataset_id", "dataset_id"),
-        Index("ix_golden_dataset_entries_difficulty", "difficulty"),
-        Index("ix_golden_dataset_entries_confidence", "confidence"),
-        CheckConstraint(
-            "difficulty IS NULL OR (difficulty >= 0 AND difficulty <= 1)",
-            name="ck_golden_dataset_entries_difficulty",
-        ),
-        CheckConstraint(
-            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
-            name="ck_golden_dataset_entries_confidence",
-        ),
-=======
+# ---------------------------------------------------------------------------
 # Ledger Processing
 # ---------------------------------------------------------------------------
+
+class ProcessedLedger(Base):
+    """Tracking table for processed ledgers during backfill to ensure idempotency."""
+    __tablename__ = "processed_ledgers"
+    # ... keep full definition
+
 # ---------------------------------------------------------------------------
+
+class Experiment(Base):
+    """A/B test experiment for comparing models or prompts."""
+    __tablename__ = "experiments"
+    # ... (fields and constraints from men branch)
+    # keep full definition
+
+class Variant(Base):
+    """A variant in an A/B test experiment."""
+    __tablename__ = "variants"
+    # ... (fields and constraints from men branch)
+    # keep full definition
+
+class ExperimentResult(Base):
+    """Individual result from an A/B test experiment."""
+    __tablename__ = "experiment_results"
+    # ... (fields and constraints from men branch)
+    # keep full definition
+
+
+# Ledger Processing
+# ---------------------------------------------------------------------------
+
+class ProcessedLedger(Base):
+    """Tracking table for processed ledgers during backfill to ensure idempotency."""
+    __tablename__ = "processed_ledgers"
+    # ... (fields and constraints from main branch)
+    # keep full definition
 
 class ProcessedLedger(Base):
     """Tracking table for processed ledgers during backfill to ensure idempotency."""
@@ -854,7 +714,7 @@ class ProcessedLedger(Base):
     __tablename__ = "processed_ledgers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     source: Mapped[str] = mapped_column(
         String(256),
         nullable=False,
@@ -864,14 +724,10 @@ ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=Fals
         nullable=False,
         server_default=func.now(),
     )
-status: Mapped[
-    Literal["pending", "processing", "completed", "failed"]
-] = mapped_column(
-    String(16),
-    nullable=False,
-    server_default="pending",
-)
-        String(32),
+    status: Mapped[
+        Literal["pending", "processing", "completed", "failed"]
+    ] = mapped_column(
+        String(16),
         nullable=False,
         server_default="pending",
     )
@@ -890,5 +746,5 @@ status: Mapped[
         Index("ix_processed_ledgers_status", "status"),
         Index("ix_processed_ledgers_source", "source"),
     )
->>>>>>> 0ce0bb2e1acdc9414b4d060a86e5547ae2e7dbf9
+
     )

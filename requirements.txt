@@ -19,8 +19,10 @@ scipy>=1.11.0
 scikit-learn>=1.3.0
 pandas>=2.0
 polars>=1.0
+scipy>=1.10
 
 # ── Database / configuration ───────────────────────────────────────────────
+
 sqlalchemy>=2.0
 alembic>=1.12
 psycopg2-binary>=2.9
