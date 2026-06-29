@@ -1,9 +1,11 @@
+import hashlib
 import os
 import time
+from typing import List, Dict, Any, AsyncGenerator, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from api.services.llm_explainer import TransactionExplainer
@@ -11,6 +13,7 @@ from api.services.llm_query import QueryTranslator
 from api.services.llm_context import MultiModalContextHandler
 from api.services.llm_validation import ResponseValidator
 from api.services.llm_rag import build_citations, build_rag_answer, retrieve_sources
+from api.services.translation import translation_service
 from astroml.llm.embedding_cache import EmbeddingCache
 from astroml.llm.embedding_drift import EmbeddingDriftMonitor
 from astroml.llm.memory import ConversationMemory
@@ -25,6 +28,14 @@ from api.schemas import (
     LLMFeedbackOut,
     LLMFeedbackTrend,
     LLMPromptImprovement,
+    TranslationRequest,
+    TranslationResponse,
+    BatchTranslationRequest,
+    BatchTranslationResponse,
+    SupportedLanguagesResponse,
+    LocaleFormatRequest,
+    LocaleFormatResponse,
+    TranslationCacheStatsResponse,
 )
 from api.auth.dependencies import get_current_auth, AuthContext
 from typing import List, Dict, Any, AsyncGenerator, Callable, TypeVar
@@ -530,3 +541,153 @@ async def llm_prompt_improvements(db: AsyncSession = Depends(get_db)) -> list[LL
         )
         for feature, items in sorted(by_feature.items())
     ]
+
+
+# ─── Translation endpoints (Issue 1) ────────────────────────────────────────
+
+class TranslationRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=50000)
+    target_language: str = Field(..., min_length=2, max_length=10)
+    source_language: Optional[str] = Field(default=None, min_length=2, max_length=10)
+    use_cache: bool = True
+
+
+class TranslationResponse(BaseModel):
+    translated_text: str
+    source_language: str
+    target_language: str
+    cached: bool
+    latency_ms: float
+
+
+class BatchTranslationRequest(BaseModel):
+    texts: List[str] = Field(..., min_length=1, max_length=100)
+    target_language: str = Field(..., min_length=2, max_length=10)
+    source_language: Optional[str] = Field(default=None, min_length=2, max_length=10)
+    use_cache: bool = True
+
+
+class BatchTranslationResponse(BaseModel):
+    translations: List[TranslationResponse]
+    total_latency_ms: float
+
+
+class SupportedLanguagesResponse(BaseModel):
+    languages: Dict[str, Dict[str, str]]
+
+
+@router.get("/translate/languages", response_model=SupportedLanguagesResponse)
+async def get_supported_languages(auth: AuthContext = Depends(get_current_auth)):
+    """Get list of supported languages for translation."""
+    return SupportedLanguagesResponse(languages=translation_service.get_supported_languages())
+
+
+@router.post("/translate", response_model=TranslationResponse)
+async def translate_text(
+    request: TranslationRequest,
+    auth: AuthContext = Depends(get_current_auth),
+):
+    """Translate text to target language."""
+    try:
+        result = await translation_service.translate(
+            text=request.text,
+            target_language=request.target_language,
+            source_language=request.source_language,
+            use_cache=request.use_cache,
+        )
+        return TranslationResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/translate/batch", response_model=BatchTranslationResponse)
+async def translate_batch(
+    request: BatchTranslationRequest,
+    auth: AuthContext = Depends(get_current_auth),
+):
+    """Translate multiple texts to target language."""
+    try:
+        results = await translation_service.translate_batch(
+            texts=request.texts,
+            target_language=request.target_language,
+            source_language=request.source_language,
+            use_cache=request.use_cache,
+        )
+        total_latency = sum(r["latency_ms"] for r in results)
+        return BatchTranslationResponse(
+            translations=[TranslationResponse(**r) for r in results],
+            total_latency_ms=total_latency,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class LocaleFormatRequest(BaseModel):
+    value: Union[float, int, str]
+    locale: str = Field(..., min_length=2, max_length=10)
+    format_type: str = Field(..., pattern="^(number|currency|percent|date|datetime)$")
+    currency_code: Optional[str] = Field(default=None, min_length=3, max_length=3)
+
+
+class LocaleFormatResponse(BaseModel):
+    formatted: str
+    locale: str
+    format_type: str
+
+
+@router.post("/translate/format", response_model=LocaleFormatResponse)
+async def format_locale(
+    request: LocaleFormatRequest,
+    auth: AuthContext = Depends(get_current_auth),
+):
+    """Format numbers, currencies, dates, etc. for a specific locale."""
+    try:
+        formatted = translation_service.format_locale(
+            value=request.value,
+            locale=request.locale,
+            format_type=request.format_type,
+            currency_code=request.currency_code,
+        )
+        return LocaleFormatResponse(
+            formatted=formatted,
+            locale=request.locale,
+            format_type=request.format_type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TranslationCacheStatsResponse(BaseModel):
+    hits: int
+    misses: int
+    sets: int
+    invalidations: int
+    hit_rate: float
+    size: int
+
+
+@router.get("/translate/cache/stats", response_model=TranslationCacheStatsResponse)
+async def get_translation_cache_stats(auth: AuthContext = Depends(get_current_auth)):
+    """Get translation cache statistics."""
+    stats = translation_service.get_cache_stats()
+    return TranslationCacheStatsResponse(**stats)
+
+
+@router.post("/translate/cache/invalidate")
+async def invalidate_translation_cache(
+    text: Optional[str] = None,
+    auth: AuthContext = Depends(get_current_auth),
+):
+    """Invalidate translation cache (specific text or all)."""
+    if text:
+        translation_service.invalidate_cache(text)
+        return {"message": "Cache entry invalidated", "text_hash": hashlib.sha256(text.encode()).hexdigest()[:16]}
+    else:
+        count = translation_service.invalidate_all_cache()
+        return {"message": f"Invalidated {count} cache entries"}

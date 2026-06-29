@@ -37,11 +37,12 @@ class FraudExplainer:
                 latency_ms=latency_ms
             )
             
-            # Cache the response
             self.cache.set(prompt, response)
             
             return response
         except Exception as e:
+            provider_name = self.provider.__class__.__name__.replace("Provider", "").lower()
+            global_tracker.record_error(provider_name)
             return f"Error generating explanation: {str(e)}"
 
     def _build_prompt(self, account_id: str, pattern: str, score: float, transactions: List[Dict[str, Any]]) -> str:

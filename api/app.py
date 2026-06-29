@@ -23,8 +23,9 @@ import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from api.auth.middleware import AuthMiddleware
 from api.audit_middleware import AuditLoggingMiddleware
@@ -47,6 +48,7 @@ from api.routers import (
     feedback_router,
     fraud_router,
     loyalty_router,
+    llm_health_router,
     mentorship_router,
     models_router,
     monitoring_router,
@@ -64,6 +66,7 @@ from api.routers import (
 )
 from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
+from astroml.llm import metrics as _llm_metrics
 
 # Setup distributed tracing (issue #336)
 _tracer_provider = setup_tracing()
@@ -174,6 +177,7 @@ app.include_router(ws_router)
 app.include_router(streaming_router)
 app.include_router(voice_router)
 app.include_router(llm_router)
+app.include_router(llm_health_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
 
@@ -181,6 +185,11 @@ app.include_router(alerts_router)
 @app.get("/health", tags=["ops"])
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/metrics", tags=["ops"])
+async def prometheus_metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/api/v1", tags=["ops"])
