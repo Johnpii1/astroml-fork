@@ -4,6 +4,7 @@ from api.routers.audit import router as audit_router
 from api.routers.auth import router as auth_router
 from api.routers.backup import router as backup_router
 from api.routers.chat import router as chat_router
+from api.routers.compliance import router as compliance_router
 from api.routers.contact import router as contact_router
 from api.routers.errors import router as errors_router
 from api.routers.faq import router as faq_router
@@ -19,6 +20,7 @@ from api.routers.rate_limit import router as rate_limit_router
 from api.routers.transactions import router as transactions_router
 from api.routers.onboarding import router as onboarding_router
 from api.routers.validation import router as validation_router
+from api.routers.voice import router as voice_router
 from api.routers.ws import router as ws_router
 from api.routers.streaming import router as streaming_router
 from api.routers.llm import router as llm_router
@@ -31,8 +33,10 @@ __all__ = [
     "audit_router",
     "backup_router",
     "chat_router",
+    "compliance_router",
     "contact_router",
     "contributors_router",
+    "discussions_router",
     "auth_router",
     "errors_router",
     "faq_router",
@@ -47,6 +51,7 @@ __all__ = [
     "rate_limit_router",
     "transactions_router",
     "validation_router",
+    "voice_router",
     "ws_router",
     "streaming_router",
     "llm_router",
