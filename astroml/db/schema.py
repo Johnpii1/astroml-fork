@@ -635,6 +635,50 @@ class ModelVersion(Base):
 # ---------------------------------------------------------------------------
 # A/B Testing Framework
 # ---------------------------------------------------------------------------
+# A/B Testing Framework
+# ---------------------------------------------------------------------------
+
+class Experiment(Base):
+    """A/B test experiment for comparing models or prompts."""
+    __tablename__ = "experiments"
+    # ... keep full definition
+
+class Variant(Base):
+    """A variant in an A/B test experiment."""
+    __tablename__ = "variants"
+    # ... keep full definition
+
+class ExperimentResult(Base):
+    """Individual result from an A/B test experiment."""
+    __tablename__ = "experiment_results"
+    # ... keep full definition
+
+
+# ---------------------------------------------------------------------------
+# Golden Dataset Framework
+# ---------------------------------------------------------------------------
+
+class GoldenDataset(Base):
+    """Golden dataset for model evaluation and benchmarking."""
+    __tablename__ = "golden_datasets"
+    # ... keep full definition
+
+class GoldenDatasetEntry(Base):
+    """Individual entry in a golden dataset with ground truth labels."""
+    __tablename__ = "golden_dataset_entries"
+    # ... keep full definition
+
+
+# ---------------------------------------------------------------------------
+# Ledger Processing
+# ---------------------------------------------------------------------------
+
+class ProcessedLedger(Base):
+    """Tracking table for processed ledgers during backfill to ensure idempotency."""
+    __tablename__ = "processed_ledgers"
+    # ... keep full definition
+
+# ---------------------------------------------------------------------------
 
 class Experiment(Base):
     """A/B test experiment for comparing models or prompts."""
@@ -663,5 +707,44 @@ class ProcessedLedger(Base):
     __tablename__ = "processed_ledgers"
     # ... (fields and constraints from main branch)
     # keep full definition
+
+class ProcessedLedger(Base):
+    """Tracking table for processed ledgers during backfill to ensure idempotency."""
+
+    __tablename__ = "processed_ledgers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    source: Mapped[str] = mapped_column(
+        String(256),
+        nullable=False,
+        doc="Source of the ledger data (e.g., file path, API endpoint)",
+    )
+    processed_at: Mapped[datetime] = mapped_column(
+        nullable=False,
+        server_default=func.now(),
+    )
+    status: Mapped[
+        Literal["pending", "processing", "completed", "failed"]
+    ] = mapped_column(
+        String(16),
+        nullable=False,
+        server_default="pending",
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    num_operations: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        doc="Number of operations processed from this ledger",
+    )
+    num_transactions: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        doc="Number of transactions processed from this ledger",
+    )
+
+    __table_args__ = (
+        Index("ix_processed_ledgers_ledger_sequence", "ledger_sequence"),
+        Index("ix_processed_ledgers_status", "status"),
+        Index("ix_processed_ledgers_source", "source"),
+    )
 
     )

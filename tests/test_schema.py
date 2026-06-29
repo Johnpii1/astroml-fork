@@ -17,6 +17,15 @@ from astroml.db.schema import (
     Base,
     Experiment,
     ExperimentResult,
+__all__ = [
+    "MLflowTracker",
+    "ModelRegistry",
+    "ABTestingFramework",
+    "GoldenDatasetGenerator",
+    "GoldenDataset",
+    "GoldenDatasetEntry",
+]
+
     GraphAccount,
     GraphClaimDetail,
     GraphEdge,
@@ -72,6 +81,15 @@ def test_models_importable():
         Experiment,
         Variant,
         ExperimentResult,
+__all__ = [
+    "MLflowTracker",
+    "ModelRegistry",
+    "ABTestingFramework",
+    "GoldenDatasetGenerator",
+    "GoldenDataset",
+    "GoldenDatasetEntry",
+]
+
     ):
         assert hasattr(cls, "__tablename__")
 
@@ -86,6 +104,9 @@ def test_create_all_tables(engine):
         "effects",
         "experiment_results",
         "experiments",
+assert GoldenDataset.__tablename__ == "golden_datasets"
+assert GoldenDatasetEntry.__tablename__ == "golden_dataset_entries"
+
         "graph_accounts",
         "graph_claim_details",
         "graph_edges",
@@ -115,6 +136,9 @@ def test_table_names():
     assert Experiment.__tablename__ == "experiments"
     assert Variant.__tablename__ == "variants"
     assert ExperimentResult.__tablename__ == "experiment_results"
+assert GoldenDataset.__tablename__ == "golden_datasets"
+assert GoldenDatasetEntry.__tablename__ == "golden_dataset_entries"
+
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +385,50 @@ def test_experiment_result_columns(engine):
     )
 
 
+def test_golden_dataset_columns(engine):
+    inspector = inspect(engine)
+    cols = {c["name"] for c in inspector.get_columns("golden_datasets")}
+    expected = {
+        "id",
+        "name",
+        "description",
+        "dataset_type",
+        "task_type",
+        "version",
+        "source",
+        "size",
+        "status",
+        "quality_score",
+        "metadata",
+        "created_at",
+        "updated_at",
+    }
+    assert expected <= cols
+
+
+def test_golden_dataset_entry_columns(engine):
+    inspector = inspect(engine)
+    cols = {c["name"] for c in inspector.get_columns("golden_dataset_entries")}
+    expected = {
+        "id",
+        "dataset_id",
+        "input_data",
+        "output_data",
+        "metadata",
+        "difficulty",
+        "confidence",
+        "created_at",
+    }
+    assert expected <= cols
+
+    # FK to golden_datasets
+    fks = inspector.get_foreign_keys("golden_dataset_entries")
+    assert any(
+        fk["referred_table"] == "golden_datasets"
+        and fk["referred_columns"] == ["id"]
+        for fk in fks
+    )
+
 # ---------------------------------------------------------------------------
 # Relationships
 # ---------------------------------------------------------------------------
@@ -548,6 +616,50 @@ def test_ab_testing_relationships(session):
     assert result2.variant is variant1
     assert result3.variant is variant2
 
+
+def test_golden_dataset_columns(engine):
+    inspector = inspect(engine)
+    cols = {c["name"] for c in inspector.get_columns("golden_datasets")}
+    expected = {
+        "id",
+        "name",
+        "description",
+        "dataset_type",
+        "task_type",
+        "version",
+        "source",
+        "size",
+        "status",
+        "quality_score",
+        "metadata",
+        "created_at",
+        "updated_at",
+    }
+    assert expected <= cols
+
+
+def test_golden_dataset_entry_columns(engine):
+    inspector = inspect(engine)
+    cols = {c["name"] for c in inspector.get_columns("golden_dataset_entries")}
+    expected = {
+        "id",
+        "dataset_id",
+        "input_data",
+        "output_data",
+        "metadata",
+        "difficulty",
+        "confidence",
+        "created_at",
+    }
+    assert expected <= cols
+
+    # FK to golden_datasets
+    fks = inspector.get_foreign_keys("golden_dataset_entries")
+    assert any(
+        fk["referred_table"] == "golden_datasets"
+        and fk["referred_columns"] == ["id"]
+        for fk in fks
+    )
 
 # ---------------------------------------------------------------------------
 # Round-trip insert & query

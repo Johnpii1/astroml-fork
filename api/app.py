@@ -38,8 +38,10 @@ from api.routers import (
     auth_router,
     backup_router,
     chat_router,
+    compliance_router,
     contact_router,
     contributors_router,
+    discussions_router,
     errors_router,
     faq_router,
     feedback_router,
@@ -53,6 +55,7 @@ from api.routers import (
     rate_limit_router,
     transactions_router,
     validation_router,
+    voice_router,
     ws_router,
     streaming_router,
     llm_router,
@@ -147,6 +150,7 @@ async def _latency_middleware(request: Request, call_next):
 
 app.include_router(auth_router)
 app.include_router(audit_router)
+app.include_router(compliance_router)
 app.include_router(rate_limit_router)
 app.include_router(errors_router)
 app.include_router(contact_router)
@@ -157,6 +161,7 @@ app.include_router(monitoring_router)
 app.include_router(loyalty_router)
 app.include_router(models_router)
 app.include_router(contributors_router)
+app.include_router(discussions_router)
 app.include_router(mentorship_router)
 app.include_router(notifications_router)
 app.include_router(onboarding_router)
@@ -167,6 +172,7 @@ app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
+app.include_router(voice_router)
 app.include_router(llm_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
