@@ -735,3 +735,97 @@ class ExperimentResult(Base):
         Index("ix_experiment_results_session_id", "session_id"),
         Index("ix_experiment_results_created_at", "created_at"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Golden Dataset Framework
+# ---------------------------------------------------------------------------
+
+class GoldenDataset(Base):
+    """Golden dataset for model evaluation and benchmarking."""
+
+    __tablename__ = "golden_datasets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    dataset_type: Mapped[str] = mapped_column(String(32), nullable=False)  # 'classification', 'regression', 'anomaly_detection', etc.
+    task_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    source: Mapped[Optional[str]] = mapped_column(String(256))  # Data source identifier
+    size: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")  # Number of entries
+    status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="draft")
+    quality_score: Mapped[Optional[float]] = mapped_column(Numeric)  # Overall quality metric (0-1)
+    metadata: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )  # Additional dataset metadata
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    # Relationships
+    entries: Mapped[list[GoldenDatasetEntry]] = relationship(
+        back_populates="dataset",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("ix_golden_datasets_type", "dataset_type"),
+        Index("ix_golden_datasets_task_type", "task_type"),
+        Index("ix_golden_datasets_version", "version"),
+        Index("ix_golden_datasets_status", "status"),
+        UniqueConstraint("name", "version", name="uq_golden_datasets_name_version"),
+        CheckConstraint(
+            "dataset_type IN ('classification', 'regression', 'anomaly_detection', 'clustering', 'custom')",
+            name="ck_golden_datasets_type",
+        ),
+        CheckConstraint(
+            "status IN ('draft', 'review', 'approved', 'archived')",
+            name="ck_golden_datasets_status",
+        ),
+        CheckConstraint(
+            "quality_score IS NULL OR (quality_score >= 0 AND quality_score <= 1)",
+            name="ck_golden_datasets_quality_score",
+        ),
+    )
+
+
+class GoldenDatasetEntry(Base):
+    """Individual entry in a golden dataset with ground truth labels."""
+
+    __tablename__ = "golden_dataset_entries"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("golden_datasets.id"), nullable=False
+    )
+    input_data: Mapped[dict] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False
+    )  # Model input features
+    output_data: Mapped[dict] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), nullable=False
+    )  # Ground truth labels
+    metadata: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql")
+    )  # Entry-specific metadata
+    difficulty: Mapped[Optional[float]] = mapped_column(Numeric)  # Difficulty score (0-1)
+    confidence: Mapped[Optional[float]] = mapped_column(Numeric)  # Label confidence (0-1)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    # Relationships
+    dataset: Mapped[GoldenDataset] = relationship(back_populates="entries")
+
+    __table_args__ = (
+        Index("ix_golden_dataset_entries_dataset_id", "dataset_id"),
+        Index("ix_golden_dataset_entries_difficulty", "difficulty"),
+        Index("ix_golden_dataset_entries_confidence", "confidence"),
+        CheckConstraint(
+            "difficulty IS NULL OR (difficulty >= 0 AND difficulty <= 1)",
+            name="ck_golden_dataset_entries_difficulty",
+        ),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
+            name="ck_golden_dataset_entries_confidence",
+        ),
+    )

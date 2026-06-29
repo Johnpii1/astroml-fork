@@ -17,6 +17,8 @@ from astroml.db.schema import (
     Base,
     Experiment,
     ExperimentResult,
+    GoldenDataset,
+    GoldenDatasetEntry,
     GraphAccount,
     GraphClaimDetail,
     GraphEdge,
@@ -72,6 +74,8 @@ def test_models_importable():
         Experiment,
         Variant,
         ExperimentResult,
+        GoldenDataset,
+        GoldenDatasetEntry,
     ):
         assert hasattr(cls, "__tablename__")
 
@@ -86,6 +90,8 @@ def test_create_all_tables(engine):
         "effects",
         "experiment_results",
         "experiments",
+        "golden_dataset_entries",
+        "golden_datasets",
         "graph_accounts",
         "graph_claim_details",
         "graph_edges",
@@ -115,6 +121,8 @@ def test_table_names():
     assert Experiment.__tablename__ == "experiments"
     assert Variant.__tablename__ == "variants"
     assert ExperimentResult.__tablename__ == "experiment_results"
+    assert GoldenDataset.__tablename__ == "golden_datasets"
+    assert GoldenDatasetEntry.__tablename__ == "golden_dataset_entries"
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +369,51 @@ def test_experiment_result_columns(engine):
     )
 
 
+def test_golden_dataset_columns(engine):
+    inspector = inspect(engine)
+    cols = {c["name"] for c in inspector.get_columns("golden_datasets")}
+    expected = {
+        "id",
+        "name",
+        "description",
+        "dataset_type",
+        "task_type",
+        "version",
+        "source",
+        "size",
+        "status",
+        "quality_score",
+        "metadata",
+        "created_at",
+        "updated_at",
+    }
+    assert expected <= cols
+
+
+def test_golden_dataset_entry_columns(engine):
+    inspector = inspect(engine)
+    cols = {c["name"] for c in inspector.get_columns("golden_dataset_entries")}
+    expected = {
+        "id",
+        "dataset_id",
+        "input_data",
+        "output_data",
+        "metadata",
+        "difficulty",
+        "confidence",
+        "created_at",
+    }
+    assert expected <= cols
+
+    # FK to golden_datasets
+    fks = inspector.get_foreign_keys("golden_dataset_entries")
+    assert any(
+        fk["referred_table"] == "golden_datasets"
+        and fk["referred_columns"] == ["id"]
+        for fk in fks
+    )
+
+
 # ---------------------------------------------------------------------------
 # Relationships
 # ---------------------------------------------------------------------------
@@ -547,6 +600,43 @@ def test_ab_testing_relationships(session):
     assert result1.variant is variant1
     assert result2.variant is variant1
     assert result3.variant is variant2
+
+
+def test_golden_dataset_relationships(session):
+    """GoldenDataset.entries cascade deletes GoldenDatasetEntry rows."""
+    dataset = GoldenDataset(
+        name="test-dataset",
+        dataset_type="classification",
+        task_type="classification",
+        version="1.0.0",
+    )
+    session.add(dataset)
+    session.flush()
+
+    entry1 = GoldenDatasetEntry(
+        dataset_id=dataset.id,
+        input_data={"feature1": 1.0, "feature2": 2.0},
+        output_data={"label": 0},
+        difficulty=0.5,
+        confidence=0.9,
+    )
+    entry2 = GoldenDatasetEntry(
+        dataset_id=dataset.id,
+        input_data={"feature1": 3.0, "feature2": 4.0},
+        output_data={"label": 1},
+        difficulty=0.7,
+        confidence=0.95,
+    )
+    session.add_all([entry1, entry2])
+    session.flush()
+
+    session.refresh(dataset)
+
+    assert len(dataset.entries) == 2
+    assert entry1 in dataset.entries
+    assert entry2 in dataset.entries
+    assert entry1.dataset is dataset
+    assert entry2.dataset is dataset
 
 
 # ---------------------------------------------------------------------------
