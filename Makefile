@@ -1,4 +1,4 @@
-.PHONY: help quickstart test test-api lint format clean install run-api
+.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm
 
 help:
 	@echo "AstroML Development Commands"
@@ -13,6 +13,9 @@ help:
 	@echo "make install             Install development dependencies"
 	@echo "make clean               Clean build artifacts and cache"
 	@echo "make run-api             Start the FastAPI dev server on localhost:8000"
+	@echo "make canary-deploy       Deploy LLM canary to Kubernetes"
+	@echo "make canary-promote      Promote canary to stable"
+	@echo "make rollback-llm        Rollback LLM canary deployment"
 	@echo ""
 
 quickstart:
@@ -64,3 +67,24 @@ dev-setup:
 	@./scripts/seed_data.sh
 	@./scripts/health_check.sh
 	@echo "✅ Development environment ready."
+
+.PHONY: canary-deploy
+canary-deploy:
+	@echo "🚀 Deploying LLM canary..."
+	REGISTRY=$(shell grep -E '^REGISTRY' .github/workflows/llm-cicd.yml | head -n1 | sed 's/.*: //' | tr -d '"')
+	IMAGE_TAG=llm-$(shell git rev-parse --short HEAD)
+	REPO=$(shell basename $$(pwd))
+	NAMESPACE=astroml ./scripts/canary-deploy.sh
+
+.PHONY: canary-promote
+canary-promote:
+	@echo "✅ Promoting canary to stable..."
+	REGISTRY=$(shell grep -E '^REGISTRY' .github/workflows/llm-cicd.yml | head -n1 | sed 's/.*: //' | tr -d '"')
+	IMAGE_TAG=llm-$(shell git rev-parse --short HEAD)
+	REPO=$(shell basename $$(pwd))
+	NAMESPACE=astroml ./scripts/canary-promote.sh
+
+.PHONY: rollback-llm
+rollback-llm:
+	@echo "🔄 Rolling back LLM deployment..."
+	NAMESPACE=astroml STABLE_DEPLOYMENT=astroml-api ./scripts/auto-rollback.sh

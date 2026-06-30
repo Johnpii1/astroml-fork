@@ -614,5 +614,36 @@ class LLMFeedback(Base):
     )
 
 
+class LLMComplianceLog(Base):
+    """Compliance and audit log for all LLM interactions (issue #412)."""
+
+    __tablename__ = "llm_compliance_logs"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(_ID)
+    username: Mapped[Optional[str]] = mapped_column(String(128))
+    interaction_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    feature: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_redacted: Mapped[str] = mapped_column(Text, nullable=False)
+    response_redacted: Mapped[str] = mapped_column(Text, nullable=False)
+    model_used: Mapped[Optional[str]] = mapped_column(String(64))
+    tokens_used: Mapped[Optional[int]] = mapped_column(Integer)
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    pii_detected: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    pii_types: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_llm_compliance_logs_user_id", "user_id"),
+        Index("ix_llm_compliance_logs_created_at", "created_at"),
+        Index("ix_llm_compliance_logs_interaction_type", "interaction_type"),
+        Index("ix_llm_compliance_logs_pii_detected", "pii_detected"),
+    )
+
+
 # Backward-compatible aliases removed — use ApiAccount / ApiTransaction to avoid
 # SQLAlchemy mapper name collisions with astroml.db.schema.
