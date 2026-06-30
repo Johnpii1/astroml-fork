@@ -768,6 +768,7 @@ class LLMPromptImprovement(BaseModel):
     recommendation: str
     evidence_count: int
 
+
 # --- LLM Feature Schemas ---
 
 class SuggestionItem(BaseModel):
