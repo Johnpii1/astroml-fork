@@ -13,7 +13,6 @@ from typing import Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from api.schemas import ValidationError
 from astroml.validation.api_validation import (
     ValidationResult,
     validate_transaction_input,

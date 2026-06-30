@@ -4,6 +4,8 @@ Endpoints:
   POST /api/v1/fraud/score   — real-time anomaly scoring
   GET  /api/v1/fraud/alerts  — paginated fraud alerts
   GET  /api/v1/fraud/stats   — aggregated fraud statistics
+  GET  /api/v1/fraud/{id}/explanation — LLM explanation for fraud alert
+  GET  /api/v1/fraud/alerts/prioritized — prioritized, deduplicated alerts
 
 Model loading
 -------------
@@ -14,6 +16,7 @@ The active model version from the registry takes precedence over
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -22,7 +25,7 @@ from sqlalchemy import cast, func, select, Date
 from sqlalchemy.orm import Session
 
 from api.database import get_sync_db
-from api.models.orm import FraudAlert
+from api.models.orm import FraudAlert, ApiTransaction
 from api.schemas import (
     FraudAlertOut,
     FraudAlertsResponse,
@@ -37,9 +40,8 @@ from api.schemas import (
 )
 from api.services.alert_prioritization import alert_prioritizer
 from api.services.scorer import invalidate_scorer_cache, load_scorer
-from api.models.orm import FraudAlert, ApiTransaction
+from api.graphql import publish_fraud_alert
 from astroml.llm.explainer import FraudExplainer
-import time
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/fraud", tags=["fraud"])
@@ -237,5 +239,62 @@ def get_prioritized_alerts(
     )
 
 
+# ─── Fraud Alert Creation ────────────────────────────────────────────────────
+
+async def create_fraud_alert(
+    account_id: str,
+    risk_score: float,
+    pattern: Optional[str] = None,
+    description: Optional[str] = None,
+    db: Session = Depends(get_sync_db),
+) -> FraudAlert:
+    """
+    Create a new fraud alert and publish to GraphQL subscriptions.
+    
+    Args:
+        account_id: The account ID associated with the fraud alert
+        risk_score: The risk score (0.0 to 1.0)
+        pattern: Optional pattern identifier (e.g., sybil_cluster)
+        description: Optional description of the alert
+        db: Database session
+        
+    Returns:
+        The created FraudAlert instance
+    """
+    risk_level = FraudAlert.risk_level_for_score(risk_score)
+    
+    alert = FraudAlert(
+        account_id=account_id,
+        pattern=pattern,
+        risk_score=risk_score,
+        risk_level=risk_level,
+        description=description,
+    )
+    
+    db.add(alert)
+    db.commit()
+    db.refresh(alert)
+    
+    # Publish to GraphQL subscription
+    await publish_fraud_alert({
+        "id": alert.id,
+        "account_id": alert.account_id,
+        "pattern": alert.pattern,
+        "risk_score": alert.risk_score,
+        "risk_level": alert.risk_level,
+        "description": alert.description,
+        "detected_at": alert.detected_at,
+    })
+    
+    logger.info(
+        "Fraud alert created: id=%d, account=%s, risk_level=%s",
+        alert.id,
+        alert.account_id,
+        alert.risk_level,
+    )
+    
+    return alert
+
+
 # Re-export for model activation hook
-__all__ = ["router", "invalidate_scorer_cache"]
+__all__ = ["router", "invalidate_scorer_cache", "create_fraud_alert"]
