@@ -68,6 +68,8 @@ from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
 from astroml.llm import metrics as _llm_metrics
 from api.routers import health
+from api.routers import admin
+
 
 
 # Setup distributed tracing (issue #336)
@@ -183,6 +185,8 @@ app.include_router(llm_health_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
 app.include_router(health.router)
+app.include_router(admin.router)
+
 
 
 
