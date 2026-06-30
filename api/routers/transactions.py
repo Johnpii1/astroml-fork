@@ -5,6 +5,7 @@ Endpoints
 GET /api/v1/transactions        — List transactions with rich filtering
 GET /api/v1/transactions/stats  — Aggregated stats (volume, count by asset)
 GET /api/v1/transactions/{hash} — Single transaction by hash
+GET /api/v1/transactions/{hash}/explain — LLM explanation of transaction
 
 Query params for list endpoint:
   source_account, destination_account, asset_code, start_date, end_date,
@@ -12,6 +13,8 @@ Query params for list endpoint:
 """
 from __future__ import annotations
 
+import os
+import sys
 from datetime import datetime
 from typing import Optional
 
@@ -22,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.database import get_db
 from api.models.orm import ApiTransaction as Transaction
-import sys
-import os
+from api.graphql import publish_transaction
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from astroml.llm.explainer import TransactionExplainer
 
@@ -139,6 +142,7 @@ async def explain_transaction(hash: str, db: AsyncSession = Depends(get_db)):
     explanation = explainer.explain(tx_data)
     return {"hash": hash, "explanation": explanation}
 
+
 @router.get("", response_model=TransactionHistoryResponse)
 async def list_transactions(
     source_account: Optional[str] = Query(None),
@@ -189,3 +193,46 @@ async def list_transactions(
         pageSize=page_size,
         total=total,
     )
+
+
+# ─── Transaction Creation ────────────────────────────────────────────────────
+
+async def create_transaction(tx_data: dict, db: AsyncSession):
+    """Create a new transaction and publish to GraphQL subscriptions."""
+    # Convert from API format to ORM format
+    transaction = Transaction(
+        hash=tx_data.get("hash"),
+        ledger_sequence=tx_data.get("ledger_sequence"),
+        source_account=tx_data.get("source_account"),
+        destination_account=tx_data.get("destination_account"),
+        amount=tx_data.get("amount"),
+        asset_code=tx_data.get("asset_code"),
+        asset_issuer=tx_data.get("asset_issuer"),
+        fee=tx_data.get("fee", 0),
+        operation_type=tx_data.get("operation_type"),
+        successful=tx_data.get("successful", True),
+        memo_type=tx_data.get("memo_type"),
+        created_at=tx_data.get("created_at", datetime.utcnow()),
+    )
+    
+    db.add(transaction)
+    await db.commit()
+    await db.refresh(transaction)
+    
+    # Publish to GraphQL subscription
+    await publish_transaction({
+        "hash": transaction.hash,
+        "ledger_sequence": transaction.ledger_sequence,
+        "source_account": transaction.source_account,
+        "destination_account": transaction.destination_account,
+        "amount": transaction.amount,
+        "asset_code": transaction.asset_code,
+        "asset_issuer": transaction.asset_issuer,
+        "fee": transaction.fee,
+        "operation_type": transaction.operation_type,
+        "successful": transaction.successful,
+        "memo_type": transaction.memo_type,
+        "created_at": transaction.created_at,
+    })
+    
+    return transaction
