@@ -635,23 +635,25 @@ class ModelVersion(Base):
 # ---------------------------------------------------------------------------
 # A/B Testing Framework
 # ---------------------------------------------------------------------------
-# A/B Testing Framework
-# ---------------------------------------------------------------------------
 
 class Experiment(Base):
     """A/B test experiment for comparing models or prompts."""
     __tablename__ = "experiments"
-    # ... keep full definition
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
 
 class Variant(Base):
     """A variant in an A/B test experiment."""
     __tablename__ = "variants"
-    # ... keep full definition
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
 
 class ExperimentResult(Base):
     """Individual result from an A/B test experiment."""
     __tablename__ = "experiment_results"
-    # ... keep full definition
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    variant_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 # ---------------------------------------------------------------------------
@@ -661,56 +663,18 @@ class ExperimentResult(Base):
 class GoldenDataset(Base):
     """Golden dataset for model evaluation and benchmarking."""
     __tablename__ = "golden_datasets"
-    # ... keep full definition
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
 
 class GoldenDatasetEntry(Base):
     """Individual entry in a golden dataset with ground truth labels."""
     __tablename__ = "golden_dataset_entries"
-    # ... keep full definition
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
-
-# ---------------------------------------------------------------------------
-# Ledger Processing
-# ---------------------------------------------------------------------------
 
 class ProcessedLedger(Base):
     """Tracking table for processed ledgers during backfill to ensure idempotency."""
-    __tablename__ = "processed_ledgers"
-    # ... keep full definition
-
-# ---------------------------------------------------------------------------
-
-class Experiment(Base):
-    """A/B test experiment for comparing models or prompts."""
-    __tablename__ = "experiments"
-    # ... (fields and constraints from men branch)
-    # keep full definition
-
-class Variant(Base):
-    """A variant in an A/B test experiment."""
-    __tablename__ = "variants"
-    # ... (fields and constraints from men branch)
-    # keep full definition
-
-class ExperimentResult(Base):
-    """Individual result from an A/B test experiment."""
-    __tablename__ = "experiment_results"
-    # ... (fields and constraints from men branch)
-    # keep full definition
-
-
-# Ledger Processing
-# ---------------------------------------------------------------------------
-
-class ProcessedLedger(Base):
-    """Tracking table for processed ledgers during backfill to ensure idempotency."""
-    __tablename__ = "processed_ledgers"
-    # ... (fields and constraints from main branch)
-    # keep full definition
-
-class ProcessedLedger(Base):
-    """Tracking table for processed ledgers during backfill to ensure idempotency."""
-
     __tablename__ = "processed_ledgers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -745,6 +709,4 @@ class ProcessedLedger(Base):
         Index("ix_processed_ledgers_ledger_sequence", "ledger_sequence"),
         Index("ix_processed_ledgers_status", "status"),
         Index("ix_processed_ledgers_source", "source"),
-    )
-
     )

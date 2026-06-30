@@ -63,6 +63,7 @@ from api.routers import (
     llm_router,
     reports_router,
     alerts_router,
+    query_router,
 )
 from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
@@ -180,6 +181,7 @@ app.include_router(llm_router)
 app.include_router(llm_health_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
+app.include_router(query_router)
 
 
 @app.get("/health", tags=["ops"])

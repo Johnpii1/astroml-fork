@@ -21,7 +21,7 @@ class FactoryTests(unittest.TestCase):
             get_llm_provider("not-a-provider")
 
     def test_known_providers_registered(self):
-        self.assertEqual(set(_PROVIDERS), {"openai", "anthropic", "huggingface"})
+        self.assertEqual(set(_PROVIDERS), {"openai", "anthropic", "huggingface", "local"})
 
     def test_switch_provider_via_config_only(self):
         import os

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,7 @@ async def get_audit_report(
     end_date: Optional[str] = Query(None, description="ISO format end date"),
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_auth),
-) -> AuditReportResponse:
+) -> dict:
     """Get LLM compliance audit report.
 
     Returns summary of all LLM interactions with PII detection statistics.
@@ -63,7 +63,7 @@ async def export_logs(
     end_date: Optional[str] = Query(None, description="ISO format end date"),
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_current_auth),
-) -> ExportResponse:
+) -> Any:
     """Export compliance logs in specified format.
 
     Supports JSON and CSV formats for audit trail export.
