@@ -90,3 +90,13 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
         replacement: 'production'
+
+  # FastAPI API service metrics
+  - job_name: 'astroml-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['api:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'api'
