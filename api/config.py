@@ -53,5 +53,10 @@ class Settings(BaseSettings):
     github_token: str = ""
     github_repo: str = ""  # "owner/repo"
 
+    # LLM Settings (issue #440)
+    llm_provider: str = "openai"
+    llm_encryption_key: str = "change-me-in-production-llm-key-32b"
+
+
 
 settings = Settings()

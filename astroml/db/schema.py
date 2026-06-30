@@ -633,17 +633,52 @@ class ModelVersion(Base):
 
 
 # ---------------------------------------------------------------------------
-# Ledger Processing
+# A/B Testing Framework
 # ---------------------------------------------------------------------------
+
+class Experiment(Base):
+    """A/B test experiment for comparing models or prompts."""
+    __tablename__ = "experiments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+
+class Variant(Base):
+    """A variant in an A/B test experiment."""
+    __tablename__ = "variants"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+
+class ExperimentResult(Base):
+    """Individual result from an A/B test experiment."""
+    __tablename__ = "experiment_results"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    variant_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 # ---------------------------------------------------------------------------
+# Golden Dataset Framework
+# ---------------------------------------------------------------------------
+
+class GoldenDataset(Base):
+    """Golden dataset for model evaluation and benchmarking."""
+    __tablename__ = "golden_datasets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+
+class GoldenDatasetEntry(Base):
+    """Individual entry in a golden dataset with ground truth labels."""
+    __tablename__ = "golden_dataset_entries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(Integer, nullable=False)
+
 
 class ProcessedLedger(Base):
     """Tracking table for processed ledgers during backfill to ensure idempotency."""
-
     __tablename__ = "processed_ledgers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
+    ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     source: Mapped[str] = mapped_column(
         String(256),
         nullable=False,
@@ -653,14 +688,10 @@ ledger_sequence: Mapped[int] = mapped_column(Integer, unique=True, nullable=Fals
         nullable=False,
         server_default=func.now(),
     )
-status: Mapped[
-    Literal["pending", "processing", "completed", "failed"]
-] = mapped_column(
-    String(16),
-    nullable=False,
-    server_default="pending",
-)
-        String(32),
+    status: Mapped[
+        Literal["pending", "processing", "completed", "failed"]
+    ] = mapped_column(
+        String(16),
         nullable=False,
         server_default="pending",
     )
@@ -678,5 +709,4 @@ status: Mapped[
         Index("ix_processed_ledgers_ledger_sequence", "ledger_sequence"),
         Index("ix_processed_ledgers_status", "status"),
         Index("ix_processed_ledgers_source", "source"),
-    )
     )
