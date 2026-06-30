@@ -5,8 +5,6 @@ from contextlib import contextmanager
 from typing import Optional
 
 from opentelemetry import trace
-from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-from opentelemetry.exporter.zipkin.proto.http import ZipkinExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -33,11 +31,13 @@ def setup_tracing() -> Optional[TracerProvider]:
 
     # Configure exporter based on settings
     if settings.tracing_exporter == "jaeger":
+        from opentelemetry.exporter.jaeger.thrift import JaegerExporter
         exporter = JaegerExporter(
             agent_host_name=settings.jaeger_agent_host,
             agent_port=settings.jaeger_agent_port,
         )
     elif settings.tracing_exporter == "zipkin":
+        from opentelemetry.exporter.zipkin.proto.http import ZipkinExporter
         exporter = ZipkinExporter(
             endpoint=settings.zipkin_endpoint,
         )

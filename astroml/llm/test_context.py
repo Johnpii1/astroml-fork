@@ -2,7 +2,7 @@
 import unittest
 from datetime import datetime, timedelta
 
-from .context import BlockchainContextBuilder
+from .blockchain_context import BlockchainContextBuilder
 
 
 def _make_raw_data(num_days: int, txs_per_day: int = 20) -> list:

@@ -63,6 +63,7 @@ from api.routers import (
     llm_router,
     reports_router,
     alerts_router,
+    query_router,
 )
 from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
@@ -165,6 +166,7 @@ async def _latency_middleware(request: Request, call_next):
     return response
 
 
+# Include all routers from both branches
 app.include_router(auth_router)
 app.include_router(audit_router)
 app.include_router(compliance_router)
@@ -194,10 +196,12 @@ app.include_router(llm_router)
 app.include_router(llm_health_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
+# HEAD branch routers (health, admin, GraphQL)
 app.include_router(health.router)
 app.include_router(admin.router)
 app.include_router(graphql_app, prefix="/graphql")
-
+# upstream/main branch routers
+app.include_router(query_router)
 
 
 # Add GraphQL playground endpoint (for development)
@@ -206,8 +210,6 @@ if os.environ.get("ENV", "development") == "development":
     async def graphql_playground():
         from strawberry.fastapi import GraphQLPlayground
         return GraphQLPlayground()
-
-
 
 
 @app.get("/health", tags=["ops"])

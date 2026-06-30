@@ -1,5 +1,5 @@
 """LLM Provider abstraction layer."""
-from .context import BlockchainContextBuilder
+from .blockchain_context import BlockchainContextBuilder
 from .memory import ConversationMemory
 from .embedding_cache import EmbeddingCache, EmbeddingCacheStats
 from .embedding_drift import (

@@ -22,6 +22,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from api.database import get_sync_db
+from pydantic import BaseModel
 from api.models.orm import ModelRegistry
 from api.schemas.model_registry import (
     ModelComparisonIn,
@@ -33,6 +34,7 @@ from api.schemas.model_registry import (
     ModelSearchIn,
     ModelTagsUpdateIn,
     ModelVersionTransitionIn,
+    DeploymentEnvironment,
 )
 from api.services.scorer import invalidate_scorer_cache
 
@@ -51,6 +53,20 @@ class ModelOut(BaseModel):
     parent_id: Optional[int]
     created_at: datetime
 
+
+@router.get("", response_model=ModelListResponse)
+def list_models(
+    db: Session = Depends(get_sync_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    name: Optional[str] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    tags: Optional[list[str]] = Query(None),
+):
+    """List all registered model versions with pagination and filtering."""
+    query = select(ModelRegistry)
+
     if name:
         query = query.where(ModelRegistry.name == name)
     if status:
@@ -64,6 +80,19 @@ class ModelOut(BaseModel):
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
     total = db.scalar(count_query) or 0
+
+    # Get paginated results
+    offset = (page - 1) * page_size
+    query = query.order_by(ModelRegistry.created_at.desc()).offset(offset).limit(page_size)
+    rows = db.scalars(query).all()
+
+    return ModelListResponse(
+        data=rows,
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
 
 class RegisterModelIn(BaseModel):
     name: str
@@ -100,12 +129,7 @@ class LineageNode(BaseModel):
 
 class LineageOut(BaseModel):
     chain: List[LineageNode]
-    return ModelListResponse(
-        data=rows,
-        page=page,
-        page_size=page_size,
-        total=total,
-    )
+
 
 @router.post("", response_model=ModelRegistryOut, status_code=status.HTTP_201_CREATED)
 def create_model(body: ModelRegistryIn, db: Session = Depends(get_sync_db)):
@@ -344,7 +368,7 @@ def model_metrics(model_id: int, db: Session = Depends(get_sync_db)):
     }
 
 
-@router.post("/compare", response_model=CompareVersionsOut)
+@router.post("/compare-versions", response_model=CompareVersionsOut)
 def compare_versions(body: CompareVersionsIn, db: Session = Depends(get_sync_db)):
     """Compare multiple model versions and generate a report with metrics deltas."""
     if len(body.version_ids) < 2:
@@ -442,7 +466,6 @@ def get_lineage(model_id: int, db: Session = Depends(get_sync_db)):
     
     return LineageOut(chain=chain)
 
-# Add to existing routers/models.py
 
 @router.post("/{model_id}/versions/{version_id}/rollback")
 def rollback_model_version(
