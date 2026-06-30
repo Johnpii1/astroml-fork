@@ -115,3 +115,24 @@ def authenticate_token(token: str, db: Session) -> AuthContext:
     if token.startswith("ak_"):
         return _resolve_api_key(token, db)
     return _resolve_jwt(token, db)
+
+
+def get_current_user(
+    auth: AuthContext = Depends(get_current_auth),
+    db: Session = Depends(get_sync_db),
+) -> User:
+    """Resolve the currently authenticated User database model."""
+    if not is_auth_enabled():
+        # Return a mock admin user if auth is disabled
+        user = db.scalar(select(User).where(User.username == "admin"))
+        if not user:
+            user = User(username="admin", email="admin@astroml.dev", scopes=list(ALL_SCOPES), is_active=True)
+        return user
+
+    if auth.user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = db.scalar(select(User).where(User.id == auth.user_id))
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
