@@ -70,10 +70,20 @@ from astroml.llm import metrics as _llm_metrics
 from api.routers import health
 from api.routers import admin
 
+from strawberry.fastapi import GraphQLRouter
+from api.graphql.schema import schema
+from api.graphql.context import get_graphql_context
+
 
 
 # Setup distributed tracing (issue #336)
 _tracer_provider = setup_tracing()
+
+# Create GraphQL router with query depth limiting and authentication
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_graphql_context,
+)
 
 
 @asynccontextmanager
@@ -186,6 +196,16 @@ app.include_router(reports_router)
 app.include_router(alerts_router)
 app.include_router(health.router)
 app.include_router(admin.router)
+app.include_router(graphql_app, prefix="/graphql")
+
+
+
+# Add GraphQL playground endpoint (for development)
+if os.environ.get("ENV", "development") == "development":
+    @app.get("/graphql/playground")
+    async def graphql_playground():
+        from strawberry.fastapi import GraphQLPlayground
+        return GraphQLPlayground()
 
 
 

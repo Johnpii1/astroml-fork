@@ -9,12 +9,14 @@ Endpoints:
 """
 from __future__ import annotations
 
+import hashlib
 import uuid
-from datetime import datetime, timezone
+from contextlib import contextmanager
+from datetime import datetime, timezone, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import cast, Date, func, select
 from sqlalchemy.orm import Session
 
 from api.schemas import (
@@ -28,6 +30,7 @@ from api.schemas import (
     RedeemResponse,
     ReferralOut,
 )
+from api.graphql import publish_loyalty_points
 
 router = APIRouter(prefix="/api/v1/loyalty", tags=["loyalty"])
 
@@ -192,9 +195,6 @@ def redeem_points(
     if LoyaltyAccount is None:
         raise HTTPException(status_code=503, detail="Loyalty service unavailable")
 
-    from datetime import date  # noqa: PLC0415
-    from sqlalchemy import cast, Date  # noqa: PLC0415
-
     with db.begin_nested() if db.in_transaction() else _noop_ctx():
         acc = _get_or_create_account(account_id, db)
         if acc is None:
@@ -249,7 +249,6 @@ def redeem_points(
 def get_referral(account_id: str, db: Optional[Session] = Depends(_get_db)):
     """Return referral link and stats for an account."""
     # Derive a deterministic referral code from account_id (no extra table needed)
-    import hashlib  # noqa: PLC0415
     code = hashlib.sha256(account_id.encode()).hexdigest()[:8].upper()
     base_url = "https://astroml.example.com/ref"
 
@@ -270,9 +269,105 @@ def get_referral(account_id: str, db: Optional[Session] = Depends(_get_db)):
 
 # ─── Helper ───────────────────────────────────────────────────────────────────
 
-from contextlib import contextmanager  # noqa: E402
-
-
 @contextmanager
 def _noop_ctx():
     yield
+
+
+# ─── Loyalty Points Update ──────────────────────────────────────────────────
+
+async def update_loyalty_points(
+    account_id: str,
+    points_delta: int,
+    source: str,
+    note: Optional[str] = None,
+    db: Optional[Session] = None,
+) -> dict:
+    """
+    Update loyalty points for an account and publish to GraphQL subscriptions.
+
+    Args:
+        account_id: The account ID to update
+        points_delta: Positive for earning, negative for redemption
+        source: Source of the points change (e.g., "transaction", "referral")
+        note: Optional note for the transaction
+        db: Database session (creates one if not provided)
+
+    Returns:
+        Dict with updated balance, tier, and transaction ID
+
+    Raises:
+        HTTPException: If account not found or insufficient balance
+    """
+    own_db = False
+    if db is None:
+        db = next(_get_db())
+        own_db = True
+
+    try:
+        LoyaltyAccount, PointsLedger = _get_loyalty_models()
+        if LoyaltyAccount is None:
+            raise HTTPException(status_code=503, detail="Loyalty service unavailable")
+
+        acc = _get_or_create_account(account_id, db)
+        if acc is None:
+            raise HTTPException(status_code=404, detail="Account not found")
+
+        # Check for sufficient balance if redeeming
+        if points_delta < 0 and abs(points_delta) > acc.points_balance:
+            raise HTTPException(status_code=400, detail="Insufficient points balance")
+
+        # Update balance
+        acc.points_balance += points_delta
+        if acc.points_balance < 0:
+            acc.points_balance = 0
+
+        # Recalculate tier
+        acc.tier_id = _tier_for(acc.points_balance).id
+
+        # Create transaction record
+        txn_type = "earn" if points_delta > 0 else "redeem"
+        txn_id = str(uuid.uuid4())
+        ledger_row = PointsLedger(
+            id=txn_id,
+            account_id=account_id,
+            txn_type=txn_type,
+            points=points_delta,
+            source=source,
+            note=note,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(ledger_row)
+        db.commit()
+        db.refresh(acc)
+
+        # Publish to GraphQL subscription
+        await publish_loyalty_points({
+            "id": acc.id,
+            "account_id": acc.account_id,
+            "balance": acc.points_balance,
+            "tier": acc.tier_id,
+            "multiplier": _tier_for(acc.points_balance).multiplier,
+            "updated_at": acc.updated_at.isoformat() if hasattr(acc, 'updated_at') else datetime.now(timezone.utc).isoformat(),
+        })
+
+        return {
+            "success": True,
+            "account_id": account_id,
+            "new_balance": acc.points_balance,
+            "tier": acc.tier_id,
+            "transaction_id": txn_id,
+        }
+
+    finally:
+        if own_db:
+            db.close()
+
+
+# ─── Exports ─────────────────────────────────────────────────────────────────
+
+__all__ = [
+    "router",
+    "update_loyalty_points",
+    "publish_loyalty_points",
+]
