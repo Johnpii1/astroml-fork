@@ -1,33 +1,27 @@
 import hashlib
 import os
 import time
-from typing import List, Dict, Any, AsyncGenerator, Optional, Union
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, TypeVar, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from api.services.llm_explainer import TransactionExplainer
-from api.services.llm_query import QueryTranslator
-from api.services.llm_context import MultiModalContextHandler
-from api.services.llm_validation import ResponseValidator
-from api.services.llm_rag import build_citations, build_rag_answer, retrieve_sources
-from api.services.translation import translation_service
-from astroml.llm.embedding_cache import EmbeddingCache
-from astroml.llm.embedding_drift import EmbeddingDriftMonitor
-from astroml.llm.memory import ConversationMemory
-from astroml.llm.provider import MockLLMProvider
-from astroml.llm.providers.embedding_router import build_default_router
-from astroml.llm.compliance_logger import compliance_logger
+
+from api.auth.dependencies import AuthContext, get_current_auth
 from api.database import get_db
 from api.models.orm import LLMFeedback
 from api.schemas import (
+    CostDashboardResponse,
     LLMFeedbackDashboard,
     LLMFeedbackIn,
     LLMFeedbackOut,
     LLMFeedbackTrend,
     LLMPromptImprovement,
+    SearchRequest,
+    SearchResponse,
+    SuggestionResponse,
     TranslationRequest,
     TranslationResponse,
     BatchTranslationRequest,
@@ -37,8 +31,21 @@ from api.schemas import (
     LocaleFormatResponse,
     TranslationCacheStatsResponse,
 )
-from api.auth.dependencies import get_current_auth, AuthContext
-from typing import List, Dict, Any, AsyncGenerator, Callable, TypeVar
+from api.services.llm_context import MultiModalContextHandler
+from api.services.llm_cost import CostMonitoringService
+from api.services.llm_explainer import TransactionExplainer
+from api.services.llm_query import QueryTranslator
+from api.services.llm_rag import build_citations, build_rag_answer, retrieve_sources
+from api.services.llm_search import SemanticSearchService
+from api.services.llm_suggest import AutocompleteService
+from api.services.llm_validation import ResponseValidator
+from api.services.translation import translation_service
+from astroml.llm.compliance_logger import compliance_logger
+from astroml.llm.embedding_cache import EmbeddingCache
+from astroml.llm.embedding_drift import EmbeddingDriftMonitor
+from astroml.llm.memory import ConversationMemory
+from astroml.llm.provider import MockLLMProvider
+from astroml.llm.providers.embedding_router import build_default_router
 
 router = APIRouter(prefix="/api/v1/llm", tags=["llm"])
 explainer = TransactionExplainer()
@@ -49,6 +56,9 @@ memory = ConversationMemory()
 llm_provider = MockLLMProvider()
 embedding_cache = EmbeddingCache()
 embedding_router = build_default_router()
+suggest_service = AutocompleteService()
+search_service = SemanticSearchService()
+cost_service = CostMonitoringService()
 
 # Drift monitor — dimension inferred lazily from first observed vector.
 # Default to 384 (HuggingFace MiniLM-L6-v2 fallback dim); reconfigured at
@@ -119,6 +129,27 @@ class ExplainRequest(BaseModel):
 
 class ExplainResponse(BaseModel):
     explanation: str
+
+@router.get("/suggest", response_model=SuggestionResponse)
+async def suggest_query(q: str, max_results: int = 5, auth: AuthContext = Depends(get_current_auth)):
+    try:
+        return suggest_service.suggest(q, max_results)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/search", response_model=SearchResponse)
+async def semantic_search(request: SearchRequest, auth: AuthContext = Depends(get_current_auth)):
+    try:
+        return await search_service.search(request)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/costs/dashboard", response_model=CostDashboardResponse)
+async def get_cost_dashboard(auth: AuthContext = Depends(get_current_auth)):
+    try:
+        return cost_service.get_dashboard()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/explain", response_model=ExplainResponse)
 async def explain_transaction(

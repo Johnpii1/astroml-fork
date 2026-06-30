@@ -834,6 +834,51 @@ class BehavioralBaseline(BaseModel):
     confidence_level: float = 0.95
 
 
+# --- LLM Feature Schemas ---
+
+class SuggestionItem(BaseModel):
+    query: str
+    popularity: int
+    is_correction: bool
+
+class SuggestionResponse(BaseModel):
+    suggestions: List[SuggestionItem]
+    corrected_query: Optional[str] = None
+
+class SearchRequest(BaseModel):
+    query: str
+    filters: Optional[Dict[str, Any]] = None
+    top_k: int = 5
+
+class SearchResult(BaseModel):
+    id: str
+    type: str
+    score: float
+    data: Dict[str, Any]
+    explanation: str
+
+class SearchResponse(BaseModel):
+    results: List[SearchResult]
+    query_time_ms: int
+
+class CostMetric(BaseModel):
+    provider: str
+    model: str
+    total_cost: float
+    total_tokens: int
+
+class BudgetAlert(BaseModel):
+    threshold_percent: int
+    is_triggered: bool
+
+class CostDashboardResponse(BaseModel):
+    metrics: List[CostMetric]
+    total_cost: float
+    budget_limit: float
+    alerts: List[BudgetAlert]
+    optimization_active: bool
+
+
 class BehavioralBaselineResponse(BaseModel):
     baselines: List[BehavioralBaseline]
     account_id: str
