@@ -20,6 +20,7 @@ from api.routers.onboarding import router as onboarding_router
 from api.routers.validation import router as validation_router
 from api.routers.ws import router as ws_router
 from api.routers.streaming import router as streaming_router
+from api.routers.cost import router as cost_router
 
 __all__ = [
     "accounts_router",
@@ -43,4 +44,5 @@ __all__ = [
     "validation_router",
     "ws_router",
     "streaming_router",
+    "cost_router",
 ]
