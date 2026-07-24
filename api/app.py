@@ -58,6 +58,7 @@ from api.routers import (
 )
 from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
+from api.websocket.llm import router as ws_llm_router
 
 # Setup distributed tracing (issue #336)
 _tracer_provider = setup_tracing()
@@ -164,6 +165,7 @@ app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
 app.include_router(cost_router)
+app.include_router(ws_llm_router)
 
 
 @app.get("/health", tags=["ops"])
