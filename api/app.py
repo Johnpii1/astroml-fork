@@ -71,6 +71,12 @@ from api.routers import (
     alerts_router,
     query_router,
 )
+from api.routers import (
+    llm_router,
+    query_router,
+    explanations_router,
+    agents_router,
+)
 
 
 
@@ -203,6 +209,10 @@ app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
+app.include_router(llm_router)
+app.include_router(query_router)
+app.include_router(explanations_router)
+app.include_router(agents_router)
 app.include_router(cost_router)
 app.include_router(ws_llm_router)
 app.include_router(query_router)
