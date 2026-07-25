@@ -81,6 +81,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
     
+    # LLM subcommand
+    llm_parser = sub.add_parser("llm", help="LLM operations (generate, chat, rag, prompts, eval, models, cost, cache)")
+    llm_sub = llm_parser.add_subparsers(dest="llm_command", required=True)
+    from .cli_llm.commands import register_llm_subcommands
+    register_llm_subcommands(llm_sub)
+    
     # Models subcommand
     models_parser = sub.add_parser("models", help="Model registry commands")
     models_sub = models_parser.add_subparsers(dest="subcommand", required=True)
@@ -465,6 +471,13 @@ def main(argv: Optional[list[str]] = None) -> int:
             except ImportError as e:
                 print(f"Error: MLflow not available: {e}")
                 return 1
+
+    if args.command == "llm":
+        if hasattr(args, "func"):
+            args.func(args)
+            return 0
+        llm_parser.print_help()
+        return 1
 
     parser.print_help()
     return 1
