@@ -103,6 +103,29 @@ def register_llm_subcommands(sub) -> None:
     # ── cache ──
     sub.add_parser("cache", help="Show cache statistics").set_defaults(func=cmd_cache)
 
+    # ── backfill ──
+    bf = sub.add_parser("backfill", help="Backfill job management")
+    bf_sub = bf.add_subparsers(dest="backfill_command", required=True)
+
+    bf_create = bf_sub.add_parser("create", help="Create a new backfill job")
+    bf_create.add_argument("--type", required=True, choices=["embedding", "explanation", "label", "report"], help="Job type")
+    bf_create.add_argument("--total", type=int, default=1000, help="Total items to process")
+    bf_create.set_defaults(func=cmd_backfill_create)
+
+    bf_sub.add_parser("list", help="List all backfill jobs").set_defaults(func=cmd_backfill_list)
+
+    bf_status = bf_sub.add_parser("status", help="Show job status")
+    bf_status.add_argument("job_id", help="Job ID")
+    bf_status.set_defaults(func=cmd_backfill_status)
+
+    bf_pause = bf_sub.add_parser("pause", help="Pause a running job")
+    bf_pause.add_argument("job_id", help="Job ID")
+    bf_pause.set_defaults(func=cmd_backfill_pause)
+
+    bf_resume = bf_sub.add_parser("resume", help="Resume a paused job")
+    bf_resume.add_argument("job_id", help="Job ID")
+    bf_resume.set_defaults(func=cmd_backfill_resume)
+
 
 # ── Command implementations ──
 
@@ -290,3 +313,58 @@ def cmd_cache(args) -> None:
         print_json(stats)
     except Exception as e:
         print_error(f"Cache not available: {e}")
+
+
+# ── Backfill commands ──
+
+
+def cmd_backfill_create(args) -> None:
+    from astroml.llm.batch import get_scheduler
+    scheduler = get_scheduler()
+    job = scheduler.create_job(
+        job_type=args.type,
+        total_items=args.total,
+        config={"type": args.type},
+    )
+    print_json(job)
+
+
+def cmd_backfill_list(args) -> None:
+    from astroml.llm.batch import get_scheduler
+    scheduler = get_scheduler()
+    jobs = scheduler.list_jobs()
+    if not jobs:
+        print_text("No backfill jobs found.")
+        return
+    rows = [[j["id"], j["job_type"], j["status"], str(j["total_items"]), str(j["processed_items"])] for j in jobs]
+    print_table(rows, ["ID", "Type", "Status", "Total", "Processed"], title="Backfill Jobs")
+
+
+def cmd_backfill_status(args) -> None:
+    from astroml.llm.batch import get_scheduler
+    scheduler = get_scheduler()
+    job = scheduler.get_job(args.job_id)
+    if job is None:
+        print_error(f"Job '{args.job_id}' not found")
+        return
+    print_json(job)
+
+
+def cmd_backfill_pause(args) -> None:
+    from astroml.llm.batch import get_scheduler
+    scheduler = get_scheduler()
+    job = scheduler.pause_job(args.job_id)
+    if job is None:
+        print_error(f"Job '{args.job_id}' not found")
+        return
+    print_json(job)
+
+
+def cmd_backfill_resume(args) -> None:
+    from astroml.llm.batch import get_scheduler
+    scheduler = get_scheduler()
+    job = scheduler.resume_job(args.job_id)
+    if job is None:
+        print_error(f"Job '{args.job_id}' not found")
+        return
+    print_json(job)
