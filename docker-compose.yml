@@ -24,7 +24,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Redis for caching and job queues
+  # Redis for caching (including LLM caching service) and job queues
   redis:
     image: redis:7-alpine
     container_name: astroml-redis
