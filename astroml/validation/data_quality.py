@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dc_field
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -37,7 +37,7 @@ class ValidationResult:
     error_type: Optional[str] = None
     message: Optional[str] = None
     field: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: Dict[str, Any] = dc_field(default_factory=dict)
 
 
 @dataclass
@@ -53,8 +53,8 @@ class DataQualityReport:
 
     total_records: int = 0
     valid_records: int = 0
-    validation_results: List[ValidationResult] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=dict)
+    validation_results: List[ValidationResult] = dc_field(default_factory=list)
+    summary: Dict[str, Any] = dc_field(default_factory=dict)
 
     @property
     def quality_score(self) -> float:
