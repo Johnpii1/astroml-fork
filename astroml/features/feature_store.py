@@ -678,18 +678,34 @@ class FeatureStore:
     """Main feature store interface.
     
     Provides a high-level API for feature registration, computation,
-    storage, and retrieval.
+    storage, and retrieval. Features lazy loading with LRU eviction.
     """
     
-    def __init__(self, storage_path: Union[str, Path] = "./feature_store"):
+    def __init__(
+        self, 
+        storage_path: Union[str, Path] = "./feature_store",
+        max_cache_size_mb: int = 500,
+        cache_ttl_seconds: int = 3600
+    ):
         """Initialize feature store.
         
         Args:
             storage_path: Path to feature store storage
+            max_cache_size_mb: Maximum cache size in MB (default: 500)
+            cache_ttl_seconds: Cache TTL in seconds (default: 3600)
         """
         self.storage = FeatureStorage(storage_path)
         self.registry = FeatureRegistry(self.storage)
-        self._cache: Dict[str, pd.DataFrame] = {}
+        
+        # Lazy loading cache: stores only feature metadata initially
+        self._metadata_cache: Dict[str, FeatureDefinition] = {}
+        
+        # LRU cache for feature values with memory limit
+        self._value_cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_access_times: Dict[str, datetime] = {}
+        self._max_cache_size_bytes = max_cache_size_mb * 1024 * 1024
+        self._cache_ttl_seconds = cache_ttl_seconds
+        self._current_cache_size_bytes = 0
     
     def register_feature(
         self,
@@ -816,13 +832,70 @@ class FeatureStore:
         # Store values if not dry run
         if not dry_run:
             self.storage.store_feature_values(feature_def.feature_id, values, metadata)
-            # Update cache
-            self._cache[feature_def.feature_id] = values
+            
+            # Invalidate cache entry if it exists
+            if feature_def.feature_id in self._value_cache:
+                cache_entry = self._value_cache[feature_def.feature_id]
+                self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
+                del self._value_cache[feature_def.feature_id]
+                del self._cache_access_times[feature_def.feature_id]
+            
             logger.info(f"Stored feature '{feature_name}' with {len(values)} values")
         else:
             logger.info(f"Dry run: would store feature '{feature_name}' with {len(values)} values")
         
         return result
+    
+    def _get_dataframe_size_bytes(self, df: pd.DataFrame) -> int:
+        """Estimate DataFrame memory usage in bytes."""
+        return int(df.memory_usage(deep=True).sum())
+    
+    def _evict_lru_features(self, required_bytes: int) -> None:
+        """Evict least recently used features to free memory.
+        
+        Args:
+            required_bytes: Bytes needed to free
+        """
+        if not self._value_cache:
+            return
+        
+        # Sort by access time (oldest first)
+        sorted_features = sorted(
+            self._cache_access_times.items(),
+            key=lambda x: x[1]
+        )
+        
+        freed_bytes = 0
+        for feature_id, _ in sorted_features:
+            if freed_bytes >= required_bytes:
+                break
+            
+            if feature_id in self._value_cache:
+                cache_entry = self._value_cache[feature_id]
+                freed_bytes += cache_entry.get("size_bytes", 0)
+                
+                del self._value_cache[feature_id]
+                del self._cache_access_times[feature_id]
+                self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
+                
+                logger.debug(f"Evicted feature {feature_id} from cache (LRU)")
+    
+    def _is_cache_expired(self, feature_id: str) -> bool:
+        """Check if cached feature has expired.
+        
+        Args:
+            feature_id: Feature identifier
+            
+        Returns:
+            True if expired, False otherwise
+        """
+        if feature_id not in self._cache_access_times:
+            return True
+        
+        access_time = self._cache_access_times[feature_id]
+        age_seconds = (datetime.now() - access_time).total_seconds()
+        
+        return age_seconds > self._cache_ttl_seconds
     
     @cache_feature_store(ttl_seconds=900)
     def get_feature(
@@ -832,7 +905,10 @@ class FeatureStore:
         timestamp: Optional[datetime] = None,
         use_cache: bool = True,
     ) -> Optional[pd.DataFrame]:
-        """Retrieve stored feature values.
+        """Retrieve stored feature values with lazy loading.
+        
+        Uses lazy loading: only loads feature values on-demand and caches
+        recently accessed features with LRU eviction when memory limit is reached.
         
         Args:
             feature_name: Feature name
@@ -843,24 +919,65 @@ class FeatureStore:
         Returns:
             Feature values if found, None otherwise
         """
-        feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
-        if feature_def is None:
-            raise ValueError(f"Feature '{feature_name}' not found")
+        # Load metadata (lightweight)
+        if feature_name in self._metadata_cache:
+            feature_def = self._metadata_cache[feature_name]
+        else:
+            feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
+            if feature_def is None:
+                raise ValueError(f"Feature '{feature_name}' not found")
+            self._metadata_cache[feature_name] = feature_def
         
-        # Check cache first
-        if use_cache and feature_def.feature_id in self._cache:
-            values = self._cache[feature_def.feature_id].copy()
-            
-            if entity_ids:
-                values = values[values.index.isin(entity_ids)]
-            
-            return values
+        feature_id = feature_def.feature_id
         
-        # Load from storage
-        values = self.storage.get_feature_values(feature_def.feature_id, entity_ids, timestamp)
+        # Check cache for values (lazy loading)
+        if use_cache and feature_id in self._value_cache:
+            if not self._is_cache_expired(feature_id):
+                # Update access time for LRU
+                self._cache_access_times[feature_id] = datetime.now()
+                
+                values = self._value_cache[feature_id]["data"].copy()
+                
+                if entity_ids:
+                    values = values[values.index.isin(entity_ids)]
+                
+                logger.debug(f"Cache hit for feature {feature_name}")
+                return values
+            else:
+                # Expired - remove from cache
+                logger.debug(f"Cache expired for feature {feature_name}")
+                del self._value_cache[feature_id]
+                del self._cache_access_times[feature_id]
+                self._current_cache_size_bytes -= self._value_cache.get(feature_id, {}).get("size_bytes", 0)
+        
+        # Load from storage (on-demand)
+        logger.debug(f"Loading feature {feature_name} from storage (lazy load)")
+        values = self.storage.get_feature_values(feature_id, entity_ids, timestamp)
         
         if values is not None and use_cache:
-            self._cache[feature_def.feature_id] = values.copy()
+            # Calculate size and check if we need to evict
+            value_size_bytes = self._get_dataframe_size_bytes(values)
+            
+            # Evict LRU features if needed
+            if self._current_cache_size_bytes + value_size_bytes > self._max_cache_size_bytes:
+                required_space = (self._current_cache_size_bytes + value_size_bytes) - self._max_cache_size_bytes
+                logger.debug(f"Cache full, evicting {required_space} bytes")
+                self._evict_lru_features(required_space)
+            
+            # Cache the values
+            self._value_cache[feature_id] = {
+                "data": values.copy(),
+                "size_bytes": value_size_bytes,
+                "loaded_at": datetime.now()
+            }
+            self._cache_access_times[feature_id] = datetime.now()
+            self._current_cache_size_bytes += value_size_bytes
+            
+            logger.debug(
+                f"Cached feature {feature_name} "
+                f"({value_size_bytes / 1024 / 1024:.2f} MB, "
+                f"total cache: {self._current_cache_size_bytes / 1024 / 1024:.2f} MB)"
+            )
         
         return values
     
@@ -994,9 +1111,26 @@ class FeatureStore:
         return self.storage.list_feature_definitions(status, tags, owner)
     
     def clear_cache(self) -> None:
-        """Clear feature cache."""
-        self._cache.clear()
+        """Clear feature cache (both metadata and values)."""
+        self._metadata_cache.clear()
+        self._value_cache.clear()
+        self._cache_access_times.clear()
+        self._current_cache_size_bytes = 0
         logger.info("Feature cache cleared")
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics.
+        
+        Returns:
+            Dictionary with cache statistics
+        """
+        return {
+            "cached_features": len(self._value_cache),
+            "cache_size_mb": self._current_cache_size_bytes / 1024 / 1024,
+            "max_cache_size_mb": self._max_cache_size_bytes / 1024 / 1024,
+            "cache_utilization_pct": (self._current_cache_size_bytes / self._max_cache_size_bytes) * 100,
+            "metadata_cached": len(self._metadata_cache)
+        }
     
     @contextmanager
     def batch_mode(self):
