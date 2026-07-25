@@ -63,6 +63,15 @@ jobs:
       # Issue #338: Run property-based tests with coverage reporting.
       run: pytest -v -m "not gpu" -p no:randomly --tb=short --cov=astroml --cov-report=xml --cov-report=term
 
+    - name: Upload coverage to Codecov
+      if: matrix.flavor == 'cpu'
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        flags: py${{ matrix.python-version }}
+        fail_ci_if_error: false
+
     - name: Run pytest (GPU)
       if: matrix.flavor == 'gpu'
       run: |

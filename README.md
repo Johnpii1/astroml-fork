@@ -1,5 +1,9 @@
 # AstroML
 //WIP
+
+[![CI](https://github.com/lordemaverick/astroml/actions/workflows/pytest.yml/badge.svg)](https://github.com/lordemaverick/astroml/actions/workflows/pytest.yml)
+[![codecov](https://codecov.io/gh/lordemaverick/astroml/branch/main/graph/badge.svg)](https://codecov.io/gh/lordemaverick/astroml)
+
 ## Dynamic Graph Machine Learning Framework for the Stellar Network
 
 **AstroML** is a research-driven Python framework for building **dynamic graph machine learning models** on the Stellar Development Foundation Stellar blockchain.
