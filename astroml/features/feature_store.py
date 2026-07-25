@@ -106,7 +106,10 @@ class FeatureDefinition:
 
     def __post_init__(self) -> None:
         """Generate feature ID and validate definition."""
-        self.feature_id = f"{self.name}_v{self.version}"
+        if not self.name:
+            raise ValueError("FeatureDefinition.name must not be empty")
+        if self.version < 1:
+            raise ValueError("FeatureDefinition.version must be at least 1")
         
     @property
     def feature_id(self) -> str:
@@ -133,6 +136,7 @@ class FeatureDefinition:
     def from_dict(cls, data: Dict[str, Any]) -> FeatureDefinition:
         """Create from dictionary representation."""
         data = data.copy()
+        data.pop("feature_id", None)
         data["feature_type"] = FeatureType(data["feature_type"])
         data["status"] = FeatureStatus(data["status"])
         data["created_at"] = datetime.fromisoformat(data["created_at"])
@@ -935,7 +939,7 @@ class FeatureStore:
             if not self._is_cache_expired(feature_id):
                 # Update access time for LRU
                 self._cache_access_times[feature_id] = datetime.now()
-                
+
                 values = self._value_cache[feature_id]["data"].copy()
                 
                 if entity_ids:
@@ -946,9 +950,10 @@ class FeatureStore:
             else:
                 # Expired - remove from cache
                 logger.debug(f"Cache expired for feature {feature_name}")
-                del self._value_cache[feature_id]
-                del self._cache_access_times[feature_id]
-                self._current_cache_size_bytes -= self._value_cache.get(feature_id, {}).get("size_bytes", 0)
+                cache_entry = self._value_cache.pop(feature_id, None)
+                self._cache_access_times.pop(feature_id, None)
+                if cache_entry:
+                    self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
         
         # Load from storage (on-demand)
         logger.debug(f"Loading feature {feature_name} from storage (lazy load)")
