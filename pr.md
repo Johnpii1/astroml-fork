@@ -3,9 +3,16 @@
 ## Summary
 This PR addresses four medium-severity issues related to dependency management, graph building optimization, and feature store performance.
 
+## Issues Closed
+
+Closes #565
+Closes #549
+Closes #563
+Closes #548
+
 ## Issues Fixed
 
-### ✅ #565 #70: Separate Optional Dependencies Clearly
+### ✅ #565: Separate Optional Dependencies Clearly
 **Component:** `pyproject.toml`, `requirements.txt`
 
 **Changes:**
@@ -22,7 +29,7 @@ This PR addresses four medium-severity issues related to dependency management, 
   pip install astroml[viz,notebook] # with visualization and notebooks
   ```
 
-### ✅ #549 #54: Optimize Graph Building with Dask
+### ✅ #549: Optimize Graph Building with Dask
 **Component:** `astroml/features/graph/`
 
 **Changes:**
@@ -36,7 +43,7 @@ This PR addresses four medium-severity issues related to dependency management, 
 - Benchmark-ready: Designed for deterministic results
 - Configuration option available via backend parameter
 
-### ✅ #563 #68: Implement Strict Dependency Versioning
+### ✅ #563: Implement Strict Dependency Versioning
 **Component:** `requirements.txt`
 
 **Changes:**
@@ -49,7 +56,7 @@ This PR addresses four medium-severity issues related to dependency management, 
 - CI should install from lock file: `pip install -r requirements-lock.txt`
 - Added compatible release versioning strategy using `~=` where appropriate
 
-### ✅ #548 #53: Add Lazy Loading for Large Feature Store
+### ✅ #548: Add Lazy Loading for Large Feature Store
 **Component:** `astroml/features/feature_store.py`
 
 **Changes:**
