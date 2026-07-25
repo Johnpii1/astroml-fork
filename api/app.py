@@ -55,6 +55,12 @@ from api.routers import (
     ws_router,
     streaming_router,
 )
+from api.routers import (
+    llm_router,
+    query_router,
+    explanations_router,
+    agents_router,
+)
 from api.routers.monitoring import record_latency
 from api.routers.ws import poll_and_broadcast_transactions
 
@@ -162,6 +168,10 @@ app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
+app.include_router(llm_router)
+app.include_router(query_router)
+app.include_router(explanations_router)
+app.include_router(agents_router)
 
 
 @app.get("/health", tags=["ops"])
