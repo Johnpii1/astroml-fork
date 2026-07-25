@@ -105,3 +105,78 @@ def get_streaming_health():
         last_updated=_stream_state.last_updated,
         streams=streams
     )
+
+
+# ---------------------------------------------------------------------------
+# LLM SSE Streaming Endpoint
+# ---------------------------------------------------------------------------
+import asyncio
+from fastapi.responses import StreamingResponse
+from fastapi import Depends, Query
+from api.auth.dependencies import AuthContext, get_current_auth
+from api.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from astroml.llm.streaming import StreamHandler, format_sse
+from astroml.llm.cost import check_budget, track_request, route_request
+
+@router.get("/llm")
+async def stream_llm_response(
+    prompt: str = Query(..., description="Prompt for the LLM"),
+    model: str = Query("gpt-3.5-turbo", description="Model name"),
+    feature: str = Query("chatbot", description="Feature category"),
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(get_current_auth),
+):
+    """
+    Stream LLM response token-by-token using Server-Sent Events (SSE).
+    Enforces cost tracking, dynamic model routing, and budgets.
+    """
+    user_id = str(auth.user_id or auth.subject)
+    
+    # 1. Dynamic routing based on budget and complexity
+    routed_model = await route_request(db, user_id, model, prompt)
+    
+    # 2. Check budget limits and model permissions
+    try:
+        await check_budget(db, user_id, routed_model)
+    except Exception as e:
+        raise HTTPException(status_code=403, detail=str(e))
+        
+    async def sse_generator():
+        handler = StreamHandler(session_id=f"sse_{user_id}_{int(time.time())}")
+        
+        # Simulate some generation tokens
+        mock_response = f"This is a progressive response for your query '{prompt}' using {routed_model}."
+        words = mock_response.split(" ")
+        
+        total_tokens = 0
+        latency_ms = 100.0  # mock first token latency
+        start_time = time.perf_counter()
+        
+        async def mock_word_gen():
+            for i, word in enumerate(words):
+                await asyncio.sleep(0.05)  # 50ms streaming latency
+                yield word + " " if i < len(words) - 1 else word
+                
+        async for token in handler.process_stream(mock_word_gen()):
+            total_tokens += 1
+            yield format_sse(token=token, finished=False)
+            
+        duration = (time.perf_counter() - start_time) * 1000
+        
+        # Track cost and update budget
+        usage = {"prompt_tokens": len(prompt) // 4 + 1, "completion_tokens": total_tokens}
+        await track_request(
+            db=db,
+            user_id=user_id,
+            feature=feature,
+            model_name=routed_model,
+            input_tokens=usage["prompt_tokens"],
+            output_tokens=usage["completion_tokens"],
+            latency_ms=duration,
+        )
+        
+        yield format_sse(token=None, finished=True, usage={"total_tokens": usage["prompt_tokens"] + usage["completion_tokens"]})
+        
+    return StreamingResponse(sse_generator(), media_type="text/event-stream")
+

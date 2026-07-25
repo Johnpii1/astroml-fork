@@ -60,6 +60,7 @@ from api.routers import (
     voice_router,
     ws_router,
     streaming_router,
+    cost_router,
     llm_usage_router,
     llm_cache_metrics_router,
     llm_router,
@@ -74,6 +75,7 @@ from api.routers.monitoring import record_latency
 
 
 from api.routers.ws import poll_and_broadcast_transactions
+from api.websocket.llm import router as ws_llm_router
 from astroml.llm import metrics as _llm_metrics
 from api.routers import health
 from api.routers import admin
@@ -198,6 +200,9 @@ app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
+app.include_router(cost_router)
+app.include_router(ws_llm_router)
+app.include_router(query_router)
 app.include_router(llm_usage_router)
 app.include_router(llm_cache_metrics_router)
 app.include_router(voice_router)

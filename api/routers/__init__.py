@@ -24,6 +24,7 @@ from api.routers.validation import router as validation_router
 from api.routers.voice import router as voice_router
 from api.routers.ws import router as ws_router
 from api.routers.streaming import router as streaming_router
+from api.routers.cost import router as cost_router
 from api.routers.llm_usage import router as llm_usage_router
 from api.routers.llm_cache_metrics import router as llm_cache_metrics_router
 from api.routers.llm import router as llm_router
@@ -59,6 +60,7 @@ __all__ = [
     "voice_router",
     "ws_router",
     "streaming_router",
+    "cost_router",
     "llm_usage_router",
     "llm_router",
     "llm_health_router",
