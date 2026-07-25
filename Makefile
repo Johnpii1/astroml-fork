@@ -1,4 +1,4 @@
-.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree
+.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan
 
 help:
 	@echo "AstroML Development Commands"
@@ -17,6 +17,11 @@ help:
 	@echo "make canary-deploy       Deploy LLM canary to Kubernetes"
 	@echo "make canary-promote      Promote canary to stable"
 	@echo "make rollback-llm        Rollback LLM canary deployment"
+	@echo "make llm-test             Run LLM test suite (CI)"
+	@echo "make llm-eval             Run LLM evaluation benchmarks"
+	@echo "make llm-cost-check       Check LLM cost against baseline"
+	@echo "make llm-validate-prompts Validate all prompt templates"
+	@echo "make llm-safety-scan      Run LLM safety scan"
 	@echo ""
 
 quickstart:
@@ -95,3 +100,28 @@ canary-promote:
 rollback-llm:
 	@echo "🔄 Rolling back LLM deployment..."
 	NAMESPACE=astroml STABLE_DEPLOYMENT=astroml-api ./scripts/auto-rollback.sh
+
+.PHONY: llm-test
+llm-test:
+	@echo "🧪 Running LLM test suite..."
+	bash scripts/ci/run-llm-tests.sh
+
+.PHONY: llm-eval
+llm-eval:
+	@echo "📊 Running LLM evaluation benchmarks..."
+	bash scripts/ci/run-eval.sh
+
+.PHONY: llm-cost-check
+llm-cost-check:
+	@echo "💰 Checking LLM cost against baseline..."
+	bash scripts/ci/check-cost.sh
+
+.PHONY: llm-validate-prompts
+llm-validate-prompts:
+	@echo "📝 Validating all prompt templates..."
+	bash scripts/ci/validate-prompts.sh
+
+.PHONY: llm-safety-scan
+llm-safety-scan:
+	@echo "🔒 Running LLM safety scan..."
+	bash scripts/ci/safety-scan.sh

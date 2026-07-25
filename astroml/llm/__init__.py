@@ -12,6 +12,14 @@ from .embedding_drift import (
 )
 from .providers.embedding_base import EmbeddingProvider, EmbeddingError
 from .providers.embedding_router import EmbeddingRouter, build_default_router
+from .tools import (
+    BaseTool,
+    ToolRegistry,
+    get_global_registry,
+    ToolExecutor,
+    PermissionChecker,
+    ToolAuditLog,
+)
 
 __all__ = [
     'BlockchainContextBuilder',
@@ -28,4 +36,10 @@ __all__ = [
     'EmbeddingError',
     'EmbeddingRouter',
     'build_default_router',
+    'BaseTool',
+    'ToolRegistry',
+    'get_global_registry',
+    'ToolExecutor',
+    'PermissionChecker',
+    'ToolAuditLog',
 ]
