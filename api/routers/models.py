@@ -22,6 +22,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from api.database import get_sync_db
+from pydantic import BaseModel
 from api.models.orm import ModelRegistry
 from api.schemas.model_registry import (
     ModelComparisonIn,
@@ -33,6 +34,7 @@ from api.schemas.model_registry import (
     ModelSearchIn,
     ModelTagsUpdateIn,
     ModelVersionTransitionIn,
+    DeploymentEnvironment,
 )
 from api.services.scorer import invalidate_scorer_cache
 
@@ -51,6 +53,20 @@ class ModelOut(BaseModel):
     parent_id: Optional[int]
     created_at: datetime
 
+
+@router.get("", response_model=ModelListResponse)
+def list_models(
+    db: Session = Depends(get_sync_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    name: Optional[str] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    tags: Optional[list[str]] = Query(None),
+):
+    """List all registered model versions with pagination and filtering."""
+    query = select(ModelRegistry)
+
     if name:
         query = query.where(ModelRegistry.name == name)
     if status:
@@ -64,6 +80,19 @@ class ModelOut(BaseModel):
     # Get total count
     count_query = select(func.count()).select_from(query.subquery())
     total = db.scalar(count_query) or 0
+
+    # Get paginated results
+    offset = (page - 1) * page_size
+    query = query.order_by(ModelRegistry.created_at.desc()).offset(offset).limit(page_size)
+    rows = db.scalars(query).all()
+
+    return ModelListResponse(
+        data=rows,
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
 
 class RegisterModelIn(BaseModel):
     name: str
@@ -100,13 +129,6 @@ class LineageNode(BaseModel):
 
 class LineageOut(BaseModel):
     chain: List[LineageNode]
-
-    return ModelListResponse(
-        data=rows,
-        page=page,
-        page_size=page_size,
-        total=total,
-    )
 
 
 @router.post("", response_model=ModelRegistryOut, status_code=status.HTTP_201_CREATED)
@@ -346,7 +368,7 @@ def model_metrics(model_id: int, db: Session = Depends(get_sync_db)):
     }
 
 
-@router.post("/compare", response_model=CompareVersionsOut)
+@router.post("/compare-versions", response_model=CompareVersionsOut)
 def compare_versions(body: CompareVersionsIn, db: Session = Depends(get_sync_db)):
     """Compare multiple model versions and generate a report with metrics deltas."""
     if len(body.version_ids) < 2:
@@ -443,3 +465,170 @@ def get_lineage(model_id: int, db: Session = Depends(get_sync_db)):
         current_id = entry.parent_id
     
     return LineageOut(chain=chain)
+
+
+@router.post("/{model_id}/versions/{version_id}/rollback")
+def rollback_model_version(
+    model_id: int,
+    version_id: int,
+    reason: str = Query(..., description="Reason for rollback"),
+    db: Session = Depends(get_sync_db),
+):
+    """Rollback to a specific model version."""
+    with ModelRegistry(db) as registry:
+        # Get the model version
+        target_version = registry.get_model_version_by_id(version_id)
+        if not target_version:
+            raise HTTPException(status_code=404, detail="Model version not found")
+        
+        # Rollback
+        try:
+            new_version, old_version = registry.rollback_to_version(
+                model_id,
+                target_version.version,
+                reason,
+            )
+            return {
+                "status": "success",
+                "message": f"Rolled back to version {target_version.version}",
+                "current_version": new_version.version,
+                "previous_version": old_version.version if old_version else None,
+                "reason": reason,
+            }
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{model_id}/ab-test")
+def create_ab_test(
+    model_id: int,
+    body: dict,
+    db: Session = Depends(get_sync_db),
+):
+    """Create an A/B test between two model versions."""
+    control_version = body.get("control_version")
+    treatment_version = body.get("treatment_version")
+    traffic_split = body.get("traffic_split", 0.5)
+    
+    if not control_version or not treatment_version:
+        raise HTTPException(
+            status_code=400,
+            detail="control_version and treatment_version are required",
+        )
+    
+    with ModelRegistry(db) as registry:
+        try:
+            ab_config = registry.create_ab_test(
+                model_id,
+                control_version,
+                treatment_version,
+                traffic_split,
+            )
+            return {"status": "success", "ab_test": ab_config}
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{model_id}/ab-test/{ab_test_id}/results")
+def get_ab_test_results(
+    model_id: int,
+    ab_test_id: str,
+    db: Session = Depends(get_sync_db),
+):
+    """Get results of an A/B test."""
+    with ModelRegistry(db) as registry:
+        results = registry.get_ab_test_results(model_id, ab_test_id)
+        return results
+
+
+@router.post("/{model_id}/deploy")
+def deploy_model_version(
+    model_id: int,
+    body: dict,
+    db: Session = Depends(get_sync_db),
+):
+    """Deploy a model version to a specific environment."""
+    version_id = body.get("version_id")
+    environment = body.get("environment", "staging")
+    deployed_by = body.get("deployed_by")
+    notes = body.get("notes")
+    
+    if not version_id:
+        raise HTTPException(status_code=400, detail="version_id is required")
+    
+    try:
+        env = DeploymentEnvironment(environment.lower())
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid environment: {environment}. "
+                   f"Must be one of: {[e.value for e in DeploymentEnvironment]}",
+        )
+    
+    with ModelRegistry(db) as registry:
+        version = registry.track_deployment(
+            version_id,
+            env,
+            deployed_by,
+            notes,
+        )
+        if not version:
+            raise HTTPException(status_code=404, detail="Model version not found")
+        
+        return {
+            "status": "success",
+            "message": f"Deployed version {version.version} to {environment}",
+            "version": version.version,
+            "environment": environment,
+        }
+
+
+@router.get("/{model_id}/versions/{version_id}/deployments")
+def get_deployment_history(
+    model_id: int,
+    version_id: int,
+    db: Session = Depends(get_sync_db),
+):
+    """Get deployment history for a model version."""
+    with ModelRegistry(db) as registry:
+        history = registry.get_deployment_history(version_id)
+        return {
+            "model_id": model_id,
+            "version_id": version_id,
+            "deployments": history,
+        }
+
+
+@router.get("/{model_id}/versions/compare")
+def compare_model_versions(
+    model_id: int,
+    version_ids: str = Query(..., description="Comma-separated list of version IDs"),
+    db: Session = Depends(get_sync_db),
+):
+    """Compare multiple model versions across metrics."""
+    ids = [int(vid.strip()) for vid in version_ids.split(",") if vid.strip()]
+    if len(ids) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="At least 2 version IDs are required for comparison",
+        )
+    
+    with ModelRegistry(db) as registry:
+        comparison = registry.compare_versions(ids)
+        return comparison
+
+
+@router.get("/{model_id}/versions/history")
+def get_version_history(
+    model_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_sync_db),
+):
+    """Get version history with status transitions."""
+    with ModelRegistry(db) as registry:
+        history = registry.get_version_history(model_id, limit)
+        return {
+            "model_id": model_id,
+            "history": history,
+            "count": len(history),
+        }

@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 from .models import ChatMessage, ChatSession, AgentStatus
-from .service import ChatService
+from .service import ChatService, chat_service
 from .slack import SlackIntegration
 
 __all__ = [
@@ -18,5 +18,6 @@ __all__ = [
     "ChatSession",
     "AgentStatus",
     "ChatService",
+    "chat_service",
     "SlackIntegration",
 ]
