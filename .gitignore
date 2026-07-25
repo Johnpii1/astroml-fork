@@ -21,3 +21,8 @@ node_modules/
 *.db
 *.sqlite
 *.sqlite3
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
