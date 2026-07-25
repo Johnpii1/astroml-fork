@@ -12,6 +12,7 @@ from .embedding_drift import (
 )
 from .providers.embedding_base import EmbeddingProvider, EmbeddingError
 from .providers.embedding_router import EmbeddingRouter, build_default_router
+from . import features
 
 __all__ = [
     'BlockchainContextBuilder',
@@ -28,4 +29,5 @@ __all__ = [
     'EmbeddingError',
     'EmbeddingRouter',
     'build_default_router',
+    'features',
 ]
