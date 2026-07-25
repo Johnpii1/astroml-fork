@@ -76,3 +76,89 @@ class ModelTagsUpdateIn(BaseModel):
     add_tags: Optional[List[str]] = None
     remove_tags: Optional[List[str]] = None
 
+# Add to existing schemas/model_registry.py
+
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+
+class SemanticVersion(BaseModel):
+    """Semantic version model."""
+    major: int = Field(ge=0)
+    minor: int = Field(ge=0)
+    patch: int = Field(ge=0)
+
+    @validator('patch')
+    def validate_patch(cls, v):
+        if v < 0:
+            raise ValueError('Patch version must be >= 0')
+        return v
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
+
+
+class ModelVersionCreate(BaseModel):
+    """Create a new model version."""
+    version: Optional[str] = None
+    artifact_path: str
+    hyperparameters: Optional[Dict[str, Any]] = None
+    metrics: Optional[Dict[str, Any]] = None
+    status: Optional[str] = "training"
+    metadata: Optional[Dict[str, Any]] = None
+    auto_version: bool = True
+
+
+class ModelVersionUpdate(BaseModel):
+    """Update a model version."""
+    status: Optional[str] = None
+    metrics: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ModelVersionTransition(BaseModel):
+    """Transition a model version to a new status."""
+    target_status: str
+    reason: Optional[str] = None
+
+
+class RollbackRequest(BaseModel):
+    """Rollback request."""
+    target_version: str
+    reason: str
+
+
+class ABTestCreate(BaseModel):
+    """Create an A/B test."""
+    control_version: str
+    treatment_version: str
+    traffic_split: float = Field(ge=0.0, le=1.0)
+    metrics: Optional[List[str]] = None
+
+
+class DeploymentRequest(BaseModel):
+    """Deploy a model version."""
+    version_id: int
+    environment: str
+    deployed_by: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class VersionComparisonResult(BaseModel):
+    """Version comparison result."""
+    versions: List[Dict[str, Any]]
+    metrics: Dict[str, Dict[str, Optional[float]]]
+    summary: Dict[str, Dict[str, Any]]
+
+
+class VersionHistoryItem(BaseModel):
+    """Version history item."""
+    id: int
+    version: str
+    status: str
+    metrics: Optional[Dict[str, Any]]
+    created_at: str
+    deployed_at: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+

@@ -23,8 +23,9 @@ import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from api.auth.middleware import AuthMiddleware
 from api.audit_middleware import AuditLoggingMiddleware
@@ -38,12 +39,16 @@ from api.routers import (
     auth_router,
     backup_router,
     chat_router,
+    compliance_router,
     contact_router,
     contributors_router,
+    discussions_router,
     errors_router,
     faq_router,
+    feedback_router,
     fraud_router,
     loyalty_router,
+    llm_health_router,
     mentorship_router,
     models_router,
     monitoring_router,
@@ -52,18 +57,44 @@ from api.routers import (
     rate_limit_router,
     transactions_router,
     validation_router,
+    voice_router,
     ws_router,
     streaming_router,
+    llm_usage_router,
+    llm_cache_metrics_router,
     llm_router,
     llm_metrics_router,
     search_router,
     stream_router,
+    reports_router,
+    alerts_router,
+    query_router,
 )
+
+
+
 from api.routers.monitoring import record_latency
+
+
 from api.routers.ws import poll_and_broadcast_transactions
+from astroml.llm import metrics as _llm_metrics
+from api.routers import health
+from api.routers import admin
+
+from strawberry.fastapi import GraphQLRouter
+from api.graphql.schema import schema
+from api.graphql.context import get_graphql_context
+
+
 
 # Setup distributed tracing (issue #336)
 _tracer_provider = setup_tracing()
+
+# Create GraphQL router with query depth limiting and authentication
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_graphql_context,
+)
 
 
 @asynccontextmanager
@@ -145,8 +176,10 @@ async def _latency_middleware(request: Request, call_next):
     return response
 
 
+# Include all routers from both branches
 app.include_router(auth_router)
 app.include_router(audit_router)
+app.include_router(compliance_router)
 app.include_router(rate_limit_router)
 app.include_router(errors_router)
 app.include_router(contact_router)
@@ -157,24 +190,52 @@ app.include_router(monitoring_router)
 app.include_router(loyalty_router)
 app.include_router(models_router)
 app.include_router(contributors_router)
+app.include_router(discussions_router)
 app.include_router(mentorship_router)
 app.include_router(notifications_router)
 app.include_router(onboarding_router)
 app.include_router(faq_router)
+app.include_router(feedback_router)
 app.include_router(validation_router)
 app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
+app.include_router(llm_usage_router)
+app.include_router(llm_cache_metrics_router)
+app.include_router(voice_router)
 app.include_router(llm_router)
 app.include_router(llm_metrics_router)
 app.include_router(search_router)
 app.include_router(stream_router)
+app.include_router(llm_health_router)
+app.include_router(reports_router)
+app.include_router(alerts_router)
+# HEAD branch routers (health, admin, GraphQL)
+app.include_router(health.router)
+app.include_router(admin.router)
+app.include_router(graphql_app, prefix="/graphql")
+# upstream/main branch routers
+app.include_router(query_router)
+
+
+# Add GraphQL playground endpoint (for development)
+if os.environ.get("ENV", "development") == "development":
+    @app.get("/graphql/playground")
+    async def graphql_playground():
+        from strawberry.fastapi import GraphQLPlayground
+        return GraphQLPlayground()
 
 
 @app.get("/health", tags=["ops"])
+
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/metrics", tags=["ops"])
+async def prometheus_metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/api/v1", tags=["ops"])
