@@ -1,4 +1,4 @@
-.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm
+.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree
 
 help:
 	@echo "AstroML Development Commands"
@@ -11,6 +11,7 @@ help:
 	@echo "make lint                Run linters (flake8, mypy)"
 	@echo "make format              Format code (black, isort)"
 	@echo "make install             Install development dependencies"
+	@echo "make dependency-tree     Print the resolved dependency tree (pipdeptree)"
 	@echo "make clean               Clean build artifacts and cache"
 	@echo "make run-api             Start the FastAPI dev server on localhost:8000"
 	@echo "make canary-deploy       Deploy LLM canary to Kubernetes"
@@ -37,6 +38,12 @@ lint:
 format:
 	black astroml/ tests/
 	isort astroml/ tests/
+
+# Issue #562 — resolved dependency tree, e.g. to check what a pin bump would
+# actually pull in, or to spot conflicting transitive requirements. Requires
+# pipdeptree, installed via requirements-dev.txt.
+dependency-tree:
+	pipdeptree --warn silence
 
 run-api:
 	uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload

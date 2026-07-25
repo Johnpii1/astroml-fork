@@ -157,6 +157,81 @@ print(f"Throughput: {results['throughput_tx_per_sec']:.0f} tx/sec")
 - **CPU-bound: 4 workers** (normalization, deduplication)
 - **I/O-bound: 8+ workers** (database writes, disk I/O)
 
+### 5. Streaming vs Batch Ingestion with `IngestionService` (#547)
+
+`astroml.ingestion.service.IngestionService` is the low-level, synchronous
+building block the ingestion pipeline sits on: for each ledger id in a
+range it fetches, processes, and durably records the result. It has two
+entry points with the same per-ledger logic but different memory
+characteristics:
+
+```python
+from astroml.ingestion.service import IngestionService
+
+service = IngestionService()
+
+# ingest(): returns one IngestionResult with attempted/processed/skipped
+# id lists for the *whole* range. Fine for small/bounded ranges (a few
+# thousand ledgers) where you want a single summary object. O(N) memory
+# in range size — for a 1M-ledger backfill that's 3 lists of a million
+# ints each, plus whatever the caller does with the return value.
+result = service.ingest(start_ledger=1_000_000, end_ledger=1_001_000)
+
+# ingest_stream(): a generator yielding one (ledger_id, LedgerOutcome) per
+# ledger as it's processed. Never materialises the range — memory stays
+# ~flat regardless of how large [start_ledger, end_ledger] is. Prefer this
+# for large backfills.
+for ledger_id, outcome in service.ingest_stream(
+    start_ledger=1_000_000, end_ledger=2_000_000, batch_size=1000,
+):
+    if outcome.status == "processed":
+        ...
+```
+
+**When to use which:**
+
+| | `ingest()` | `ingest_stream()` |
+|---|---|---|
+| Range size | Small/bounded (you want the full id lists) | Large (1M+ ledgers) |
+| Memory | O(N) — grows with range | ~O(1) — one ledger at a time |
+| Return shape | Single `IngestionResult` at the end | Generator, one result per ledger |
+| Use when | Scripting, tests, small backfills | Production backfills, streaming consumers |
+
+`ingest()` is implemented on top of `ingest_stream()` (it just drains the
+generator into the three lists), so both share one code path and the same
+`batch_size` semantics below — there's no behavior drift between them.
+
+**`batch_size` (default 100):** controls how often processed-ledger state is
+flushed to `StateStore`, not how many ledgers are buffered in memory (each
+ledger is already O(1)). This matters because `StateStore.mark_processed`
+reloads and re-serialises the *entire* processed-ledger set from disk on
+every call — calling it once per ledger is quadratic in range size and, on
+a synthetic-fetch microbenchmark, took ~24s for a 5,000-ledger range and was
+still climbing. Flushing once per `batch_size` ledgers instead turns that
+into a small constant factor: the same synthetic benchmark, driven through
+50,000 ledgers with `batch_size=2000`, took ~1.2s and peaked at ~3.8MB of
+traced Python memory (see `tests/test_ingestion_service_streaming.py::
+test_ingest_stream_memory_bounded_for_large_range` for the reproducible
+version of this check, and `test_ingest_stream_flushes_state_once_per_batch`
+for the flush-cadence assertion itself).
+
+Trade-off: on a crash mid-batch, up to `batch_size - 1` already-processed
+ledgers may not be durably recorded yet and will be reprocessed on restart.
+`process_fn` should be idempotent for the same reason `ingest()`/
+`ingest_stream()` already skip ledgers recorded as processed — this isn't a
+new requirement, just a reminder that it now applies at batch granularity
+instead of per-ledger. The trailing partial batch is always flushed before
+the generator returns *or* is closed early (e.g. the caller stops iterating
+partway through a stream) via a `try/finally` in `ingest_stream`.
+
+Extrapolating the 50,000-ledger benchmark to the 1M-ledger scale named in
+issue #547's acceptance criteria (`<100MB for 1M ledgers`) puts
+`ingest_stream` well under budget on the generator/state-flush machinery
+itself; the dominant memory cost at that scale in a real deployment will be
+whatever `fetch_fn`/`process_fn` do with each ledger's actual payload (a
+real Horizon ledger response is much larger than the `{"ledger": id}` stub
+used above), which is outside `IngestionService`'s control.
+
 ---
 
 ## 🕸 Graph Pipeline Optimization
@@ -234,6 +309,62 @@ lazy_graph = LazyGraph.from_database(
 # Only fetch edges when needed
 neighbors = lazy_graph.neighbors(account_id)
 ```
+
+### 4. Memory Profiling for Graph Snapshots (#546)
+
+`astroml.features.graph.memory_profile` gives `astroml.features.graph.snapshot`
+(the `Edge`/`window_snapshot`/`iter_db_snapshots` time-windowed slicer) a
+lightweight way to measure its own memory footprint — deliberately built on
+just `tracemalloc` (stdlib) and `psutil` (already an astroml dependency)
+rather than pulling in `astroml.benchmarking` (which unconditionally imports
+`torch`) or adding new heavyweight profiling dependencies.
+
+```python
+from astroml.features.graph.snapshot import window_snapshot
+from astroml.features.graph.memory_profile import profile_graph_memory
+
+(nodes, edges), profile = profile_graph_memory(
+    window_snapshot, all_edges, start_ts, end_ts,
+    n_edges=len(all_edges),
+)
+print(profile.summary())
+# nodes=0 edges=10000 traced_peak=1.16MB rss_delta=1.25MB duration=0.024s
+```
+
+Or opt in per-call via the `@memory_profiled` decorator (see
+`astroml/features/graph/memory_profile.py`) on any graph-building function —
+it's a no-op unless the caller passes `profile_memory=True`.
+
+**CLI:**
+
+```bash
+python -m astroml.features.graph.cli --memory-profile --num-edges 10000
+python -m astroml.features.graph.cli --memory-profile --source db --window 7d
+```
+
+**Memory requirements per graph size** (traced peak, synthetic edges,
+reference machine — see `tests/test_graph_memory_profile.py` for the
+regression-tested budgets, which are set several times looser than these
+numbers to absorb cross-machine/Python-build variance):
+
+| Edges   | Traced peak | RSS delta | Duration |
+|---------|-------------|-----------|----------|
+| 1,000   | ~0.5 MB     | ~0.4 MB   | ~0.02s   |
+| 10,000  | ~1.2 MB     | ~1.3 MB   | ~0.02s   |
+| 100,000 | ~17.3 MB    | ~6.2 MB   | ~0.26s   |
+
+**Bottlenecks addressed in `snapshot.py`:**
+- `window_snapshot` no longer makes a defensive `list(edges)` copy when the
+  caller already passed a list with `presorted=True` — that copy was pure
+  overhead at the graph sizes where memory is actually a concern.
+- `_build_snapshot_window` and the sequential branch of `iter_db_snapshots`
+  now `del` the SQLAlchemy result/cursor object before allocating the
+  returned `SnapshotWindow`, so the two aren't briefly alive together at
+  peak.
+- `iter_db_snapshot_edges` (issue #199) already streams DB rows in
+  configurable `chunk_size` batches instead of materialising a window's full
+  edge list — the module's other functions build on this pattern rather
+  than duplicating it.
 
 ---
 
@@ -498,6 +629,11 @@ accumulation_steps = 8
 ```
 
 ### High Memory Graph Construction
+
+First confirm where the memory is actually going with
+`python -m astroml.features.graph.cli --memory-profile` (see "Memory
+Profiling for Graph Snapshots" above) before reaching for sampling —
+it separates the snapshot-slicing cost from whatever runs downstream.
 
 ```python
 # sample the graph first
