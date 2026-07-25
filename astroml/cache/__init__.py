@@ -27,6 +27,7 @@ from astroml.cache.redis_cache import (
     get_cache_stats,
     clear_all_caches,
 )
+from astroml.cache.decorators import cache_feature_store
 
 __all__ = [
     "RedisCache",
@@ -36,6 +37,7 @@ __all__ = [
     "cached_feature",
     "cached_prediction",
     "cached_graph_snapshot",
+    "cache_feature_store",
     "invalidate_cache",
     "get_cache_stats",
     "clear_all_caches",

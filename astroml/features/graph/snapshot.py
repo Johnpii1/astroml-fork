@@ -51,7 +51,14 @@ def window_snapshot(
     if start_ts > end_ts:
         raise ValueError("start_ts must be <= end_ts")
 
-    sorted_edges = list(edges) if presorted else _ensure_sorted_by_ts(edges)
+    # Issue #546 — skip the defensive copy when the caller already handed us
+    # a list; `list(edges)` on an already-materialised list still allocates
+    # a full second copy, which is pure overhead at graph sizes where memory
+    # is the concern in the first place.
+    if presorted:
+        sorted_edges = edges if isinstance(edges, list) else list(edges)
+    else:
+        sorted_edges = _ensure_sorted_by_ts(edges)
 
     # Build an array of timestamps for bisect, referencing the same order.
     ts = [e.timestamp for e in sorted_edges]
@@ -272,6 +279,11 @@ def _build_snapshot_window(
             nodes.add(edge.src)
             nodes.add(edge.dst)
 
+        # Issue #546 — drop the SQLAlchemy result/cursor buffers before
+        # allocating the returned SnapshotWindow so the two aren't briefly
+        # alive together at peak.
+        del result
+
         return SnapshotWindow(
             index=index,
             start=window_start,
@@ -417,6 +429,8 @@ def iter_db_snapshots(
             edges.append(edge)
             nodes.add(edge.src)
             nodes.add(edge.dst)
+
+        del result  # Issue #546 — drop cursor buffers before the next window.
 
         yield SnapshotWindow(
             index=index,
