@@ -8,6 +8,10 @@ version = "0.1.0"
 description = "Dynamic graph ML framework for the Stellar network"
 requires-python = ">=3.10"
 
+[project.entry-points."astroml.feature_computers"]
+frequency = "astroml.features.frequency"
+structural = "astroml.features.structural_importance"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["astroml*"]
