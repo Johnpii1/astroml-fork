@@ -28,6 +28,9 @@ from api.routers.cost import router as cost_router
 from api.routers.llm_usage import router as llm_usage_router
 from api.routers.llm_cache_metrics import router as llm_cache_metrics_router
 from api.routers.llm import router as llm_router
+from api.routers.llm_metrics import router as llm_metrics_router
+from api.routers.search import router as search_router
+from api.routers.stream import router as stream_router
 from api.routers.llm_health import router as llm_health_router
 from api.routers.reports import router as reports_router
 from api.routers.alerts import router as alerts_router
@@ -63,6 +66,9 @@ __all__ = [
     "cost_router",
     "llm_usage_router",
     "llm_router",
+    "llm_metrics_router",
+    "search_router",
+    "stream_router",
     "llm_health_router",
     "reports_router",
     "alerts_router",

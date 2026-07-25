@@ -64,6 +64,9 @@ from api.routers import (
     llm_usage_router,
     llm_cache_metrics_router,
     llm_router,
+    llm_metrics_router,
+    search_router,
+    stream_router,
     reports_router,
     alerts_router,
     query_router,
@@ -207,6 +210,9 @@ app.include_router(llm_usage_router)
 app.include_router(llm_cache_metrics_router)
 app.include_router(voice_router)
 app.include_router(llm_router)
+app.include_router(llm_metrics_router)
+app.include_router(search_router)
+app.include_router(stream_router)
 app.include_router(llm_health_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
