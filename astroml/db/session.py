@@ -10,13 +10,17 @@ from __future__ import annotations
 import os
 import pathlib
 from functools import lru_cache
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard
+    from astroml.db.pool_health import PoolStats
+    from astroml.observability.health import CheckResult
 
 
 class DatabaseConfig(BaseModel):
@@ -176,3 +180,22 @@ def get_session() -> Session:
     """Return a new SQLAlchemy session."""
     factory = sessionmaker(bind=get_engine())
     return factory()
+
+
+def get_pool_stats() -> "PoolStats":
+    """Return a snapshot of the shared engine's connection pool (#550)."""
+    from astroml.db.pool_health import collect_pool_stats
+
+    return collect_pool_stats(get_engine())
+
+
+def check_connection_pool() -> "CheckResult":
+    """Evaluate connection pool health for the shared engine (#550).
+
+    Returns:
+        A ``CheckResult`` named ``"db_pool"`` — ``DEGRADED`` once utilization
+        reaches 80% of capacity, ``FAIL`` when the pool is exhausted.
+    """
+    from astroml.db.pool_health import check_pool
+
+    return check_pool(get_engine())

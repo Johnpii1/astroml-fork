@@ -25,7 +25,6 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from api.auth.middleware import AuthMiddleware
 from api.audit_middleware import AuditLoggingMiddleware
@@ -87,7 +86,10 @@ from api.routers.ws import poll_and_broadcast_transactions
 from api.websocket.llm import router as ws_llm_router
 from astroml.llm import metrics as _llm_metrics
 from api.routers import health
+from api.routers import healthz
 from api.routers import admin
+from astroml.observability.health import readiness_state
+from astroml.observability.metrics import observe_http_request, render_latest
 
 from strawberry.fastapi import GraphQLRouter
 from api.graphql.schema import schema
@@ -140,7 +142,13 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
         except Exception:  # noqa: BLE001
             poll_task = None
 
+    # Startup finished — startup/readiness probes may now pass (issue #569).
+    readiness_state.mark_started()
+
     yield
+
+    # Drain traffic before dependencies are torn down.
+    readiness_state.set_ready(False, "Application is shutting down.")
 
     try:
         from astroml.api.scheduler import stop_scheduler  # noqa: PLC0415
@@ -176,12 +184,28 @@ app.add_middleware(
 )
 
 
+def _route_template(request: Request) -> str:
+    """Return the matched route path (not the raw URL) to bound cardinality."""
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    return path if isinstance(path, str) else request.url.path
+
+
 @app.middleware("http")
 async def _latency_middleware(request: Request, call_next):
     start = time.perf_counter()
-    response = await call_next(request)
-    record_latency((time.perf_counter() - start) * 1000)
-    return response
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed = time.perf_counter() - start
+        record_latency(elapsed * 1000)
+        # Prometheus HTTP latency + request count (issue #567).
+        observe_http_request(
+            request.method, _route_template(request), status_code, elapsed
+        )
 
 
 # Include all routers from both branches
@@ -228,6 +252,7 @@ app.include_router(reports_router)
 app.include_router(alerts_router)
 # HEAD branch routers (health, admin, GraphQL)
 app.include_router(health.router)
+app.include_router(healthz.router)
 app.include_router(admin.router)
 app.include_router(graphql_app, prefix="/graphql")
 # upstream/main branch routers
@@ -250,7 +275,24 @@ async def health():
 
 @app.get("/metrics", tags=["ops"])
 async def prometheus_metrics():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    """Prometheus exposition endpoint (issue #567)."""
+    _refresh_pool_gauges()
+    body, content_type = render_latest()
+    return Response(body, media_type=content_type)
+
+
+def _refresh_pool_gauges() -> None:
+    """Sample DB pool counters into the gauges just before a scrape (#550)."""
+    try:
+        from api.database import get_async_engine  # noqa: PLC0415
+        from astroml.db.pool_health import collect_pool_stats  # noqa: PLC0415
+        from astroml.observability.metrics import (  # noqa: PLC0415
+            update_db_pool_metrics,
+        )
+
+        update_db_pool_metrics(collect_pool_stats(get_async_engine()))
+    except Exception:  # noqa: BLE001 - a scrape must never 500
+        pass
 
 
 @app.get("/api/v1", tags=["ops"])
