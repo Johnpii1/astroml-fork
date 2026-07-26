@@ -53,6 +53,9 @@ dependency-tree:
 run-api:
 	uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload
 
+validate-config:
+	python -c "from main import validate_config; r = validate_config(); print(f'Valid: {r[\"valid\"]}'); [print(f'  ERROR: {e}') for e in r['errors']]"
+
 install:
 	pip install -e ".[dev]"
 
