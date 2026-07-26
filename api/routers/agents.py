@@ -77,7 +77,7 @@ async def run_agent(
             metadata={"task_id": task_id, **body.metadata},
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid request") from exc
 
     task_record = AgentTaskResponse(
         task_id=task_id,

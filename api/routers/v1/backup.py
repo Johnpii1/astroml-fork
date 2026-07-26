@@ -124,7 +124,7 @@ async def create_backup(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Backup creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Backup creation failed")
 
 
 @router.get("/list", response_model=BackupListResponse)
@@ -160,7 +160,7 @@ async def list_backups(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list backups: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to list backups")
 
 
 @router.delete("/{backup_id}")
@@ -181,7 +181,7 @@ async def delete_backup(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete backup: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete backup")
 
 
 @router.post("/restore", response_model=RestoreResponse)
@@ -228,7 +228,7 @@ async def restore_backup(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Restore failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Restore failed")
 
 
 @router.post("/retention/apply")
@@ -247,7 +247,7 @@ async def apply_retention_policy(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to apply retention policy: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to apply retention policy")
 
 
 @router.post("/verify/{backup_id}")
@@ -282,7 +282,7 @@ async def verify_backup(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Verification failed")
 
 
 @router.post("/download/{backup_id}")
@@ -304,4 +304,4 @@ async def download_from_cloud(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Download failed")

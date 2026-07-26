@@ -64,7 +64,7 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
         from fastapi import HTTPException
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database not ready: {str(e)}",
+            detail="Database not ready",
         )
 
 

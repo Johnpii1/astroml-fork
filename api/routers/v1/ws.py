@@ -129,7 +129,7 @@ async def _handle_llm_chat(websocket: WebSocket, client):
         except Exception as e:
             await ws_manager.send_json(client, {
                 "type": "error",
-                "error": str(e)
+                "error": "An error occurred"
             })
 
 

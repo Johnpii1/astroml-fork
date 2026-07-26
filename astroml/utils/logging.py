@@ -126,8 +126,15 @@ class correlation_id:
             _correlation_id.reset(self.token)
 
 
+def sanitize_log_value(value: str, max_length: int = 1000) -> str:
+    s = str(value).replace("\r", "").replace("\n", "")
+    if len(s) > max_length:
+        s = s[:max_length] + "..."
+    return s
+
+
 __all__ = [
     "configure_logging", "set_correlation_id", "get_correlation_id",
     "clear_correlation_id", "set_module_log_level", "get_module_log_level",
-    "configure_module_levels_from_env", "correlation_id",
+    "configure_module_levels_from_env", "correlation_id", "sanitize_log_value",
 ]

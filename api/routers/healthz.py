@@ -104,7 +104,7 @@ async def _with_timeout(
         return CheckResult(
             name=name,
             status=HealthStatus.FAIL,
-            details={"error": str(exc), "error_type": type(exc).__name__},
+            details={"error_type": type(exc).__name__},
             remediation=f"The {name} check raised an unexpected error: {exc}",
             duration_ms=(time.perf_counter() - started) * 1000,
         )
@@ -129,7 +129,7 @@ async def check_database() -> CheckResult:
         return CheckResult(
             name="db",
             status=HealthStatus.FAIL,
-            details={"error": str(exc), "error_type": type(exc).__name__},
+            details={"error_type": type(exc).__name__},
             remediation=(
                 "The database is unreachable. Verify DATABASE_URL, that the "
                 "server accepts connections, and that credentials and network "
@@ -201,7 +201,6 @@ async def check_cache() -> CheckResult:
             name="cache",
             status=failure_status,
             details={
-                "error": str(exc),
                 "error_type": type(exc).__name__,
                 "required": CACHE_REQUIRED,
             },

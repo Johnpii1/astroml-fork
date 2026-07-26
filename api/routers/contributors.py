@@ -264,6 +264,9 @@ async def new_contributors(
 @router.get("/{username}", response_model=ContributorOut)
 async def get_contributor(username: str):
     """Single contributor profile with badges."""
+    import re
+    if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,38}[a-zA-Z0-9])?$', username):
+        raise HTTPException(status_code=400, detail="Invalid GitHub username format")
     cache_key = f"contributor:{username}:{REPO_OWNER}/{REPO_NAME}"
     cached = _cached(cache_key)
     if cached is not None:

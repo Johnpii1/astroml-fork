@@ -26,7 +26,7 @@ def complete_step(github_username: str, body: OnboardingStepIn):
     try:
         progress = _tracker.complete_step(github_username, body.step)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail="Validation error") from exc
     return _to_out(progress)
 
 

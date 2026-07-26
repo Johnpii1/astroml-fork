@@ -141,10 +141,14 @@ def create_model(body: ModelRegistryIn, db: Session = Depends(get_sync_db)):
             raise HTTPException(status_code=404, detail="Parent model not found")
     
     version = body.version or f"{body.name}_v{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-    dest_dir = MODEL_STORE_PATH / body.name / version
+    name_safe = Path(body.name).name
+    dest_dir = MODEL_STORE_PATH / name_safe / version
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    src = Path(body.path)
+    src = Path(body.path).resolve()
+    allowed = MODEL_STORE_PATH.resolve()
+    if not str(src).startswith(str(allowed)):
+        raise HTTPException(status_code=400, detail="Invalid model path")
     if src.exists():
         dest = dest_dir / src.name
         shutil.copy2(src, dest)
@@ -496,7 +500,7 @@ def rollback_model_version(
                 "reason": reason,
             }
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail="Invalid request")
 
 
 @router.post("/{model_id}/ab-test")
@@ -526,7 +530,7 @@ def create_ab_test(
             )
             return {"status": "success", "ab_test": ab_config}
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail="Invalid request")
 
 
 @router.get("/{model_id}/ab-test/{ab_test_id}/results")

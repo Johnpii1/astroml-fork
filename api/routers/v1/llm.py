@@ -91,7 +91,7 @@ async def generate_completion(
             metadata=body.metadata,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid request") from exc
 
     return GenerateResponse(
         id=result["id"],
@@ -129,7 +129,7 @@ async def generate_stream(
                 yield f"data: {data}\n\n"
             yield "data: [DONE]\n\n"
         except ValueError as exc:
-            err = json.dumps({"error": str(exc)})
+            err = json.dumps({"error": "Invalid request"})
             yield f"data: {err}\n\n"
 
     return StreamingResponse(
@@ -186,7 +186,7 @@ async def chat_completion(
             idempotency_key=body.idempotency_key,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid request") from exc
 
     return ChatResponse(
         id=result["id"],
@@ -313,7 +313,7 @@ async def websocket_chat(
                     await websocket.send_json({"delta": chunk, "finish_reason": None})
                 await websocket.send_json({"delta": "", "finish_reason": "stop"})
             except ValueError as exc:
-                await websocket.send_json({"error": str(exc)})
+                await websocket.send_json({"error": "Invalid request"})
 
     except WebSocketDisconnect:
         logger.debug("WebSocket chat client disconnected")
@@ -346,7 +346,7 @@ async def websocket_stream(
                     await websocket.send_json({"delta": chunk, "finish_reason": None})
                 await websocket.send_json({"delta": "", "finish_reason": "stop"})
             except ValueError as exc:
-                await websocket.send_json({"error": str(exc)})
+                await websocket.send_json({"error": "Invalid request"})
     except WebSocketDisconnect:
         logger.debug("WebSocket stream client disconnected")
 import hashlib
@@ -486,21 +486,21 @@ async def suggest_query(q: str, max_results: int = 5, auth: AuthContext = Depend
     try:
         return suggest_service.suggest(q, max_results)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/search", response_model=SearchResponse)
 async def semantic_search(request: SearchRequest, auth: AuthContext = Depends(get_current_auth)):
     try:
         return await search_service.search(request)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/costs/dashboard", response_model=CostDashboardResponse)
 async def get_cost_dashboard(auth: AuthContext = Depends(get_current_auth)):
     try:
         return cost_service.get_dashboard()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/explain", response_model=ExplainResponse)
 async def explain_transaction(
@@ -538,7 +538,7 @@ async def explain_transaction(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 class QueryRequest(BaseModel):
     query: str
@@ -582,7 +582,7 @@ async def translate_query(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
         await log_llm_interaction(
@@ -597,7 +597,7 @@ async def translate_query(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 class ContextRequest(BaseModel):
     edges: List[Dict[str, Any]] = []
@@ -652,7 +652,7 @@ async def get_multimodal_context(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 class ValidateRequest(BaseModel):
     raw_response: Dict[str, Any]
@@ -699,7 +699,7 @@ async def validate_response(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
         await log_llm_interaction(
@@ -714,7 +714,7 @@ async def validate_response(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class AskRequest(BaseModel):
@@ -776,7 +776,7 @@ async def ask_question(
             error_message=str(e),
             latency_ms=latency_ms,
         )
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class StreamRequest(BaseModel):
@@ -979,9 +979,9 @@ async def translate_text(
         )
         return TranslationResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/translate/batch", response_model=BatchTranslationResponse)
@@ -1003,9 +1003,9 @@ async def translate_batch(
             total_latency_ms=total_latency,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class LocaleFormatRequest(BaseModel):
@@ -1040,9 +1040,9 @@ async def format_locale(
             format_type=request.format_type,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 class TranslationCacheStatsResponse(BaseModel):

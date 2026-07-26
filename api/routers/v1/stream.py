@@ -66,7 +66,7 @@ async def ws_stream(websocket: WebSocket):
         pass
     except Exception as e:
         try:
-            await websocket.send_json({"event": "error", "message": str(e)})
+            await websocket.send_json({"event": "error", "message": "An error occurred"})
         except:
             pass
     finally:

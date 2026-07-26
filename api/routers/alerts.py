@@ -180,7 +180,7 @@ def generate_alert_explanations(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate explanations: {str(e)}"
+            detail="Failed to generate explanations"
         )
 
 

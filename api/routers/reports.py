@@ -55,4 +55,4 @@ async def generate_report(
             )
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate report: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate report")

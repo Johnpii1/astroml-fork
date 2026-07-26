@@ -140,7 +140,7 @@ async def stream_llm_response(
     try:
         await check_budget(db, user_id, routed_model)
     except Exception as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail="Access denied")
         
     async def sse_generator():
         handler = StreamHandler(session_id=f"sse_{user_id}_{int(time.time())}")

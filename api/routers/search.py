@@ -36,7 +36,7 @@ def search(
             ]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/autocomplete")
 def autocomplete(q: str = Query(..., min_length=1)):
@@ -55,4 +55,4 @@ def reindex():
         indexer.rebuild_index()
         return {"status": "success", "indexed_count": len(indexer.documents)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

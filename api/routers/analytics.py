@@ -41,4 +41,4 @@ def ask_blockchain_question(request: QARequest, service: BlockchainRAGSystem = D
         response = service.answer_question(request.query, request.session_id)
         return response
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")

@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
+from astroml.utils.logging import sanitize_log_value
 
 logger = logging.getLogger("astroml.frontend_errors")
 
@@ -70,14 +71,13 @@ async def report_error(report: FrontendErrorReport, request: Request) -> JSONRes
         "Frontend error reported",
         extra={
             "frontend_error": {
-                "message": report.message,
-                "boundary": report.boundary,
-                "url": report.url,
-                "user_agent": report.user_agent,
+                "message": sanitize_log_value(report.message),
+                "boundary": sanitize_log_value(report.boundary),
+                "url": sanitize_log_value(report.url),
+                "user_agent": sanitize_log_value(report.user_agent),
                 "timestamp": report.timestamp or datetime.now(timezone.utc).isoformat(),
-                "client_ip": client_ip,
-                # Truncate stacks in the structured log to keep it readable
-                "stack_preview": (report.stack or "")[:500] or None,
+                "client_ip": sanitize_log_value(client_ip),
+                "stack_preview": sanitize_log_value((report.stack or "")[:500] or ""),
                 "extra": report.extra,
             }
         },

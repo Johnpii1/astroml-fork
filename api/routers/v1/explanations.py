@@ -63,7 +63,7 @@ async def explain(
     try:
         result = await service.generate(prompt=prompt, model=body.model, user_id=user_id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid request") from exc
 
     return ExplainResponse(
         id=result["id"],

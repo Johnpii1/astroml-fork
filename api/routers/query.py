@@ -54,7 +54,7 @@ async def nl_query(
     try:
         result = await service.generate(prompt=prompt, model=body.model, user_id=user_id)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid request") from exc
 
     return NLQueryResponse(
         id=result["id"],
@@ -121,7 +121,7 @@ async def post_natural_query(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Budget exceeded or model access denied: {str(e)}"
+            detail="Budget exceeded or model access denied"
         )
         
     start_time = 0.0
@@ -140,7 +140,7 @@ async def post_natural_query(
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Database query execution failed: {str(e)}"
+                detail="Database query execution failed"
             )
     elif body.mode == "pipeline":
         # Translate to ML Pipeline YAML configuration
