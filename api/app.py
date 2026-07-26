@@ -32,6 +32,8 @@ from api.config import settings
 from api.database import get_async_session_factory
 from api.tracing import setup_tracing
 from api.validation_middleware import ValidationMiddleware
+from api.versioning import VersionMiddleware
+from astroml.utils.logging import set_correlation_id, get_correlation_id, clear_correlation_id
 from api.routers import (
     accounts_router,
     audit_router,
@@ -172,6 +174,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(VersionMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(ValidationMiddleware)
 app.add_middleware(AuditLoggingMiddleware)
@@ -189,6 +192,16 @@ def _route_template(request: Request) -> str:
     route = request.scope.get("route")
     path = getattr(route, "path", None)
     return path if isinstance(path, str) else request.url.path
+
+
+@app.middleware("http")
+async def _correlation_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Request-ID")
+    set_correlation_id(correlation_id)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = get_correlation_id() or ""
+    clear_correlation_id()
+    return response
 
 
 @app.middleware("http")

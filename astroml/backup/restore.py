@@ -173,7 +173,11 @@ class RestoreService:
             logger.error(f"Backup file not found: {backup_file}")
             return False
 
-        target_path = Path(target_dir or self.config.model_artifacts_dir)
+        base_allowed = Path(self.config.model_artifacts_dir).resolve()
+        target_path = (Path(target_dir or self.config.model_artifacts_dir)).resolve()
+        if not str(target_path).startswith(str(base_allowed)):
+            logger.error(f"Invalid target directory: {target_dir}")
+            return False
         target_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Restoring model artifacts from backup: {backup_id}")
@@ -181,6 +185,10 @@ class RestoreService:
         try:
             # Extract tar.gz archive
             with tarfile.open(backup_file, "r:gz") as tar:
+                for member in tar.getmembers():
+                    member_path = Path(member.name).resolve()
+                    if not str(member_path).startswith(str(target_path)):
+                        raise ValueError(f"Invalid archive member path: {member.name}")
                 tar.extractall(path=target_path)
 
             logger.info(f"Model artifacts restored successfully from backup: {backup_id}")
