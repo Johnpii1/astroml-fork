@@ -130,6 +130,23 @@ async def _resolved(result: CheckResult) -> CheckResult:
     return result
 
 
+class _FakeSession:
+    """Minimal async session that answers ``SELECT 1``."""
+
+    async def execute(self, _statement: Any) -> None:
+        return None
+
+    async def __aenter__(self) -> "_FakeSession":
+        return self
+
+    async def __aexit__(self, *_exc: Any) -> None:
+        return None
+
+
+def _FakeSessionFactory() -> _FakeSession:  # noqa: N802 - mimics a factory call
+    return _FakeSession()
+
+
 class TestLiveness:
     def test_live_is_always_ok(self, client: TestClient) -> None:
         response = client.get("/healthz/live")
@@ -426,3 +443,100 @@ class TestDatabaseCheckImplementation:
 
         assert result.status is HealthStatus.OK
         assert result.details["latency_ms"] == 1.5
+
+    def test_cache_required_turns_outage_into_failure(
+        self, healthz_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def _boom(_url: str) -> float:
+            raise ConnectionError("refused")
+
+        monkeypatch.setattr(healthz_module, "_ping_redis", _boom)
+        monkeypatch.setattr(healthz_module, "CACHE_REQUIRED", True)
+
+        result = asyncio.run(healthz_module.check_cache())
+
+        assert result.status is HealthStatus.FAIL
+        assert result.details["required"] is True
+
+    def test_successful_query_folds_in_pool_status(
+        self, healthz_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            healthz_module, "get_async_session_factory", lambda: _FakeSessionFactory
+        )
+        monkeypatch.setattr(
+            healthz_module,
+            "_pool_check",
+            lambda: CheckResult(
+                name="db_pool",
+                status=HealthStatus.DEGRADED,
+                details=PoolStats(10, 2, 17, 7, 10, "QueuePool").to_dict(),
+                remediation="Raise DB_POOL_MAX_SIZE.",
+            ),
+        )
+
+        result = asyncio.run(healthz_module.check_database())
+
+        assert result.status is HealthStatus.DEGRADED
+        assert result.details["query"] == "SELECT 1"
+        assert result.details["pool"]["saturated"] is True
+        assert result.remediation == "Raise DB_POOL_MAX_SIZE."
+
+    def test_pool_check_publishes_prometheus_gauges(
+        self, healthz_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from prometheus_client import REGISTRY
+
+        class _Pool:
+            def size(self) -> int:
+                return 4
+
+            def checkedin(self) -> int:
+                return 3
+
+            def checkedout(self) -> int:
+                return 1
+
+            def overflow(self) -> int:
+                return -4
+
+        class _Engine:
+            pool = _Pool()
+
+        monkeypatch.setattr(healthz_module, "get_async_engine", lambda: _Engine())
+
+        result = healthz_module._pool_check()
+
+        assert result.status is HealthStatus.OK
+        assert (
+            REGISTRY.get_sample_value(
+                "db_pool_size", {"pool": "default", "state": "in_use"}
+            )
+            == 1
+        )
+
+    def test_ping_redis_uses_client_and_closes_it(
+        self, healthz_module: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import sys
+        import types
+
+        closed: list[bool] = []
+
+        class _Client:
+            def ping(self) -> bool:
+                return True
+
+            def close(self) -> None:
+                closed.append(True)
+
+        fake_redis = types.ModuleType("redis")
+        fake_redis.Redis = types.SimpleNamespace(  # type: ignore[attr-defined]
+            from_url=lambda url, **kwargs: _Client()
+        )
+        monkeypatch.setitem(sys.modules, "redis", fake_redis)
+
+        latency_ms = healthz_module._ping_redis("redis://localhost:6379/0")
+
+        assert latency_ms >= 0.0
+        assert closed == [True]
