@@ -149,31 +149,43 @@ class IngestionService:
         fetch = fetch_fn or (lambda ledger_id: {"ledger": ledger_id})
         process = process_fn or (lambda ledger_id, payload: None)
 
+        from astroml.observability.metrics import track_active_job
+
         pending_flush = 0
         try:
-            for offset, ledger_id in enumerate(range(start_ledger, end_ledger + 1), start=1):
-                if ledger_id in processed_set:
-                    yield ledger_id, LedgerOutcome(ledger_id=ledger_id, status="skipped")
-                else:
-                    payload = fetch(ledger_id)
-                    process(ledger_id, payload)
-                    processed_set.add(ledger_id)
-                    state.last_processed_ledger = (
-                        ledger_id
-                        if state.last_processed_ledger is None
-                        else max(state.last_processed_ledger, ledger_id)
-                    )
-                    pending_flush += 1
-                    if pending_flush >= batch_size:
-                        self.state.save(state)
-                        pending_flush = 0
-                    yield ledger_id, LedgerOutcome(ledger_id=ledger_id, status="processed")
+            # Active ingestion jobs gauge (issue #567). Entering the context
+            # here keeps the gauge balanced even if the caller abandons the
+            # generator partway through — GeneratorExit unwinds this `with`.
+            with track_active_job("ingestion"):
+                for offset, ledger_id in enumerate(
+                    range(start_ledger, end_ledger + 1), start=1
+                ):
+                    if ledger_id in processed_set:
+                        yield ledger_id, LedgerOutcome(
+                            ledger_id=ledger_id, status="skipped"
+                        )
+                    else:
+                        payload = fetch(ledger_id)
+                        process(ledger_id, payload)
+                        processed_set.add(ledger_id)
+                        state.last_processed_ledger = (
+                            ledger_id
+                            if state.last_processed_ledger is None
+                            else max(state.last_processed_ledger, ledger_id)
+                        )
+                        pending_flush += 1
+                        if pending_flush >= batch_size:
+                            self.state.save(state)
+                            pending_flush = 0
+                        yield ledger_id, LedgerOutcome(
+                            ledger_id=ledger_id, status="processed"
+                        )
 
-                if offset % batch_size == 0:
-                    logger.info(
-                        "ingest_stream progress: %d/%d ledgers (up to %d)",
-                        offset, end_ledger - start_ledger + 1, ledger_id,
-                    )
+                    if offset % batch_size == 0:
+                        logger.info(
+                            "ingest_stream progress: %d/%d ledgers (up to %d)",
+                            offset, end_ledger - start_ledger + 1, ledger_id,
+                        )
         finally:
             if pending_flush:
                 self.state.save(state)
