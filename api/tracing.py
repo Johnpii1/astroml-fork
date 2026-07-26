@@ -1,6 +1,7 @@
 """OpenTelemetry distributed tracing setup (issue #336)."""
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from typing import Optional
 
@@ -14,57 +15,68 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 
 from api.config import settings
 
+_TRACE_PROVIDER: Optional[TracerProvider] = None
+
+
+def _build_resource() -> Resource:
+    """Build the OpenTelemetry resource for the API service."""
+    return Resource.create(
+        {
+            SERVICE_NAME: settings.service_name,
+            "service.version": settings.api_version,
+            "deployment.environment": os.environ.get("ENV", "development"),
+        }
+    )
+
 
 def setup_tracing() -> Optional[TracerProvider]:
     """Initialize OpenTelemetry tracing with the configured exporter."""
+    global _TRACE_PROVIDER
     if not settings.tracing_enabled:
         return None
 
-    # Create resource with service name
-    resource = Resource.create({
-        SERVICE_NAME: settings.service_name,
-        "service.version": settings.api_version,
-    })
+    if _TRACE_PROVIDER is not None:
+        return _TRACE_PROVIDER
 
-    # Create tracer provider
-    provider = TracerProvider(resource=resource)
+    provider = TracerProvider(resource=_build_resource())
 
-    # Configure exporter based on settings
     if settings.tracing_exporter == "jaeger":
         from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+
         exporter = JaegerExporter(
             agent_host_name=settings.jaeger_agent_host,
             agent_port=settings.jaeger_agent_port,
         )
     elif settings.tracing_exporter == "zipkin":
         from opentelemetry.exporter.zipkin.proto.http import ZipkinExporter
+
         exporter = ZipkinExporter(
             endpoint=settings.zipkin_endpoint,
         )
-    else:  # console
+    else:
         exporter = ConsoleSpanExporter()
 
-    # Add batch span processor with sampling
     processor = BatchSpanProcessor(exporter)
     provider.add_span_processor(processor)
 
-    # Set global tracer provider
-    trace.set_tracer_provider(provider)
+    try:
+        trace.set_tracer_provider(provider)
+    except Exception:  # noqa: BLE001
+        # The global provider may already be set in test or reload scenarios.
+        pass
 
-    # Instrument FastAPI
     FastAPIInstrumentor().instrument(
         tracer_provider=provider,
         excluded_urls="/health,/docs,/openapi.json",
     )
 
-    # Instrument HTTPX
     HTTPXClientInstrumentor().instrument(
         tracer_provider=provider,
     )
 
-    # Instrument SQLAlchemy
     try:
         from api.database import _async_engine, _sync_engine
+
         SQLAlchemyInstrumentor().instrument(
             engine=_sync_engine(),
             tracer_provider=provider,
@@ -77,6 +89,7 @@ def setup_tracing() -> Optional[TracerProvider]:
         # Engines might not be initialized yet
         pass
 
+    _TRACE_PROVIDER = provider
     return provider
 
 
