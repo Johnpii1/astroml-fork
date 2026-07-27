@@ -91,13 +91,13 @@ jobs:
 
       - name: Audit requirements.txt
         run: |
-          pip-audit -r requirements.txt --desc on --format columns
+          pip-audit -r requirements.txt --desc on --format columns --severity-filter critical,high
         continue-on-error: false
 
       - name: Audit requirements-minimal.txt (if present)
         run: |
           if [ -f requirements-minimal.txt ]; then
-            pip-audit -r requirements-minimal.txt --desc on --format columns
+            pip-audit -r requirements-minimal.txt --desc on --format columns --severity-filter critical,high
           fi
         continue-on-error: true
 

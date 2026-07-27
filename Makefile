@@ -1,4 +1,4 @@
-.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan
+.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan security-audit secrets-scan
 
 help:
 	@echo "AstroML Development Commands"
@@ -22,6 +22,8 @@ help:
 	@echo "make llm-cost-check       Check LLM cost against baseline"
 	@echo "make llm-validate-prompts Validate all prompt templates"
 	@echo "make llm-safety-scan      Run LLM safety scan"
+	@echo "make security-audit       Run pip-audit to check for vulnerable dependencies"
+	@echo "make secrets-scan         Run detect-secrets to scan for leaked credentials"
 	@echo ""
 
 quickstart:
@@ -132,3 +134,13 @@ llm-validate-prompts:
 llm-safety-scan:
 	@echo "🔒 Running LLM safety scan..."
 	bash scripts/ci/safety-scan.sh
+
+.PHONY: security-audit
+security-audit:
+	@echo "🔒 Running pip-audit to check for vulnerable dependencies..."
+	pip-audit --fix --require-hashes
+
+.PHONY: secrets-scan
+secrets-scan:
+	@echo "🔍 Running detect-secrets to scan for leaked credentials..."
+	detect-secrets scan --baseline .secrets.baseline
