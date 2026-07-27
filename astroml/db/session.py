@@ -7,6 +7,7 @@ Resolves the database URL from (in priority order):
 """
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 from functools import lru_cache
@@ -21,6 +22,8 @@ from sqlalchemy.orm import Session, sessionmaker
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard
     from astroml.db.pool_health import PoolStats
     from astroml.observability.health import CheckResult
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConfig(BaseModel):
@@ -157,7 +160,7 @@ def get_engine() -> Engine:
     """Return a cached SQLAlchemy engine."""
     try:
         config = load_database_config()
-        return create_engine(
+        engine = create_engine(
             resolve_database_url(), 
             pool_pre_ping=True,
             pool_size=config.pool_size,
@@ -166,7 +169,7 @@ def get_engine() -> Engine:
             pool_recycle=config.pool_recycle
         )
     except Exception:
-        return create_engine(
+        engine = create_engine(
             resolve_database_url(), 
             pool_pre_ping=True,
             pool_size=10,
@@ -174,6 +177,33 @@ def get_engine() -> Engine:
             pool_timeout=30,
             pool_recycle=1800
         )
+    
+    # Enable query profiling in debug mode
+    _enable_query_profiling_if_debug(engine)
+    
+    return engine
+
+
+def _enable_query_profiling_if_debug(engine: Engine) -> None:
+    """Enable query profiling if ASTROML_DEBUG is set.
+    
+    Args:
+        engine: SQLAlchemy engine to profile
+    """
+    if os.environ.get("ASTROML_DEBUG", "").lower() in ("true", "1", "yes"):
+        try:
+            from astroml.db.query_profiler import configure_query_logging
+            
+            configure_query_logging(
+                log_level="DEBUG",
+                enable_profiling=True,
+                slow_query_threshold_ms=int(
+                    os.environ.get("ASTROML_SLOW_QUERY_THRESHOLD_MS", "100")
+                )
+            )
+            logger.info("Query profiling enabled in debug mode")
+        except ImportError:
+            logger.warning("Query profiler module not available")
 
 
 def get_session() -> Session:

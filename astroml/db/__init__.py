@@ -5,6 +5,7 @@ Architecture:
 - repositories.py: Repository pattern for data access
 - unit_of_work.py: Transaction management via Unit of Work
 - session.py: Database session factory and configuration
+- query_profiler.py: Query profiling and slow query detection
 - migrations/: Alembic migration scripts
 """
 from astroml.db.models import Account, Asset, Base, Effect, Experiment, ExperimentResult, GoldenDataset, GoldenDatasetEntry, GraphAccount, GraphClaimDetail, GraphEdge, GraphPaymentDetail, GraphTransactionDetail, Ledger, DbModel, ModelVersion, NormalizedTransaction, Operation, ProcessedLedger, Transaction, Variant
