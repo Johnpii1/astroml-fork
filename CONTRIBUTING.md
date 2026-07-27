@@ -1,16 +1,15 @@
 # Contributing to AstroML
 
-Thank you for your interest in contributing to AstroML! This document provides guidelines and instructions for contributing code, documentation, and research to the project.
+Thank you for your interest in contributing to AstroML! This document provides the workflow and expectations for contributing code, documentation, and research to the project.
 
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
-- [Research to Production Workflow](#research-to-production-workflow)
 - [Development Setup](#development-setup)
-- [Code Standards](#code-standards)
+- [Code Style and Quality](#code-style-and-quality)
 - [Testing Requirements](#testing-requirements)
-- [PR Process](#pr-process)
+- [Pull Request Process](#pull-request-process)
 - [Documentation](#documentation)
 - [Questions & Support](#questions--support)
 
@@ -55,59 +54,6 @@ See [Development Setup](#development-setup) section below.
 
 ---
 
-## Research to Production Workflow
-
-AstroML follows a clear data pipeline model that moves research from exploration to production. Understanding this workflow is essential for contributing effectively.
-
-### The Data Pipeline
-
-```
-Ledger Data
-    ↓
-Ingestion & Normalization
-    ↓
-Graph Construction
-    ↓
-Feature Engineering
-    ↓
-Model Training & Evaluation
-    ↓
-Experimentation & Deployment
-```
-
-### Component Breakdown
-
-| Stage | Module | Purpose | Examples |
-|-------|--------|---------|----------|
-| **Ingestion** | `astroml.ingestion` | Fetch ledgers from Stellar Horizon | `backfill`, `enhanced_stream` |
-| **Normalization** | `astroml.ingestion` | Validate & deduplicate data | Duplicate removal, type conversion |
-| **Graph Building** | `astroml.graph` | Construct transaction graphs | `build_snapshot`, windowing logic |
-| **Features** | `astroml.features` | Extract node/edge features | Asset diversity, temporal decay, node importance |
-| **Models** | `astroml.models` | GNN architectures & embeddings | GCN, GAT, GraphSAGE |
-| **Training** | `astroml.training` | Model training pipelines | Config-driven experiments, checkpoints |
-
-### Contributing to Each Stage
-
-**When adding ingestion logic:**
-- Ensure idempotency (re-runs are safe)
-- Handle database constraints gracefully
-- Test with small ledger ranges first
-- Document config requirements in `config/database.yaml`
-
-**When building graph features:**
-- Test windowing logic thoroughly
-- Ensure reproducibility (random seeds, checksums)
-- Validate against edge cases (empty graphs, single nodes)
-- Add unit tests before integration
-
-**When creating models:**
-- Use config files for hyperparameters (see `configs/`)
-- Store checkpoints with metadata
-- Log metrics consistently
-- Provide examples in `examples/`
-
----
-
 ## Development Setup
 
 ### Prerequisites
@@ -129,14 +75,16 @@ pip install -r requirements.txt
 # 3. (Optional) CPU-only PyTorch
 pip install -r requirements-cpu.txt
 
-# 4. Configure database
-cp config/database.yaml.example config/database.yaml
-# Edit config/database.yaml with your PostgreSQL credentials
+# 4. Install development tools
+pip install -e .[dev]
 
-# 5. Install package in editable mode
-pip install -e .
+# 5. Configure database
+# Create or edit config/database.yaml with your PostgreSQL credentials
 
-# 6. Run tests to verify setup
+# 6. Install pre-commit hooks
+pre-commit install
+
+# 7. Run tests to verify setup
 pytest tests/ -v
 ```
 
@@ -153,7 +101,7 @@ alembic upgrade head
 
 ---
 
-## Code Standards
+## Code Style and Quality
 
 ### Python Style
 
@@ -162,6 +110,7 @@ AstroML follows **PEP 8** with these conventions:
 - **Line length**: 88 characters (Black formatter)
 - **Imports**: Organize as (stdlib, third-party, local)
 - **Docstrings**: Use Google-style docstrings for all public functions/classes
+- **Type hints**: Required for all new function signatures and return values
 
 #### Example:
 
@@ -203,6 +152,7 @@ def calculate_node_importance(
 
 - Use type hints for all function parameters and return types
 - Import from `typing` module for complex types
+- Prefer concrete return types over `Any` when possible
 
 ```python
 from typing import List, Dict, Optional, Tuple
@@ -239,6 +189,7 @@ class TransactionGraph:
 - Write comments that explain **why**, not **what**
 - Use docstrings for all public APIs
 - Keep comments concise and up-to-date
+- Update the relevant documentation for user-visible behavior changes
 
 ```python
 # Good: explains reasoning
@@ -261,8 +212,11 @@ count += 1
 # Run all tests
 pytest tests/ -v
 
-# Run specific test file
+# Run a specific test file
 pytest tests/test_schema.py -v
+
+# Run a targeted subset
+pytest tests/ -k "feature or ingestion"
 
 # Run with coverage
 pytest tests/ --cov=astroml --cov-report=html
@@ -319,6 +273,7 @@ Before submitting a PR:
 - [ ] Async functions tested with `@pytest.mark.asyncio`
 - [ ] Integration tests verify database interactions
 - [ ] No hardcoded test data paths (use fixtures)
+- [ ] Coverage remains at or above the project target of 80%
 
 ### Testing Different Stages
 
@@ -331,7 +286,7 @@ Before submitting a PR:
 
 ---
 
-## PR Process
+## Pull Request Process
 
 ### PR Checklist (Copy into your PR description)
 
@@ -357,6 +312,14 @@ Before submitting a PR:
 ```
 
 Every pull request **must** pass all of the following before requesting review.
+
+### Required checks
+
+- [ ] `pytest tests/ -v` passes locally
+- [ ] `ruff check .` passes
+- [ ] `black --check .` passes
+- [ ] `mypy astroml/` passes
+- [ ] The change is documented when it affects user-facing behavior or configuration
 
 #### Tests
 - [ ] `pytest tests/ -v` passes locally with no failures
@@ -431,6 +394,14 @@ Every pull request **must** pass all of the following before requesting review.
 
 **Types**: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `perf`
 
+**Examples of good messages**:
+
+```text
+feat(training): add configurable early stopping
+fix(ingestion): handle duplicate ledger ranges
+docs(security): add vulnerability reporting guidance
+```
+
 **Scope**: `ingestion`, `graph`, `features`, `models`, `training`, `db`
 
 **Examples:**
@@ -490,6 +461,8 @@ Closes #<issue_number>
 - Critical feedback focuses on the code, not the person
 - Contributors should respond to all feedback (even if just acknowledging)
 - Approval requires at least one maintainer sign-off
+- Bug fixes should include a clear reproduction case when feasible
+- New features should include configuration updates or examples when relevant
 
 **What reviewers check:**
 
@@ -572,7 +545,7 @@ print(decay_df.head())
 
 ### Configuration Documentation
 
-Document YAML config fields in docstrings:
+Document YAML config fields in docstrings and update [docs/CONFIGURATION.md](docs/CONFIGURATION.md) when configuration behavior changes:
 
 ```python
 """
@@ -594,7 +567,7 @@ Expected config (config/database.yaml):
 - **Bug reports**: Open an issue on GitHub with reproducible example
 - **Feature requests**: Use GitHub Discussions or open an issue with `[FEATURE]` tag
 - **Questions**: Post in GitHub Discussions or tag with `[QUESTION]`
-- **Security issues**: Email maintainers privately (do not open public issue)
+- **Security issues**: Follow [SECURITY.md](SECURITY.md) and report privately (do not open a public issue)
 
 ### Getting Help
 
