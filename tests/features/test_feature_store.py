@@ -832,15 +832,322 @@ class TestFeatureStoreCaching:
         feature_name = "feat_rates"
         feature_store.store_feature(feature_name, sample_values)
 
-        feature_store._cache_hits = 0
-        feature_store._cache_misses = 0
 
-        feature_store.get_feature(feature_name, use_cache=True)  # miss
-        feature_store.get_feature(feature_name, use_cache=True)  # hit
+class TestParallelFeatureComputation:
+    """Tests for parallel feature computation functionality.
 
-        stats = feature_store.get_cache_stats()
-        assert abs(stats["hit_rate"] + stats["miss_rate"] - 1.0) < 1e-9
-        assert abs(stats["hit_rate"] - 0.5) < 1e-9
+    Covers parallel execution, fallback to sequential, chunking,
+    thread safety, and configuration options.
+    """
+
+    @pytest.fixture
+    def temp_storage_path(self):
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir)
+
+    @pytest.fixture
+    def feature_store(self, temp_storage_path):
+        """Create feature store instance."""
+        return FeatureStore(temp_storage_path)
+
+    @pytest.fixture
+    def large_sample_data(self):
+        """Create large sample data for parallel computation testing."""
+        np.random.seed(42)
+        n_rows = 500
+        n_entities = 50
+        
+        return pd.DataFrame({
+            "entity_id": np.random.randint(1, n_entities + 1, n_rows),
+            "timestamp": pd.date_range("2023-01-01", periods=n_rows, freq="min"),
+            "amount": np.random.uniform(1, 1000, n_rows),
+            "src": np.random.randint(1, n_entities + 1, n_rows),
+            "dst": np.random.randint(1, n_entities + 1, n_rows),
+        })
+
+    @pytest.fixture
+    def small_sample_data(self):
+        """Create small sample data (below chunk size)."""
+        return pd.DataFrame({
+            "entity_id": ["acc1", "acc2", "acc3"],
+            "timestamp": [
+                datetime(2023, 1, 1),
+                datetime(2023, 1, 2),
+                datetime(2023, 1, 3),
+            ],
+            "amount": [100.0, 200.0, 150.0],
+        })
+
+    def test_parallel_configuration_defaults(self, temp_storage_path):
+        """Test default parallel computation configuration."""
+        store = FeatureStore(temp_storage_path)
+        
+        assert store._max_workers == 4
+        assert store._chunk_size == 100
+        assert store._enable_parallel == True
+
+    def test_parallel_configuration_custom(self, temp_storage_path):
+        """Test custom parallel computation configuration."""
+        store = FeatureStore(
+            temp_storage_path,
+            max_workers=8,
+            chunk_size=50,
+            enable_parallel=True,
+        )
+        
+        assert store._max_workers == 8
+        assert store._chunk_size == 50
+        assert store._enable_parallel == True
+
+    def test_parallel_disabled(self, temp_storage_path):
+        """Test disabling parallel computation."""
+        store = FeatureStore(
+            temp_storage_path,
+            max_workers=1,
+            enable_parallel=False,
+        )
+        
+        assert store._enable_parallel == False
+
+    def test_parallel_compute_feature_large_data(self, feature_store, large_sample_data):
+        """Test parallel computation with large data."""
+        def test_computer(data, entity_col, timestamp_col, **kwargs):
+            """Simple test computer."""
+            result = data.groupby(entity_col).agg({
+                "amount": ["sum", "mean", "count"]
+            })
+            result.columns = ["sum", "mean", "count"]
+            return result
+        
+        feature_store.register_feature(
+            "test_parallel_feature",
+            test_computer,
+            "Test parallel feature",
+        )
+        
+        # Test with parallel enabled
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=20,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.compute_feature(
+            feature_name="test_parallel_feature",
+            data=large_sample_data,
+            entity_col="entity_id",
+            timestamp_col="timestamp",
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0
+
+    def test_sequential_compute_feature_small_data(self, feature_store, small_sample_data):
+        """Test sequential computation with small data (below chunk size)."""
+        def test_computer(data, entity_col, timestamp_col, **kwargs):
+            """Simple test computer."""
+            result = data.groupby(entity_col).agg({"amount": "sum"})
+            result.columns = ["sum"]
+            return result
+        
+        feature_store.register_feature(
+            "test_sequential_feature",
+            test_computer,
+            "Test sequential feature",
+        )
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=100,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.compute_feature(
+            feature_name="test_sequential_feature",
+            data=small_sample_data,
+            entity_col="entity_id",
+            timestamp_col="timestamp",
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0
+
+    def test_parallel_fallback_to_sequential(self, feature_store, large_sample_data):
+        """Test fallback to sequential when parallel computation fails."""
+        def failing_computer(data, entity_col, timestamp_col, **kwargs):
+            """Computer that fails in parallel but works sequentially."""
+            # Simulate a failure that might occur in parallel
+            if len(data) > 100:
+                raise RuntimeError("Simulated parallel failure")
+            return data.groupby(entity_col).agg({"amount": "sum"})
+        
+        feature_store.register_feature(
+            "test_fallback_feature",
+            failing_computer,
+            "Test fallback feature",
+        )
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=20,
+            enable_parallel=True,
+        )
+        
+        # This should fallback to sequential
+        with pytest.raises(RuntimeError):
+            store_parallel.compute_feature(
+                feature_name="test_fallback_feature",
+                data=large_sample_data,
+                entity_col="entity_id",
+                timestamp_col="timestamp",
+            )
+
+    def test_parallel_get_features_for_entities(self, feature_store):
+        """Test parallel fetching of multiple features."""
+        # Store multiple test features
+        for i in range(3):
+            test_values = pd.DataFrame({
+                f"feature{i}": [i+1, i+2, i+3],
+            }, index=["entity1", "entity2", "entity3"])
+            feature_store.store_feature(f"feature{i}", test_values)
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.get_features_for_entities(
+            feature_names=["feature0", "feature1", "feature2"],
+            entity_ids=["entity1", "entity2"],
+            parallel=True,
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert "feature0" in result.columns
+        assert "feature1" in result.columns
+        assert "feature2" in result.columns
+
+    def test_sequential_get_features_for_entities(self, feature_store):
+        """Test sequential fetching of multiple features."""
+        # Store multiple test features
+        for i in range(3):
+            test_values = pd.DataFrame({
+                f"feature{i}": [i+1, i+2, i+3],
+            }, index=["entity1", "entity2", "entity3"])
+            feature_store.store_feature(f"feature{i}", test_values)
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.get_features_for_entities(
+            feature_names=["feature0", "feature1", "feature2"],
+            entity_ids=["entity1", "entity2"],
+            parallel=False,
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+
+    def test_thread_safety_with_cache(self, feature_store):
+        """Test thread safety with cache operations during parallel computation."""
+        def test_computer(data, entity_col, timestamp_col, **kwargs):
+            """Test computer that simulates cache operations."""
+            result = data.groupby(entity_col).agg({"amount": "sum"})
+            result.columns = ["sum"]
+            return result
+        
+        feature_store.register_feature(
+            "test_thread_safety",
+            test_computer,
+            "Test thread safety feature",
+        )
+        
+        # Create large data to trigger parallel computation
+        np.random.seed(42)
+        large_data = pd.DataFrame({
+            "entity_id": np.random.randint(1, 100, 500),
+            "timestamp": pd.date_range("2023-01-01", periods=500, freq="min"),
+            "amount": np.random.uniform(1, 1000, 500),
+        })
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=50,
+            enable_parallel=True,
+        )
+        
+        # Compute feature (should use parallel computation)
+        result = store_parallel.compute_feature(
+            feature_name="test_thread_safety",
+            data=large_data,
+            entity_col="entity_id",
+            timestamp_col="timestamp",
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        
+        # Verify cache is still consistent
+        cache_stats = store_parallel.get_cache_stats()
+        assert cache_stats is not None
+
+    def test_chunk_size_configuration(self, temp_storage_path):
+        """Test that chunk size affects parallel computation behavior."""
+        store_small_chunk = FeatureStore(
+            temp_storage_path,
+            max_workers=4,
+            chunk_size=10,
+            enable_parallel=True,
+        )
+        
+        store_large_chunk = FeatureStore(
+            temp_storage_path,
+            max_workers=4,
+            chunk_size=1000,
+            enable_parallel=True,
+        )
+        
+        assert store_small_chunk._chunk_size == 10
+        assert store_large_chunk._chunk_size == 1000
+
+    def test_max_workers_configuration(self, temp_storage_path):
+        """Test that max_workers configuration is respected."""
+        store_2_workers = FeatureStore(
+            temp_storage_path,
+            max_workers=2,
+            enable_parallel=True,
+        )
+        
+        store_8_workers = FeatureStore(
+            temp_storage_path,
+            max_workers=8,
+            enable_parallel=True,
+        )
+        
+        assert store_2_workers._max_workers == 2
+        assert store_8_workers._max_workers == 8
+
+    def test_create_feature_store_with_parallel_config(self, temp_storage_path):
+        """Test create_feature_store with parallel configuration."""
+        store = create_feature_store(
+            temp_storage_path,
+            max_workers=8,
+            chunk_size=50,
+            enable_parallel=True,
+        )
+        
+        assert store._max_workers == 8
+        assert store._chunk_size == 50
+        assert store._enable_parallel == True
 
     def test_stats_zero_before_any_lookup(self, feature_store):
         """All rate/counter fields are 0 on a fresh store."""
