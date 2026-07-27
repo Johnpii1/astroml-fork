@@ -15,7 +15,6 @@ Key Features:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import threading
@@ -26,7 +25,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Set,
     Union,
     Callable,
     Protocol,
@@ -34,16 +32,14 @@ from typing import (
 )
 from enum import Enum
 from pathlib import Path
-import pickle
 import sqlite3
 from contextlib import contextmanager
+import concurrent.futures
 
 import pandas as pd
-import numpy as np
-from cachetools import TTLCache, LRUCache
+from cachetools import TTLCache
 
 from astroml.features.schema_validation import (
-    validate_dataframe,
     dry_run_ingestion,
     ValidationResult,
     FEATURE_VALUE_SCHEMA,
@@ -553,8 +549,6 @@ class FeatureRegistry:
                 structural_importance,
                 node_features,
                 asset_diversity,
-                imbalance,
-                memo,
             )
             
             # Register frequency features
@@ -703,6 +697,8 @@ class FeatureStore:
     # or constructor arguments).
     _DEFAULT_MAXSIZE: int = 128
     _DEFAULT_TTL: int = 900  # 15 minutes
+    _DEFAULT_MAX_WORKERS: int = 4
+    _DEFAULT_CHUNK_SIZE: int = 100
 
     def __init__(
         self,
@@ -710,6 +706,9 @@ class FeatureStore:
         max_cache_size_mb: int = 500,
         cache_ttl_seconds: int = _DEFAULT_TTL,
         cache_maxsize: int = _DEFAULT_MAXSIZE,
+        max_workers: int = _DEFAULT_MAX_WORKERS,
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+        enable_parallel: bool = True,
     ):
         """Initialize feature store.
 
@@ -722,6 +721,12 @@ class FeatureStore:
                 (default: 900 = 15 min, matching ``config/feature_store.yaml``).
             cache_maxsize: Maximum number of entries in the TTLCache before
                 LRU eviction kicks in (default: 128).
+            max_workers: Maximum number of parallel workers for feature computation
+                (default: 4). Set to 1 to disable parallelism.
+            chunk_size: Number of entities to process per chunk in parallel computation
+                (default: 100). Larger chunks reduce overhead but may increase memory usage.
+            enable_parallel: Whether to enable parallel feature computation
+                (default: True).
         """
         self.storage = FeatureStorage(storage_path)
         self.registry = FeatureRegistry(self.storage)
@@ -749,6 +754,11 @@ class FeatureStore:
         self._cache_hits: int = 0
         self._cache_misses: int = 0
         self._cache_evictions: int = 0
+
+        # Parallel computation settings
+        self._max_workers: int = max_workers
+        self._chunk_size: int = chunk_size
+        self._enable_parallel: bool = enable_parallel and max_workers > 1
     
     def register_feature(
         self,
@@ -800,43 +810,160 @@ class FeatureStore:
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Compute feature values.
-        
+
         Args:
             feature_name: Name of feature to compute
             data: Input data
             entity_col: Entity identifier column
             timestamp_col: Timestamp column
             **kwargs: Additional parameters
-            
+
         Returns:
             DataFrame with computed feature values
         """
         computer = self.registry.get_computer(feature_name)
         if computer is None:
             raise ValueError(f"Feature '{feature_name}' not found")
-        
+
         logger.info(f"Computing feature: {feature_name}")
-        
+
         # Validate input data
         required_cols = [entity_col, timestamp_col]
         missing_cols = [col for col in required_cols if col not in data.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
-        
-        # Compute feature
+
+        # Compute feature with parallelism if enabled and data is large enough
+        if self._enable_parallel and len(data) > self._chunk_size:
+            try:
+                result = self._compute_feature_parallel(
+                    computer, feature_name, data, entity_col, timestamp_col, **kwargs
+                )
+            except Exception as e:
+                logger.warning(f"Parallel computation failed, falling back to sequential: {e}")
+                result = self._compute_feature_sequential(
+                    computer, feature_name, data, entity_col, timestamp_col, **kwargs
+                )
+        else:
+            result = self._compute_feature_sequential(
+                computer, feature_name, data, entity_col, timestamp_col, **kwargs
+            )
+
+        # Ensure result is indexed by entity
+        if entity_col in result.columns:
+            result = result.set_index(entity_col)
+
+        logger.info(f"Computed {len(result)} feature values for {feature_name}")
+        return result
+
+    def _compute_feature_sequential(
+        self,
+        computer: FeatureComputer,
+        feature_name: str,
+        data: pd.DataFrame,
+        entity_col: str,
+        timestamp_col: str,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
+        """Compute feature values sequentially.
+
+        Args:
+            computer: Feature computation function
+            feature_name: Name of feature to compute
+            data: Input data
+            entity_col: Entity identifier column
+            timestamp_col: Timestamp column
+            **kwargs: Additional parameters
+
+        Returns:
+            DataFrame with computed feature values
+        """
         try:
             result = computer(data, entity_col, timestamp_col, **kwargs)
-            
-            # Ensure result is indexed by entity
-            if entity_col in result.columns:
-                result = result.set_index(entity_col)
-            
-            logger.info(f"Computed {len(result)} feature values for {feature_name}")
             return result
-            
         except Exception as e:
             logger.error(f"Error computing feature {feature_name}: {e}")
             raise
+
+    def _compute_feature_parallel(
+        self,
+        computer: FeatureComputer,
+        feature_name: str,
+        data: pd.DataFrame,
+        entity_col: str,
+        timestamp_col: str,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
+        """Compute feature values in parallel using chunking.
+
+        Splits the input data into chunks and processes them in parallel
+        using ThreadPoolExecutor. Results are combined after all chunks complete.
+
+        Args:
+            computer: Feature computation function
+            feature_name: Name of feature to compute
+            data: Input data
+            entity_col: Entity identifier column
+            timestamp_col: Timestamp column
+            **kwargs: Additional parameters
+
+        Returns:
+            DataFrame with computed feature values from all chunks combined
+
+        Raises:
+            Exception: If parallel computation fails
+        """
+        # Split data into chunks by entity
+        unique_entities = data[entity_col].unique()
+        chunks = []
+        for i in range(0, len(unique_entities), self._chunk_size):
+            chunk_entities = unique_entities[i : i + self._chunk_size]
+            chunk_data = data[data[entity_col].isin(chunk_entities)].copy()
+            chunks.append(chunk_data)
+
+        logger.info(
+            f"Processing {len(data)} rows in {len(chunks)} chunks "
+            f"with {self._max_workers} workers"
+        )
+
+        # Process chunks in parallel
+        def process_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
+            """Process a single chunk of data."""
+            try:
+                result = computer(chunk, entity_col, timestamp_col, **kwargs)
+                return result
+            except Exception as e:
+                logger.error(f"Error processing chunk: {e}")
+                raise
+
+        results = []
+        try:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self._max_workers
+            ) as executor:
+                future_to_chunk = {
+                    executor.submit(process_chunk, chunk): chunk
+                    for chunk in chunks
+                }
+
+                for future in concurrent.futures.as_completed(future_to_chunk):
+                    try:
+                        chunk_result = future.result()
+                        results.append(chunk_result)
+                    except Exception as e:
+                        logger.error(f"Chunk processing failed: {e}")
+                        raise
+
+        except Exception as e:
+            logger.error(f"Parallel computation failed: {e}")
+            raise
+
+        # Combine results from all chunks
+        if results:
+            combined_result = pd.concat(results, axis=0)
+            return combined_result
+        else:
+            return pd.DataFrame()
     
     def store_feature(
         self,
@@ -1098,33 +1225,74 @@ class FeatureStore:
         feature_names: List[str],
         entity_ids: List[str],
         timestamp: Optional[datetime] = None,
+        parallel: bool = True,
     ) -> pd.DataFrame:
         """Get multiple features for specific entities.
-        
+
         Args:
             feature_names: List of feature names
             entity_ids: List of entity IDs
             timestamp: Optional timestamp for point-in-time queries
-            
+            parallel: Whether to fetch features in parallel
+
         Returns:
             DataFrame with features indexed by entity
         """
         feature_data = {}
-        
-        for feature_name in feature_names:
-            values = self.get_feature(feature_name, entity_ids, timestamp)
-            if values is not None:
-                # Extract the feature column (assuming single column features)
-                if len(values.columns) == 1:
-                    feature_data[feature_name] = values.iloc[:, 0]
-                else:
-                    # Multi-column features - prefix column names
-                    for col in values.columns:
-                        feature_data[f"{feature_name}_{col}"] = values[col]
-        
+
+        if parallel and self._enable_parallel and len(feature_names) > 1:
+            # Fetch features in parallel
+            def fetch_feature(feature_name: str) -> tuple[str, Optional[pd.DataFrame]]:
+                """Fetch a single feature."""
+                values = self.get_feature(feature_name, entity_ids, timestamp)
+                return feature_name, values
+
+            try:
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=min(self._max_workers, len(feature_names))
+                ) as executor:
+                    future_to_feature = {
+                        executor.submit(fetch_feature, fn): fn
+                        for fn in feature_names
+                    }
+
+                    for future in concurrent.futures.as_completed(future_to_feature):
+                        feature_name = future_to_feature[future]
+                        try:
+                            fn, values = future.result()
+                            if values is not None:
+                                if len(values.columns) == 1:
+                                    feature_data[feature_name] = values.iloc[:, 0]
+                                else:
+                                    for col in values.columns:
+                                        feature_data[f"{feature_name}_{col}"] = values[col]
+                        except Exception as e:
+                            logger.error(f"Failed to fetch feature {feature_name}: {e}")
+            except Exception as e:
+                logger.warning(f"Parallel fetch failed, falling back to sequential: {e}")
+                # Fallback to sequential
+                for feature_name in feature_names:
+                    values = self.get_feature(feature_name, entity_ids, timestamp)
+                    if values is not None:
+                        if len(values.columns) == 1:
+                            feature_data[feature_name] = values.iloc[:, 0]
+                        else:
+                            for col in values.columns:
+                                feature_data[f"{feature_name}_{col}"] = values[col]
+        else:
+            # Sequential fetch
+            for feature_name in feature_names:
+                values = self.get_feature(feature_name, entity_ids, timestamp)
+                if values is not None:
+                    if len(values.columns) == 1:
+                        feature_data[feature_name] = values.iloc[:, 0]
+                    else:
+                        for col in values.columns:
+                            feature_data[f"{feature_name}_{col}"] = values[col]
+
         if not feature_data:
             return pd.DataFrame()
-        
+
         result = pd.DataFrame(feature_data, index=entity_ids)
         return result
     
@@ -1258,6 +1426,9 @@ def _load_feature_store_config(config_path: Optional[Union[str, Path]] = None) -
 def create_feature_store(
     storage_path: str = "./feature_store",
     config_path: Optional[Union[str, Path]] = None,
+    max_workers: Optional[int] = None,
+    chunk_size: Optional[int] = None,
+    enable_parallel: Optional[bool] = None,
 ) -> FeatureStore:
     """Create a :class:`FeatureStore` instance, optionally driven by YAML config.
 
@@ -1267,18 +1438,28 @@ def create_feature_store(
     Args:
         storage_path: Path to feature store storage.
         config_path: Override for the YAML config file location.
+        max_workers: Maximum number of parallel workers for feature computation.
+            If not provided, reads from config or uses default (4).
+        chunk_size: Number of entities to process per chunk in parallel computation.
+            If not provided, reads from config or uses default (100).
+        enable_parallel: Whether to enable parallel feature computation.
+            If not provided, reads from config or uses default (True).
 
     Returns:
         Configured :class:`FeatureStore` instance.
     """
     cfg = _load_feature_store_config(config_path)
     cache_cfg = cfg.get("cache", {})
+    parallel_cfg = cfg.get("parallel", {})
 
     return FeatureStore(
         storage_path=storage_path,
         max_cache_size_mb=cache_cfg.get("max_size_mb", 500),
         cache_ttl_seconds=cache_cfg.get("ttl_seconds", FeatureStore._DEFAULT_TTL),
         cache_maxsize=cache_cfg.get("maxsize", FeatureStore._DEFAULT_MAXSIZE),
+        max_workers=max_workers or parallel_cfg.get("max_workers", FeatureStore._DEFAULT_MAX_WORKERS),
+        chunk_size=chunk_size or parallel_cfg.get("chunk_size", FeatureStore._DEFAULT_CHUNK_SIZE),
+        enable_parallel=enable_parallel if enable_parallel is not None else parallel_cfg.get("enable", True),
     )
 
 
