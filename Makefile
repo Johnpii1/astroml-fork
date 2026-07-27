@@ -50,6 +50,10 @@ format:
 dependency-tree:
 	pipdeptree --warn silence
 
+.PHONY: validate-build
+validate-build:
+	bash scripts/validate_build.sh
+
 run-api:
 	uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload
 
