@@ -758,9 +758,13 @@ class ComputationEngine:
             **kwargs
         )
         
+        from astroml.observability.metrics import FEATURE_COMPUTE_TIME
+
         self.submit_task(task)
-        completed_tasks = self.run_tasks(parallel=False)
-        
+        # Feature computation time (issue #567).
+        with FEATURE_COMPUTE_TIME.labels(feature_name).time():
+            completed_tasks = self.run_tasks(parallel=False)
+
         if task.task_id not in completed_tasks:
             raise RuntimeError(f"Task {task.task_id} not found in completed tasks")
         

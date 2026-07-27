@@ -15,6 +15,14 @@ from .providers.embedding_router import EmbeddingRouter, build_default_router
 from . import features
 from . import fine_tuning
 from . import testing
+from .tools import (
+    BaseTool,
+    ToolRegistry,
+    get_global_registry,
+    ToolExecutor,
+    PermissionChecker,
+    ToolAuditLog,
+)
 
 __all__ = [
     'BlockchainContextBuilder',
@@ -34,4 +42,10 @@ __all__ = [
     'features',
     'fine_tuning',
     'testing',
+    'BaseTool',
+    'ToolRegistry',
+    'get_global_registry',
+    'ToolExecutor',
+    'PermissionChecker',
+    'ToolAuditLog',
 ]

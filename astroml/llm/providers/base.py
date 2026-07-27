@@ -1,4 +1,5 @@
 """Base LLM Provider interface and unified response structures."""
+import json
 import time
 import logging
 from abc import ABC, abstractmethod
@@ -31,7 +32,7 @@ class LLMProvider(ABC):
         self.fallback_providers: List['LLMProvider'] = []
 
     @abstractmethod
-    def _generate_raw(self, prompt: str, **kwargs: Any) -> str:
+    def _generate_raw(self, prompt: str, tools: list[dict] | None = None, **kwargs: Any) -> str:
         """Internal method to generate response from the specific provider."""
         pass
 
@@ -39,6 +40,61 @@ class LLMProvider(ABC):
         """Generate a response from the LLM, keeping backwards compatibility."""
         response = self.generate_detailed(prompt, **kwargs)
         return response.text
+
+    def generate_with_tools(
+        self,
+        prompt: str,
+        tools: list[dict],
+        tool_executor: Any = None,
+        max_tool_calls: int = 10,
+        **kwargs: Any,
+    ) -> str:
+        """Generate a response with tool-calling loop.
+
+        Sends prompt + tool definitions to the LLM, executes any tool calls
+        the LLM requests, feeds results back, and repeats until the LLM
+        returns a final text response.
+        """
+        messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+        current_tools = tools
+
+        for _ in range(max_tool_calls):
+            raw = self._generate_raw(json.dumps(messages), tools=current_tools, **kwargs)
+
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError:
+                return raw
+
+            tool_calls = result.get("tool_calls")
+            content = result.get("content", "")
+
+            if not tool_calls:
+                return content or raw
+
+            messages.append({"role": "assistant", "content": content, "tool_calls": tool_calls})
+
+            for tc in tool_calls:
+                if tool_executor is None:
+                    tool_result = {"error": "No tool executor available"}
+                else:
+                    try:
+                        import asyncio
+                        tool_result = asyncio.run(
+                            tool_executor.execute(tc["function"]["name"], tc["function"]["arguments"])
+                        )
+                    except Exception as e:
+                        tool_result = {"error": str(e)}
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.get("id", ""),
+                    "content": json.dumps(tool_result),
+                })
+
+            current_tools = None
+
+        return json.dumps(messages[-1]) if messages else "Max tool calls reached"
 
     def generate_detailed(self, prompt: str, **kwargs: Any) -> LLMResponse:
         """Generate response with unified response format, cost tracking, rate limits, budgets, retries."""

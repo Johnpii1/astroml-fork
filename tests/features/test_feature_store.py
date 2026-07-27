@@ -6,15 +6,18 @@ computers, transformers, caching, and versioning systems.
 
 from __future__ import annotations
 
+import time
 import pytest
 import tempfile
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any
+from unittest.mock import patch
 
 import pandas as pd
 import numpy as np
+from cachetools import TTLCache
 
 from astroml.features.feature_store import (
     FeatureStore,
@@ -481,22 +484,22 @@ class TestFeatureStore:
     def test_batch_mode(self, feature_store):
         """Test batch mode context manager."""
         feature_name = "test_feature"
-        
+
         # Create test feature values
         test_values = pd.DataFrame({
             "feature_value": [1.0, 2.0, 3.0],
         }, index=["entity1", "entity2", "entity3"])
-        
+
         with feature_store.batch_mode():
             # Store feature in batch mode
             feature_store.store_feature(feature_name, test_values)
-            
+
             # Get feature in batch mode
             retrieved_values = feature_store.get_feature(feature_name)
             assert retrieved_values is not None
-        
-        # Cache should be cleared after batch mode
-        assert len(feature_store._cache) == 0
+
+        # Value cache should be empty after batch mode exits.
+        assert len(feature_store._value_cache) == 0
 
 
 class TestConvenienceFunctions:
@@ -697,6 +700,712 @@ class TestFeatureStoreIntegration:
             
         except ImportError:
             pytest.skip("Feature modules not available")
+
+
+class TestFeatureStoreCaching:
+    """Tests for the TTLCache-based caching strategy in FeatureStore.
+
+    Covers TTL expiry, LRU eviction, hit/miss metrics, write invalidation,
+    cache configuration, and thread safety.
+    """
+
+    @pytest.fixture
+    def temp_storage_path(self):
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir)
+
+    @pytest.fixture
+    def feature_store(self, temp_storage_path):
+        """Feature store with a very short TTL so expiry tests run quickly."""
+        return FeatureStore(
+            temp_storage_path,
+            cache_ttl_seconds=2,
+            cache_maxsize=4,
+        )
+
+    @pytest.fixture
+    def sample_values(self):
+        return pd.DataFrame(
+            {"feature_value": [1.0, 2.0, 3.0]},
+            index=["entity1", "entity2", "entity3"],
+        )
+
+    # ------------------------------------------------------------------
+    # Basic: verify TTLCache is used
+    # ------------------------------------------------------------------
+
+    def test_value_cache_is_ttlcache(self, temp_storage_path):
+        """_value_cache must be a cachetools.TTLCache instance."""
+        store = FeatureStore(temp_storage_path)
+        assert isinstance(store._value_cache, TTLCache)
+
+    def test_default_ttl_and_maxsize(self, temp_storage_path):
+        """Default TTL is 900 s and maxsize is 128."""
+        store = FeatureStore(temp_storage_path)
+        assert store._cache_ttl_seconds == 900
+        assert store._cache_maxsize == 128
+        assert store._value_cache.ttl == 900
+        assert store._value_cache.maxsize == 128
+
+    def test_custom_ttl_and_maxsize(self, temp_storage_path):
+        """Constructor parameters are forwarded to TTLCache."""
+        store = FeatureStore(temp_storage_path, cache_ttl_seconds=60, cache_maxsize=10)
+        assert store._value_cache.ttl == 60
+        assert store._value_cache.maxsize == 10
+
+    # ------------------------------------------------------------------
+    # Hit / miss counters
+    # ------------------------------------------------------------------
+
+    def test_cache_miss_increments_counter(self, feature_store, sample_values):
+        """First get after store_feature should be a cache miss."""
+        feature_name = "feat_miss"
+        feature_store.store_feature(feature_name, sample_values)
+
+        # Reset counters so store_feature side-effects don't pollute
+        feature_store._cache_hits = 0
+        feature_store._cache_misses = 0
+
+        feature_store.get_feature(feature_name, use_cache=True)
+        assert feature_store._cache_misses == 1
+        assert feature_store._cache_hits == 0
+
+    def test_cache_hit_increments_counter(self, feature_store, sample_values):
+        """Second get on the same feature should be a cache hit."""
+        feature_name = "feat_hit"
+        feature_store.store_feature(feature_name, sample_values)
+
+        feature_store._cache_hits = 0
+        feature_store._cache_misses = 0
+
+        feature_store.get_feature(feature_name, use_cache=True)  # miss → fills cache
+        feature_store.get_feature(feature_name, use_cache=True)  # hit
+
+        assert feature_store._cache_misses == 1
+        assert feature_store._cache_hits == 1
+
+    def test_use_cache_false_bypasses_cache(self, feature_store, sample_values):
+        """use_cache=False must not read or write the value cache."""
+        feature_name = "feat_bypass"
+        feature_store.store_feature(feature_name, sample_values)
+
+        feature_store._cache_hits = 0
+        feature_store._cache_misses = 0
+
+        # Warm the cache first
+        feature_store.get_feature(feature_name, use_cache=True)
+        feature_store._cache_hits = 0
+        feature_store._cache_misses = 0
+
+        result = feature_store.get_feature(feature_name, use_cache=False)
+
+        assert result is not None
+        assert feature_store._cache_hits == 0
+        assert feature_store._cache_misses == 1  # bypassed hit, still counted as miss
+
+    # ------------------------------------------------------------------
+    # get_cache_stats
+    # ------------------------------------------------------------------
+
+    def test_get_cache_stats_keys(self, feature_store):
+        """get_cache_stats returns all required metric keys."""
+        stats = feature_store.get_cache_stats()
+        required = {
+            "cached_features",
+            "cache_size_mb",
+            "max_cache_size_mb",
+            "cache_utilization_pct",
+            "cache_maxsize",
+            "cache_ttl_seconds",
+            "metadata_cached",
+            "hits",
+            "misses",
+            "evictions",
+            "hit_rate",
+            "miss_rate",
+        }
+        assert required.issubset(stats.keys())
+
+    def test_hit_rate_and_miss_rate_sum_to_one(self, feature_store, sample_values):
+        """hit_rate + miss_rate == 1.0 when there is at least one lookup."""
+        feature_name = "feat_rates"
+        feature_store.store_feature(feature_name, sample_values)
+
+
+class TestParallelFeatureComputation:
+    """Tests for parallel feature computation functionality.
+
+    Covers parallel execution, fallback to sequential, chunking,
+    thread safety, and configuration options.
+    """
+
+    @pytest.fixture
+    def temp_storage_path(self):
+        temp_dir = tempfile.mkdtemp()
+        yield temp_dir
+        shutil.rmtree(temp_dir)
+
+    @pytest.fixture
+    def feature_store(self, temp_storage_path):
+        """Create feature store instance."""
+        return FeatureStore(temp_storage_path)
+
+    @pytest.fixture
+    def large_sample_data(self):
+        """Create large sample data for parallel computation testing."""
+        np.random.seed(42)
+        n_rows = 500
+        n_entities = 50
+        
+        return pd.DataFrame({
+            "entity_id": np.random.randint(1, n_entities + 1, n_rows),
+            "timestamp": pd.date_range("2023-01-01", periods=n_rows, freq="min"),
+            "amount": np.random.uniform(1, 1000, n_rows),
+            "src": np.random.randint(1, n_entities + 1, n_rows),
+            "dst": np.random.randint(1, n_entities + 1, n_rows),
+        })
+
+    @pytest.fixture
+    def small_sample_data(self):
+        """Create small sample data (below chunk size)."""
+        return pd.DataFrame({
+            "entity_id": ["acc1", "acc2", "acc3"],
+            "timestamp": [
+                datetime(2023, 1, 1),
+                datetime(2023, 1, 2),
+                datetime(2023, 1, 3),
+            ],
+            "amount": [100.0, 200.0, 150.0],
+        })
+
+    def test_parallel_configuration_defaults(self, temp_storage_path):
+        """Test default parallel computation configuration."""
+        store = FeatureStore(temp_storage_path)
+        
+        assert store._max_workers == 4
+        assert store._chunk_size == 100
+        assert store._enable_parallel == True
+
+    def test_parallel_configuration_custom(self, temp_storage_path):
+        """Test custom parallel computation configuration."""
+        store = FeatureStore(
+            temp_storage_path,
+            max_workers=8,
+            chunk_size=50,
+            enable_parallel=True,
+        )
+        
+        assert store._max_workers == 8
+        assert store._chunk_size == 50
+        assert store._enable_parallel == True
+
+    def test_parallel_disabled(self, temp_storage_path):
+        """Test disabling parallel computation."""
+        store = FeatureStore(
+            temp_storage_path,
+            max_workers=1,
+            enable_parallel=False,
+        )
+        
+        assert store._enable_parallel == False
+
+    def test_parallel_compute_feature_large_data(self, feature_store, large_sample_data):
+        """Test parallel computation with large data."""
+        def test_computer(data, entity_col, timestamp_col, **kwargs):
+            """Simple test computer."""
+            result = data.groupby(entity_col).agg({
+                "amount": ["sum", "mean", "count"]
+            })
+            result.columns = ["sum", "mean", "count"]
+            return result
+        
+        feature_store.register_feature(
+            "test_parallel_feature",
+            test_computer,
+            "Test parallel feature",
+        )
+        
+        # Test with parallel enabled
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=20,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.compute_feature(
+            feature_name="test_parallel_feature",
+            data=large_sample_data,
+            entity_col="entity_id",
+            timestamp_col="timestamp",
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0
+
+    def test_sequential_compute_feature_small_data(self, feature_store, small_sample_data):
+        """Test sequential computation with small data (below chunk size)."""
+        def test_computer(data, entity_col, timestamp_col, **kwargs):
+            """Simple test computer."""
+            result = data.groupby(entity_col).agg({"amount": "sum"})
+            result.columns = ["sum"]
+            return result
+        
+        feature_store.register_feature(
+            "test_sequential_feature",
+            test_computer,
+            "Test sequential feature",
+        )
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=100,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.compute_feature(
+            feature_name="test_sequential_feature",
+            data=small_sample_data,
+            entity_col="entity_id",
+            timestamp_col="timestamp",
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) > 0
+
+    def test_parallel_fallback_to_sequential(self, feature_store, large_sample_data):
+        """Test fallback to sequential when parallel computation fails."""
+        def failing_computer(data, entity_col, timestamp_col, **kwargs):
+            """Computer that fails in parallel but works sequentially."""
+            # Simulate a failure that might occur in parallel
+            if len(data) > 100:
+                raise RuntimeError("Simulated parallel failure")
+            return data.groupby(entity_col).agg({"amount": "sum"})
+        
+        feature_store.register_feature(
+            "test_fallback_feature",
+            failing_computer,
+            "Test fallback feature",
+        )
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=20,
+            enable_parallel=True,
+        )
+        
+        # This should fallback to sequential
+        with pytest.raises(RuntimeError):
+            store_parallel.compute_feature(
+                feature_name="test_fallback_feature",
+                data=large_sample_data,
+                entity_col="entity_id",
+                timestamp_col="timestamp",
+            )
+
+    def test_parallel_get_features_for_entities(self, feature_store):
+        """Test parallel fetching of multiple features."""
+        # Store multiple test features
+        for i in range(3):
+            test_values = pd.DataFrame({
+                f"feature{i}": [i+1, i+2, i+3],
+            }, index=["entity1", "entity2", "entity3"])
+            feature_store.store_feature(f"feature{i}", test_values)
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.get_features_for_entities(
+            feature_names=["feature0", "feature1", "feature2"],
+            entity_ids=["entity1", "entity2"],
+            parallel=True,
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert "feature0" in result.columns
+        assert "feature1" in result.columns
+        assert "feature2" in result.columns
+
+    def test_sequential_get_features_for_entities(self, feature_store):
+        """Test sequential fetching of multiple features."""
+        # Store multiple test features
+        for i in range(3):
+            test_values = pd.DataFrame({
+                f"feature{i}": [i+1, i+2, i+3],
+            }, index=["entity1", "entity2", "entity3"])
+            feature_store.store_feature(f"feature{i}", test_values)
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            enable_parallel=True,
+        )
+        
+        result = store_parallel.get_features_for_entities(
+            feature_names=["feature0", "feature1", "feature2"],
+            entity_ids=["entity1", "entity2"],
+            parallel=False,
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+
+    def test_thread_safety_with_cache(self, feature_store):
+        """Test thread safety with cache operations during parallel computation."""
+        def test_computer(data, entity_col, timestamp_col, **kwargs):
+            """Test computer that simulates cache operations."""
+            result = data.groupby(entity_col).agg({"amount": "sum"})
+            result.columns = ["sum"]
+            return result
+        
+        feature_store.register_feature(
+            "test_thread_safety",
+            test_computer,
+            "Test thread safety feature",
+        )
+        
+        # Create large data to trigger parallel computation
+        np.random.seed(42)
+        large_data = pd.DataFrame({
+            "entity_id": np.random.randint(1, 100, 500),
+            "timestamp": pd.date_range("2023-01-01", periods=500, freq="min"),
+            "amount": np.random.uniform(1, 1000, 500),
+        })
+        
+        store_parallel = FeatureStore(
+            feature_store.storage.storage_path,
+            max_workers=4,
+            chunk_size=50,
+            enable_parallel=True,
+        )
+        
+        # Compute feature (should use parallel computation)
+        result = store_parallel.compute_feature(
+            feature_name="test_thread_safety",
+            data=large_data,
+            entity_col="entity_id",
+            timestamp_col="timestamp",
+        )
+        
+        assert isinstance(result, pd.DataFrame)
+        
+        # Verify cache is still consistent
+        cache_stats = store_parallel.get_cache_stats()
+        assert cache_stats is not None
+
+    def test_chunk_size_configuration(self, temp_storage_path):
+        """Test that chunk size affects parallel computation behavior."""
+        store_small_chunk = FeatureStore(
+            temp_storage_path,
+            max_workers=4,
+            chunk_size=10,
+            enable_parallel=True,
+        )
+        
+        store_large_chunk = FeatureStore(
+            temp_storage_path,
+            max_workers=4,
+            chunk_size=1000,
+            enable_parallel=True,
+        )
+        
+        assert store_small_chunk._chunk_size == 10
+        assert store_large_chunk._chunk_size == 1000
+
+    def test_max_workers_configuration(self, temp_storage_path):
+        """Test that max_workers configuration is respected."""
+        store_2_workers = FeatureStore(
+            temp_storage_path,
+            max_workers=2,
+            enable_parallel=True,
+        )
+        
+        store_8_workers = FeatureStore(
+            temp_storage_path,
+            max_workers=8,
+            enable_parallel=True,
+        )
+        
+        assert store_2_workers._max_workers == 2
+        assert store_8_workers._max_workers == 8
+
+    def test_create_feature_store_with_parallel_config(self, temp_storage_path):
+        """Test create_feature_store with parallel configuration."""
+        store = create_feature_store(
+            temp_storage_path,
+            max_workers=8,
+            chunk_size=50,
+            enable_parallel=True,
+        )
+        
+        assert store._max_workers == 8
+        assert store._chunk_size == 50
+        assert store._enable_parallel == True
+
+    def test_stats_zero_before_any_lookup(self, feature_store):
+        """All rate/counter fields are 0 on a fresh store."""
+        stats = feature_store.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 0
+        assert stats["evictions"] == 0
+        assert stats["hit_rate"] == 0.0
+        assert stats["miss_rate"] == 0.0
+
+    def test_cache_ttl_seconds_matches_config(self, feature_store):
+        """cache_ttl_seconds in stats matches the value passed to __init__."""
+        stats = feature_store.get_cache_stats()
+        assert stats["cache_ttl_seconds"] == 2  # fixture sets ttl=2
+
+    # ------------------------------------------------------------------
+    # TTL expiry
+    # ------------------------------------------------------------------
+
+    def test_cache_expires_after_ttl(self, feature_store, sample_values):
+        """Entries must be absent from the TTLCache after the TTL elapses."""
+        feature_name = "feat_ttl"
+        feature_store.store_feature(feature_name, sample_values)
+
+        # Warm the cache
+        feature_store.get_feature(feature_name, use_cache=True)
+        feat_id = f"{feature_name}_v1"
+        assert feat_id in feature_store._value_cache
+
+        # Wait for TTL to expire (fixture uses ttl=2 s)
+        time.sleep(3)
+
+        assert feat_id not in feature_store._value_cache
+
+    def test_get_after_expiry_reloads_from_storage(self, feature_store, sample_values):
+        """After TTL expiry a fresh get must reload from storage (cache miss)."""
+        feature_name = "feat_reload"
+        feature_store.store_feature(feature_name, sample_values)
+        feature_store.get_feature(feature_name, use_cache=True)  # warm
+
+        time.sleep(3)  # let TTL expire
+
+        feature_store._cache_hits = 0
+        feature_store._cache_misses = 0
+
+        result = feature_store.get_feature(feature_name, use_cache=True)
+
+        assert result is not None
+        assert feature_store._cache_misses == 1
+        assert feature_store._cache_hits == 0
+
+    # ------------------------------------------------------------------
+    # LRU eviction (maxsize cap)
+    # ------------------------------------------------------------------
+
+    def test_lru_eviction_when_maxsize_exceeded(self, temp_storage_path, sample_values):
+        """Inserting more entries than maxsize must evict the LRU entry."""
+        store = FeatureStore(temp_storage_path, cache_ttl_seconds=900, cache_maxsize=2)
+
+        names = ["feat_a", "feat_b", "feat_c"]
+        for name in names:
+            store.store_feature(name, sample_values)
+
+        # Warm cache with feat_a and feat_b (fills the 2-slot cache)
+        store.get_feature("feat_a", use_cache=True)
+        store.get_feature("feat_b", use_cache=True)
+
+        assert len(store._value_cache) == 2
+
+        # Access feat_a to make feat_b the LRU
+        store.get_feature("feat_a", use_cache=True)
+
+        # Now fetch feat_c — TTLCache must evict feat_b (oldest access)
+        store.get_feature("feat_c", use_cache=True)
+
+        assert len(store._value_cache) == 2
+        assert "feat_c_v1" in store._value_cache
+        # feat_a was accessed more recently than feat_b; feat_b should be gone
+        assert "feat_b_v1" not in store._value_cache
+
+    def test_eviction_increments_counter(self, temp_storage_path, sample_values):
+        """Manual memory-cap eviction must increment _cache_evictions."""
+        # Create a store with an extremely small memory cap so the first insert
+        # forces eviction.
+        store = FeatureStore(
+            temp_storage_path,
+            max_cache_size_mb=0,  # 0 MB → always triggers eviction path
+            cache_ttl_seconds=900,
+            cache_maxsize=128,
+        )
+
+        store.store_feature("feat_evict_a", sample_values)
+        store.store_feature("feat_evict_b", sample_values)
+
+        store._cache_evictions = 0  # reset to isolate this assertion
+
+        store.get_feature("feat_evict_a", use_cache=True)
+        store.get_feature("feat_evict_b", use_cache=True)
+
+        # With max_cache_size_mb=0 the memory-cap eviction path fires on every
+        # insert that adds bytes, so evictions counter should be > 0.
+        assert store._cache_evictions > 0
+
+    # ------------------------------------------------------------------
+    # Write invalidation
+    # ------------------------------------------------------------------
+
+    def test_store_feature_invalidates_cache(self, feature_store, sample_values):
+        """store_feature must remove the existing cache entry (write invalidation)."""
+        feature_name = "feat_invalidate"
+        feature_store.store_feature(feature_name, sample_values)
+        feature_store.get_feature(feature_name, use_cache=True)  # warm cache
+
+        feat_id = f"{feature_name}_v1"
+        assert feat_id in feature_store._value_cache
+
+        # Update the feature — should evict the old entry
+        updated = sample_values.copy()
+        updated["feature_value"] = [9.0, 8.0, 7.0]
+        feature_store.store_feature(feature_name, updated)
+
+        assert feat_id not in feature_store._value_cache
+
+    def test_updated_value_is_loaded_after_invalidation(self, feature_store, sample_values):
+        """After write-invalidation the next get must return the updated values."""
+        feature_name = "feat_updated"
+        feature_store.store_feature(feature_name, sample_values)
+        feature_store.get_feature(feature_name, use_cache=True)  # warm cache
+
+        updated = sample_values.copy()
+        updated["feature_value"] = [9.0, 8.0, 7.0]
+        feature_store.store_feature(feature_name, updated)
+
+        result = feature_store.get_feature(feature_name, use_cache=True)
+        assert result is not None
+        assert list(result["feature_value"]) == [9.0, 8.0, 7.0]
+
+    # ------------------------------------------------------------------
+    # clear_cache resets metrics
+    # ------------------------------------------------------------------
+
+    def test_clear_cache_resets_value_cache(self, feature_store, sample_values):
+        """clear_cache must empty the TTLCache."""
+        feature_store.store_feature("feat_clear", sample_values)
+        feature_store.get_feature("feat_clear", use_cache=True)
+        assert len(feature_store._value_cache) > 0
+
+        feature_store.clear_cache()
+
+        assert len(feature_store._value_cache) == 0
+
+    def test_clear_cache_resets_size_tracking(self, feature_store, sample_values):
+        """_current_cache_size_bytes must be 0 after clear_cache."""
+        feature_store.store_feature("feat_size", sample_values)
+        feature_store.get_feature("feat_size", use_cache=True)
+
+        feature_store.clear_cache()
+
+        assert feature_store._current_cache_size_bytes == 0
+
+    # ------------------------------------------------------------------
+    # batch_mode
+    # ------------------------------------------------------------------
+
+    def test_batch_mode_clears_cache_on_entry_and_exit(self, feature_store, sample_values):
+        """batch_mode must empty the cache both on entry and on exit."""
+        feature_name = "feat_batch"
+        feature_store.store_feature(feature_name, sample_values)
+        feature_store.get_feature(feature_name, use_cache=True)
+
+        with feature_store.batch_mode():
+            # Cache should have been cleared on entry
+            assert len(feature_store._value_cache) == 0
+
+            feature_store.get_feature(feature_name, use_cache=True)  # refill
+            assert len(feature_store._value_cache) == 1
+
+        # Cache should be cleared again on exit
+        assert len(feature_store._value_cache) == 0
+
+    def test_batch_mode_resets_metrics(self, feature_store, sample_values):
+        """Entering batch_mode resets hit/miss/eviction counters."""
+        feature_store._cache_hits = 5
+        feature_store._cache_misses = 3
+        feature_store._cache_evictions = 2
+
+        with feature_store.batch_mode():
+            assert feature_store._cache_hits == 0
+            assert feature_store._cache_misses == 0
+            assert feature_store._cache_evictions == 0
+
+    # ------------------------------------------------------------------
+    # _is_cache_expired helper
+    # ------------------------------------------------------------------
+
+    def test_is_cache_expired_returns_true_for_missing(self, feature_store):
+        """_is_cache_expired is True for a feature never cached."""
+        assert feature_store._is_cache_expired("ghost_feature_v1") is True
+
+    def test_is_cache_expired_returns_false_when_present(self, feature_store, sample_values):
+        """_is_cache_expired is False immediately after caching a feature."""
+        feature_name = "feat_not_expired"
+        feature_store.store_feature(feature_name, sample_values)
+        feature_store.get_feature(feature_name, use_cache=True)  # populate cache
+
+        assert feature_store._is_cache_expired(f"{feature_name}_v1") is False
+
+    def test_is_cache_expired_returns_true_after_ttl(self, feature_store, sample_values):
+        """_is_cache_expired is True after the TTL has elapsed (fixture ttl=2 s)."""
+        feature_name = "feat_expired"
+        feature_store.store_feature(feature_name, sample_values)
+        feature_store.get_feature(feature_name, use_cache=True)
+
+        time.sleep(3)
+
+        assert feature_store._is_cache_expired(f"{feature_name}_v1") is True
+
+    # ------------------------------------------------------------------
+    # config/feature_store.yaml loading
+    # ------------------------------------------------------------------
+
+    def test_create_feature_store_reads_yaml_config(self, tmp_path):
+        """create_feature_store() honours values in feature_store.yaml."""
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        yaml_file = config_dir / "feature_store.yaml"
+        yaml_file.write_text(
+            "cache:\n  ttl_seconds: 300\n  maxsize: 64\n  max_size_mb: 200\n"
+        )
+        storage_dir = tmp_path / "fs"
+        storage_dir.mkdir()
+
+        from astroml.features.feature_store import create_feature_store
+
+        store = create_feature_store(
+            storage_path=str(storage_dir),
+            config_path=str(yaml_file),
+        )
+
+        assert store._cache_ttl_seconds == 300
+        assert store._cache_maxsize == 64
+        assert store._max_cache_size_bytes == 200 * 1024 * 1024
+
+    def test_create_feature_store_uses_defaults_without_yaml(self, tmp_path):
+        """create_feature_store() works fine when no yaml file exists."""
+        storage_dir = tmp_path / "fs"
+        storage_dir.mkdir()
+        missing_config = tmp_path / "nonexistent.yaml"
+
+        from astroml.features.feature_store import create_feature_store
+
+        store = create_feature_store(
+            storage_path=str(storage_dir),
+            config_path=str(missing_config),
+        )
+
+        assert store._cache_ttl_seconds == FeatureStore._DEFAULT_TTL
+        assert store._cache_maxsize == FeatureStore._DEFAULT_MAXSIZE
 
 
 if __name__ == "__main__":

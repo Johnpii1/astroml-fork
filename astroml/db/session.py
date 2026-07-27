@@ -7,16 +7,23 @@ Resolves the database URL from (in priority order):
 """
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 from functools import lru_cache
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle guard
+    from astroml.db.pool_health import PoolStats
+    from astroml.observability.health import CheckResult
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConfig(BaseModel):
@@ -153,7 +160,7 @@ def get_engine() -> Engine:
     """Return a cached SQLAlchemy engine."""
     try:
         config = load_database_config()
-        return create_engine(
+        engine = create_engine(
             resolve_database_url(), 
             pool_pre_ping=True,
             pool_size=config.pool_size,
@@ -162,7 +169,7 @@ def get_engine() -> Engine:
             pool_recycle=config.pool_recycle
         )
     except Exception:
-        return create_engine(
+        engine = create_engine(
             resolve_database_url(), 
             pool_pre_ping=True,
             pool_size=10,
@@ -170,9 +177,55 @@ def get_engine() -> Engine:
             pool_timeout=30,
             pool_recycle=1800
         )
+    
+    # Enable query profiling in debug mode
+    _enable_query_profiling_if_debug(engine)
+    
+    return engine
+
+
+def _enable_query_profiling_if_debug(engine: Engine) -> None:
+    """Enable query profiling if ASTROML_DEBUG is set.
+    
+    Args:
+        engine: SQLAlchemy engine to profile
+    """
+    if os.environ.get("ASTROML_DEBUG", "").lower() in ("true", "1", "yes"):
+        try:
+            from astroml.db.query_profiler import configure_query_logging
+            
+            configure_query_logging(
+                log_level="DEBUG",
+                enable_profiling=True,
+                slow_query_threshold_ms=int(
+                    os.environ.get("ASTROML_SLOW_QUERY_THRESHOLD_MS", "100")
+                )
+            )
+            logger.info("Query profiling enabled in debug mode")
+        except ImportError:
+            logger.warning("Query profiler module not available")
 
 
 def get_session() -> Session:
     """Return a new SQLAlchemy session."""
     factory = sessionmaker(bind=get_engine())
     return factory()
+
+
+def get_pool_stats() -> "PoolStats":
+    """Return a snapshot of the shared engine's connection pool (#550)."""
+    from astroml.db.pool_health import collect_pool_stats
+
+    return collect_pool_stats(get_engine())
+
+
+def check_connection_pool() -> "CheckResult":
+    """Evaluate connection pool health for the shared engine (#550).
+
+    Returns:
+        A ``CheckResult`` named ``"db_pool"`` — ``DEGRADED`` once utilization
+        reaches 80% of capacity, ``FAIL`` when the pool is exhausted.
+    """
+    from astroml.db.pool_health import check_pool
+
+    return check_pool(get_engine())

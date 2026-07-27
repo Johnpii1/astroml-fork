@@ -1,85 +1,44 @@
-"""API routers package."""
-from api.routers.accounts import router as accounts_router
-from api.routers.audit import router as audit_router
-from api.routers.auth import router as auth_router
-from api.routers.backup import router as backup_router
-from api.routers.chat import router as chat_router
-from api.routers.compliance import router as compliance_router
-from api.routers.contact import router as contact_router
-from api.routers.errors import router as errors_router
-from api.routers.faq import router as faq_router
-from api.routers.feedback import router as feedback_router
-from api.routers.fraud import router as fraud_router
-from api.routers.loyalty import router as loyalty_router
-from api.routers.mentorship import router as mentorship_router
-from api.routers.models import router as models_router
-from api.routers.monitoring import router as monitoring_router
-from api.routers.notifications import router as notifications_router
-from api.routers.contributors import router as contributors_router
-from api.routers.discussions import router as discussions_router
-from api.routers.rate_limit import router as rate_limit_router
-from api.routers.transactions import router as transactions_router
-from api.routers.onboarding import router as onboarding_router
-from api.routers.validation import router as validation_router
-from api.routers.voice import router as voice_router
-from api.routers.ws import router as ws_router
-from api.routers.streaming import router as streaming_router
-from api.routers.llm import router as llm_router
-from api.routers.query import router as query_router
-from api.routers.explanations import router as explanations_router
-from api.routers.agents import router as agents_router
-from api.routers.cost import router as cost_router
-from api.routers.llm_usage import router as llm_usage_router
-from api.routers.llm_cache_metrics import router as llm_cache_metrics_router
-from api.routers.llm import router as llm_router
-from api.routers.llm_metrics import router as llm_metrics_router
-from api.routers.search import router as search_router
-from api.routers.stream import router as stream_router
-from api.routers.llm_health import router as llm_health_router
-from api.routers.reports import router as reports_router
-from api.routers.alerts import router as alerts_router
-from api.routers.query import router as query_router
+"""API routers package.
 
-__all__ = [
-
-    "accounts_router",
-    "audit_router",
-    "backup_router",
-    "chat_router",
-    "compliance_router",
-    "contact_router",
-    "contributors_router",
-    "discussions_router",
-    "auth_router",
-    "errors_router",
-    "faq_router",
-    "feedback_router",
-    "fraud_router",
-    "loyalty_router",
-    "mentorship_router",
-    "models_router",
-    "monitoring_router",
-    "notifications_router",
-    "onboarding_router",
-    "rate_limit_router",
-    "transactions_router",
-    "validation_router",
-    "voice_router",
-    "ws_router",
-    "streaming_router",
-    "llm_router",
-    "query_router",
-    "explanations_router",
-    "agents_router",
-    "cost_router",
-    "llm_usage_router",
-    "llm_router",
-    "llm_metrics_router",
-    "search_router",
-    "stream_router",
-    "llm_health_router",
-    "reports_router",
-    "alerts_router",
-    "query_router",
-]
-
+Organized by version under api/routers/v1/.
+"""
+from api.routers.v1 import (
+    accounts_router,
+    agents_router,
+    alerts_router,
+    audit_router,
+    auth_router,
+    backup_router,
+    chat_router,
+    compliance_router,
+    contact_router,
+    contributors_router,
+    cost_router,
+    discussions_router,
+    errors_router,
+    explanations_router,
+    faq_router,
+    feedback_router,
+    fraud_router,
+    llm_cache_metrics_router,
+    llm_health_router,
+    llm_metrics_router,
+    llm_router,
+    llm_usage_router,
+    loyalty_router,
+    mentorship_router,
+    models_router,
+    monitoring_router,
+    notifications_router,
+    onboarding_router,
+    query_router,
+    rate_limit_router,
+    reports_router,
+    search_router,
+    stream_router,
+    streaming_router,
+    transactions_router,
+    validation_router,
+    voice_router,
+    ws_router,
+)

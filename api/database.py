@@ -213,6 +213,11 @@ def _sync_engine():
     )
 
 
+def get_async_engine():
+    """Return the shared async engine (used by health probes, issue #550)."""
+    return _async_engine()
+
+
 def reset_engines() -> None:
     """Clear cached engines (used in tests when DATABASE_URL changes)."""
     _async_engine.cache_clear()

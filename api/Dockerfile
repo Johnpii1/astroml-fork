@@ -11,7 +11,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file
+# Copy requirements file.
+# root-level `requirements-api.txt` (issue #561) is a discoverability alias
+# for this same file (`-r api/requirements.txt`) for non-container installs
+# — this build context intentionally keeps using the file directly.
 COPY api/requirements.txt .
 
 # Install Python dependencies
@@ -42,12 +45,16 @@ COPY migrations/ ./migrations/
 # Create logs directory
 RUN mkdir -p /app/logs
 
-# Expose port
-EXPOSE 8000
+# Expose ports
+EXPOSE 8000 8443
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Run the application
+# For production with HTTPS, set environment variables:
+# HTTPS_ENABLED=true
+# HTTPS_ALLOWED_HOSTS=yourdomain.com,api.yourdomain.com
+# HSTS_ENABLED=true
 CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000"]

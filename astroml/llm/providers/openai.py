@@ -1,4 +1,5 @@
 """OpenAI Provider implementation."""
+import json
 from typing import Any, Dict, Iterator, List
 from .base import LLMProvider
 
@@ -6,14 +7,26 @@ class OpenAIProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = "gpt-4"):
         super().__init__(api_key, model)
 
-    def _generate_raw(self, prompt: str, **kwargs: Any) -> str:
+    def _generate_raw(self, prompt: str, tools: list[dict] | None = None, **kwargs: Any) -> str:
         import openai
         client = openai.OpenAI(api_key=self.api_key)
-        response = client.chat.completions.create(
-            model=kwargs.pop("model", self.model),
-            messages=[{"role": "user", "content": prompt}],
-            **kwargs,
-        )
+
+        messages: list[dict[str, Any]]
+        try:
+            messages = json.loads(prompt) if prompt.startswith("[") or prompt.startswith("{") else [{"role": "user", "content": prompt}]
+        except json.JSONDecodeError:
+            messages = [{"role": "user", "content": prompt}]
+
+        params: dict[str, Any] = {
+            "model": kwargs.pop("model", self.model),
+            "messages": messages,
+        }
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = "auto"
+
+        response = client.chat.completions.create(**params)
+
         if response.usage is not None:
             self.last_usage = {
                 "prompt_tokens": response.usage.prompt_tokens,
@@ -21,15 +34,32 @@ class OpenAIProvider(LLMProvider):
                 "total_tokens": response.usage.total_tokens,
             }
         else:
-            # Fallback estimation if usage is not returned
             p_tokens = self.count_tokens(prompt)
-            c_tokens = 100 # Default/mock completion length
+            c_tokens = 100
             self.last_usage = {
                 "prompt_tokens": p_tokens,
                 "completion_tokens": c_tokens,
-                "total_tokens": p_tokens + c_tokens
+                "total_tokens": p_tokens + c_tokens,
             }
-        return response.choices[0].message.content
+
+        message = response.choices[0].message
+        if message.tool_calls:
+            tool_calls_list = []
+            for tc in message.tool_calls:
+                tool_calls_list.append({
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": json.loads(tc.function.arguments) if isinstance(tc.function.arguments, str) else tc.function.arguments,
+                    },
+                })
+            return json.dumps({
+                "content": message.content or "",
+                "tool_calls": tool_calls_list,
+            })
+
+        return message.content or ""
 
     def get_token_usage(self) -> Dict[str, int]:
         return self.last_usage
