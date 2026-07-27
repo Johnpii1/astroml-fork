@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import (
@@ -39,6 +40,7 @@ from contextlib import contextmanager
 
 import pandas as pd
 import numpy as np
+from cachetools import TTLCache, LRUCache
 
 from astroml.features.schema_validation import (
     validate_dataframe,
@@ -680,36 +682,73 @@ class FeatureRegistry:
 
 class FeatureStore:
     """Main feature store interface.
-    
+
     Provides a high-level API for feature registration, computation,
-    storage, and retrieval. Features lazy loading with LRU eviction.
+    storage, and retrieval with an LRU+TTL cache backed by
+    :class:`cachetools.TTLCache`.
+
+    Cache behaviour
+    ---------------
+    * **maxsize** – upper bound on the number of features held in memory at
+      once (LRU eviction when full).
+    * **TTL** – entries older than *cache_ttl_seconds* are considered stale
+      and will be re-fetched from storage on the next access.
+    * **Metrics** – hit, miss, and eviction counters are maintained and
+      exposed via :meth:`get_cache_stats`.
+    * **Thread safety** – a :class:`threading.Lock` guards every cache
+      mutation so the store is safe to use from concurrent threads.
     """
-    
+
+    # Default configuration (overridden by config/feature_store.yaml values
+    # or constructor arguments).
+    _DEFAULT_MAXSIZE: int = 128
+    _DEFAULT_TTL: int = 900  # 15 minutes
+
     def __init__(
-        self, 
+        self,
         storage_path: Union[str, Path] = "./feature_store",
         max_cache_size_mb: int = 500,
-        cache_ttl_seconds: int = 3600
+        cache_ttl_seconds: int = _DEFAULT_TTL,
+        cache_maxsize: int = _DEFAULT_MAXSIZE,
     ):
         """Initialize feature store.
-        
+
         Args:
-            storage_path: Path to feature store storage
-            max_cache_size_mb: Maximum cache size in MB (default: 500)
-            cache_ttl_seconds: Cache TTL in seconds (default: 3600)
+            storage_path: Path to feature store storage.
+            max_cache_size_mb: Soft memory cap in MB; entries are still
+                subject to TTL-based and LRU-based eviction from the
+                TTLCache regardless of this value.
+            cache_ttl_seconds: Seconds before a cached entry expires
+                (default: 900 = 15 min, matching ``config/feature_store.yaml``).
+            cache_maxsize: Maximum number of entries in the TTLCache before
+                LRU eviction kicks in (default: 128).
         """
         self.storage = FeatureStorage(storage_path)
         self.registry = FeatureRegistry(self.storage)
-        
-        # Lazy loading cache: stores only feature metadata initially
+
+        # Lightweight metadata cache (feature definitions rarely change).
         self._metadata_cache: Dict[str, FeatureDefinition] = {}
-        
-        # LRU cache for feature values with memory limit
-        self._value_cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_access_times: Dict[str, datetime] = {}
-        self._max_cache_size_bytes = max_cache_size_mb * 1024 * 1024
-        self._cache_ttl_seconds = cache_ttl_seconds
-        self._current_cache_size_bytes = 0
+
+        # Primary value cache: TTLCache provides automatic TTL expiry *and*
+        # LRU eviction when maxsize is reached.  A threading.Lock makes all
+        # mutations atomic.
+        self._cache_lock: threading.Lock = threading.Lock()
+        self._cache_ttl_seconds: int = cache_ttl_seconds
+        self._cache_maxsize: int = cache_maxsize
+        self._value_cache: TTLCache = TTLCache(
+            maxsize=cache_maxsize,
+            ttl=cache_ttl_seconds,
+        )
+
+        # Legacy attributes kept for compatibility with code that inspects
+        # memory usage directly.
+        self._max_cache_size_bytes: int = max_cache_size_mb * 1024 * 1024
+        self._current_cache_size_bytes: int = 0
+
+        # Cache metrics counters.
+        self._cache_hits: int = 0
+        self._cache_misses: int = 0
+        self._cache_evictions: int = 0
     
     def register_feature(
         self,
@@ -836,14 +875,14 @@ class FeatureStore:
         # Store values if not dry run
         if not dry_run:
             self.storage.store_feature_values(feature_def.feature_id, values, metadata)
-            
-            # Invalidate cache entry if it exists
-            if feature_def.feature_id in self._value_cache:
-                cache_entry = self._value_cache[feature_def.feature_id]
-                self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
-                del self._value_cache[feature_def.feature_id]
-                del self._cache_access_times[feature_def.feature_id]
-            
+
+            # Invalidate cache entry so the next read fetches fresh data.
+            with self._cache_lock:
+                if feature_def.feature_id in self._value_cache:
+                    cache_entry = self._value_cache.pop(feature_def.feature_id)
+                    self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
+                    self._cache_evictions += 1
+
             logger.info(f"Stored feature '{feature_name}' with {len(values)} values")
         else:
             logger.info(f"Dry run: would store feature '{feature_name}' with {len(values)} values")
@@ -853,53 +892,45 @@ class FeatureStore:
     def _get_dataframe_size_bytes(self, df: pd.DataFrame) -> int:
         """Estimate DataFrame memory usage in bytes."""
         return int(df.memory_usage(deep=True).sum())
-    
+
     def _evict_lru_features(self, required_bytes: int) -> None:
-        """Evict least recently used features to free memory.
-        
+        """Evict the least-recently-used entries until *required_bytes* are freed.
+
+        TTLCache performs LRU eviction automatically when *maxsize* is reached,
+        so this method is only needed for the soft MB cap.  It iterates over the
+        cache in insertion order (oldest first for LRUCache ordering) and removes
+        entries until enough space is reclaimed.
+
         Args:
-            required_bytes: Bytes needed to free
+            required_bytes: Number of bytes to free.
         """
-        if not self._value_cache:
-            return
-        
-        # Sort by access time (oldest first)
-        sorted_features = sorted(
-            self._cache_access_times.items(),
-            key=lambda x: x[1]
-        )
-        
-        freed_bytes = 0
-        for feature_id, _ in sorted_features:
-            if freed_bytes >= required_bytes:
-                break
-            
-            if feature_id in self._value_cache:
-                cache_entry = self._value_cache[feature_id]
-                freed_bytes += cache_entry.get("size_bytes", 0)
-                
-                del self._value_cache[feature_id]
-                del self._cache_access_times[feature_id]
-                self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
-                
-                logger.debug(f"Evicted feature {feature_id} from cache (LRU)")
-    
+        with self._cache_lock:
+            freed_bytes = 0
+            # list() snapshot avoids "dictionary changed size" errors during iteration
+            for feature_id in list(self._value_cache.keys()):
+                if freed_bytes >= required_bytes:
+                    break
+                cache_entry = self._value_cache.pop(feature_id, None)
+                if cache_entry is not None:
+                    freed_bytes += cache_entry.get("size_bytes", 0)
+                    self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
+                    self._cache_evictions += 1
+                    logger.debug(f"Evicted feature {feature_id} from cache (memory cap)")
+
     def _is_cache_expired(self, feature_id: str) -> bool:
-        """Check if cached feature has expired.
-        
+        """Return True if *feature_id* is absent from the TTLCache (expired or missing).
+
+        TTLCache handles expiry transparently on key access; this helper exists
+        for explicit pre-checks without triggering a read.
+
         Args:
-            feature_id: Feature identifier
-            
+            feature_id: Feature identifier.
+
         Returns:
-            True if expired, False otherwise
+            True if the entry has expired or was never cached, False otherwise.
         """
-        if feature_id not in self._cache_access_times:
-            return True
-        
-        access_time = self._cache_access_times[feature_id]
-        age_seconds = (datetime.now() - access_time).total_seconds()
-        
-        return age_seconds > self._cache_ttl_seconds
+        with self._cache_lock:
+            return feature_id not in self._value_cache
     
     @cache_feature_store(ttl_seconds=900)
     def get_feature(
@@ -910,20 +941,21 @@ class FeatureStore:
         use_cache: bool = True,
     ) -> Optional[pd.DataFrame]:
         """Retrieve stored feature values with lazy loading.
-        
+
         Uses lazy loading: only loads feature values on-demand and caches
-        recently accessed features with LRU eviction when memory limit is reached.
-        
+        recently accessed features.  The underlying :class:`cachetools.TTLCache`
+        provides both TTL-based expiry and LRU eviction automatically.
+
         Args:
-            feature_name: Feature name
-            entity_ids: Optional entity IDs to filter
-            timestamp: Optional timestamp for point-in-time queries
-            use_cache: Whether to use cached values
-            
+            feature_name: Feature name.
+            entity_ids: Optional entity IDs to filter.
+            timestamp: Optional timestamp for point-in-time queries.
+            use_cache: Whether to use the in-process value cache.
+
         Returns:
-            Feature values if found, None otherwise
+            Feature values if found, None otherwise.
         """
-        # Load metadata (lightweight)
+        # ── 1. Resolve feature definition (lightweight metadata cache) ────────
         if feature_name in self._metadata_cache:
             feature_def = self._metadata_cache[feature_name]
         else:
@@ -931,59 +963,58 @@ class FeatureStore:
             if feature_def is None:
                 raise ValueError(f"Feature '{feature_name}' not found")
             self._metadata_cache[feature_name] = feature_def
-        
-        feature_id = feature_def.feature_id
-        
-        # Check cache for values (lazy loading)
-        if use_cache and feature_id in self._value_cache:
-            if not self._is_cache_expired(feature_id):
-                # Update access time for LRU
-                self._cache_access_times[feature_id] = datetime.now()
 
-                values = self._value_cache[feature_id]["data"].copy()
-                
+        feature_id = feature_def.feature_id
+
+        # ── 2. Cache lookup ───────────────────────────────────────────────────
+        if use_cache:
+            with self._cache_lock:
+                cache_entry = self._value_cache.get(feature_id)
+
+            if cache_entry is not None:
+                self._cache_hits += 1
+                values = cache_entry["data"].copy()
+                logger.debug(f"Cache hit for feature '{feature_name}'")
                 if entity_ids:
                     values = values[values.index.isin(entity_ids)]
-                
-                logger.debug(f"Cache hit for feature {feature_name}")
                 return values
-            else:
-                # Expired - remove from cache
-                logger.debug(f"Cache expired for feature {feature_name}")
-                cache_entry = self._value_cache.pop(feature_id, None)
-                self._cache_access_times.pop(feature_id, None)
-                if cache_entry:
-                    self._current_cache_size_bytes -= cache_entry.get("size_bytes", 0)
-        
-        # Load from storage (on-demand)
-        logger.debug(f"Loading feature {feature_name} from storage (lazy load)")
+
+        # ── 3. Cache miss — load from storage ─────────────────────────────────
+        self._cache_misses += 1
+        logger.debug(f"Cache miss for feature '{feature_name}' — loading from storage")
         values = self.storage.get_feature_values(feature_id, entity_ids, timestamp)
-        
+
         if values is not None and use_cache:
-            # Calculate size and check if we need to evict
             value_size_bytes = self._get_dataframe_size_bytes(values)
-            
-            # Evict LRU features if needed
-            if self._current_cache_size_bytes + value_size_bytes > self._max_cache_size_bytes:
-                required_space = (self._current_cache_size_bytes + value_size_bytes) - self._max_cache_size_bytes
-                logger.debug(f"Cache full, evicting {required_space} bytes")
-                self._evict_lru_features(required_space)
-            
-            # Cache the values
-            self._value_cache[feature_id] = {
-                "data": values.copy(),
-                "size_bytes": value_size_bytes,
-                "loaded_at": datetime.now()
-            }
-            self._cache_access_times[feature_id] = datetime.now()
-            self._current_cache_size_bytes += value_size_bytes
-            
+
+            # Enforce soft memory cap before inserting.
+            with self._cache_lock:
+                if (
+                    self._current_cache_size_bytes + value_size_bytes
+                    > self._max_cache_size_bytes
+                ):
+                    required_space = (
+                        self._current_cache_size_bytes + value_size_bytes
+                        - self._max_cache_size_bytes
+                    )
+                    logger.debug(
+                        f"Cache at memory cap, freeing {required_space} bytes"
+                    )
+                    self._evict_lru_features(required_space)
+
+                self._value_cache[feature_id] = {
+                    "data": values.copy(),
+                    "size_bytes": value_size_bytes,
+                    "loaded_at": datetime.now(),
+                }
+                self._current_cache_size_bytes += value_size_bytes
+
             logger.debug(
-                f"Cached feature {feature_name} "
+                f"Cached feature '{feature_name}' "
                 f"({value_size_bytes / 1024 / 1024:.2f} MB, "
-                f"total cache: {self._current_cache_size_bytes / 1024 / 1024:.2f} MB)"
+                f"total: {self._current_cache_size_bytes / 1024 / 1024:.2f} MB)"
             )
-        
+
         return values
     
     def compute_and_store(
@@ -1116,60 +1147,152 @@ class FeatureStore:
         return self.storage.list_feature_definitions(status, tags, owner)
     
     def clear_cache(self) -> None:
-        """Clear feature cache (both metadata and values)."""
+        """Clear all in-process caches (metadata and value) and reset metrics."""
         self._metadata_cache.clear()
-        self._value_cache.clear()
-        self._cache_access_times.clear()
-        self._current_cache_size_bytes = 0
+        with self._cache_lock:
+            self._value_cache.clear()
+            self._current_cache_size_bytes = 0
         logger.info("Feature cache cleared")
-    
+
     def get_cache_stats(self) -> Dict[str, Any]:
-        """Get cache statistics.
-        
+        """Return cache statistics including hit/miss/eviction metrics.
+
         Returns:
-            Dictionary with cache statistics
+            Dictionary with the following keys:
+
+            * ``cached_features`` – number of entries currently in the cache.
+            * ``cache_size_mb`` – estimated memory occupied by cached data.
+            * ``max_cache_size_mb`` – configured soft memory cap.
+            * ``cache_utilization_pct`` – percentage of soft cap used.
+            * ``cache_maxsize`` – maximum number of TTLCache entries (LRU cap).
+            * ``cache_ttl_seconds`` – TTL in seconds for each entry.
+            * ``metadata_cached`` – number of feature definitions in the
+              lightweight metadata cache.
+            * ``hits`` – cumulative cache hits since last :meth:`clear_cache`.
+            * ``misses`` – cumulative cache misses since last :meth:`clear_cache`.
+            * ``evictions`` – cumulative evictions (TTL + memory cap) since
+              last :meth:`clear_cache`.
+            * ``hit_rate`` – fraction of lookups that were hits (0.0–1.0).
+            * ``miss_rate`` – fraction of lookups that were misses (0.0–1.0).
         """
+        total_lookups = self._cache_hits + self._cache_misses
+        hit_rate = self._cache_hits / total_lookups if total_lookups > 0 else 0.0
+        miss_rate = self._cache_misses / total_lookups if total_lookups > 0 else 0.0
+
+        with self._cache_lock:
+            cached_features = len(self._value_cache)
+            current_bytes = self._current_cache_size_bytes
+
         return {
-            "cached_features": len(self._value_cache),
-            "cache_size_mb": self._current_cache_size_bytes / 1024 / 1024,
+            "cached_features": cached_features,
+            "cache_size_mb": current_bytes / 1024 / 1024,
             "max_cache_size_mb": self._max_cache_size_bytes / 1024 / 1024,
-            "cache_utilization_pct": (self._current_cache_size_bytes / self._max_cache_size_bytes) * 100,
-            "metadata_cached": len(self._metadata_cache)
+            "cache_utilization_pct": (
+                (current_bytes / self._max_cache_size_bytes) * 100
+                if self._max_cache_size_bytes > 0
+                else 0.0
+            ),
+            "cache_maxsize": self._cache_maxsize,
+            "cache_ttl_seconds": self._cache_ttl_seconds,
+            "metadata_cached": len(self._metadata_cache),
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "evictions": self._cache_evictions,
+            "hit_rate": hit_rate,
+            "miss_rate": miss_rate,
         }
     
     @contextmanager
     def batch_mode(self):
-        """Context manager for batch operations."""
-        # Clear cache at start of batch
+        """Context manager for batch operations.
+
+        Clears the cache before and after the batch so that stale entries
+        do not bleed across batch boundaries.  Metric counters are also
+        reset so per-batch hit/miss rates can be measured independently.
+        """
         self.clear_cache()
+        # Reset metrics for the new batch window.
+        self._cache_hits = 0
+        self._cache_misses = 0
+        self._cache_evictions = 0
         try:
             yield
         finally:
-            # Clear cache at end of batch
             self.clear_cache()
 
 
+# ---------------------------------------------------------------------------
 # Convenience functions
+# ---------------------------------------------------------------------------
 
-def create_feature_store(storage_path: str = "./feature_store") -> FeatureStore:
-    """Create a feature store instance.
-    
+def _load_feature_store_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+    """Load feature store configuration from YAML.
+
+    Looks for ``config/feature_store.yaml`` relative to the current working
+    directory unless *config_path* is given explicitly.  Returns an empty dict
+    if the file does not exist so callers can apply safe defaults.
+
     Args:
-        storage_path: Path to feature store storage
-        
+        config_path: Explicit path to the YAML file (optional).
+
     Returns:
-        Feature store instance
+        Parsed configuration dict (may be empty).
     """
-    return FeatureStore(storage_path)
+    import yaml  # only imported when needed to avoid hard dep in minimal envs
+
+    if config_path is None:
+        config_path = Path("config") / "feature_store.yaml"
+
+    config_path = Path(config_path)
+    if not config_path.exists():
+        logger.debug(f"Feature store config not found at '{config_path}', using defaults")
+        return {}
+
+    with open(config_path, "r", encoding="utf-8") as fh:
+        data = yaml.safe_load(fh) or {}
+
+    logger.info(f"Loaded feature store config from '{config_path}'")
+    return data
 
 
-def get_feature_store(storage_path: str = "./feature_store") -> FeatureStore:
-    """Get existing feature store instance.
-    
+def create_feature_store(
+    storage_path: str = "./feature_store",
+    config_path: Optional[Union[str, Path]] = None,
+) -> FeatureStore:
+    """Create a :class:`FeatureStore` instance, optionally driven by YAML config.
+
+    Constructor keyword arguments take precedence over values read from
+    ``config/feature_store.yaml`` (or *config_path*).
+
     Args:
-        storage_path: Path to feature store storage
-        
+        storage_path: Path to feature store storage.
+        config_path: Override for the YAML config file location.
+
     Returns:
-        Feature store instance
+        Configured :class:`FeatureStore` instance.
     """
-    return FeatureStore(storage_path)
+    cfg = _load_feature_store_config(config_path)
+    cache_cfg = cfg.get("cache", {})
+
+    return FeatureStore(
+        storage_path=storage_path,
+        max_cache_size_mb=cache_cfg.get("max_size_mb", 500),
+        cache_ttl_seconds=cache_cfg.get("ttl_seconds", FeatureStore._DEFAULT_TTL),
+        cache_maxsize=cache_cfg.get("maxsize", FeatureStore._DEFAULT_MAXSIZE),
+    )
+
+
+def get_feature_store(
+    storage_path: str = "./feature_store",
+    config_path: Optional[Union[str, Path]] = None,
+) -> FeatureStore:
+    """Alias for :func:`create_feature_store`.
+
+    Args:
+        storage_path: Path to feature store storage.
+        config_path: Override for the YAML config file location.
+
+    Returns:
+        :class:`FeatureStore` instance.
+    """
+    return create_feature_store(storage_path, config_path=config_path)
