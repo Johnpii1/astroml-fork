@@ -30,6 +30,8 @@ from api.auth.middleware import AuthMiddleware
 from api.audit_middleware import AuditLoggingMiddleware
 from api.config import settings
 from api.database import get_async_session_factory
+from api.middleware.csp import CSPMiddleware
+from api.middleware.https import HSTSMiddleware, HTTPSRedirectMiddleware
 from api.tracing import setup_tracing
 from api.validation_middleware import ValidationMiddleware
 from api.versioning import VersionMiddleware
@@ -179,10 +181,28 @@ app.add_middleware(AuthMiddleware)
 app.add_middleware(ValidationMiddleware)
 app.add_middleware(AuditLoggingMiddleware)
 app.add_middleware(
+    CSPMiddleware,
+    report_only=settings.csp_report_only,
+    report_uri=settings.csp_report_uri,
+    enable_nonce=settings.csp_enable_nonce,
+)
+app.add_middleware(
+    HTTPSRedirectMiddleware,
+    enabled=settings.https_enabled,
+    allowed_hosts=settings.https_allowed_hosts if settings.https_allowed_hosts else None,
+)
+app.add_middleware(
+    HSTSMiddleware,
+    max_age=settings.hsts_max_age,
+    include_subdomains=settings.hsts_include_subdomains,
+    preload=settings.hsts_preload,
+    enabled=settings.hsts_enabled,
+)
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
