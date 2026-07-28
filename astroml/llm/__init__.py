@@ -1,4 +1,30 @@
-"""LLM Provider abstraction layer."""
+"""LLM Provider abstraction layer for AstroML.
+
+This module provides a unified interface for LLM operations including:
+- Multi-provider embedding generation (OpenAI, Cohere, local models)
+- Embedding caching and drift monitoring
+- LLM feature generation for fraud detection
+- Tool execution and permission management
+- Conversation memory and context management
+
+Key components:
+- providers: Embedding provider implementations and routing
+- features: LLM-based feature computation
+- fine_tuning: Model fine-tuning utilities
+- testing: LLM testing utilities and fixtures
+- tools: Tool execution framework with permission checks
+
+Exports:
+- EmbeddingProvider: Base embedding provider interface
+- EmbeddingRouter: Multi-provider routing logic
+- EmbeddingCache: Caching layer for embeddings
+- ConversationMemory: Chat history management
+
+Dependencies:
+- openai: OpenAI API client
+- cohere: Cohere API client
+- sentence-transformers: Local embedding models
+"""
 from .blockchain_context import BlockchainContextBuilder
 from .memory import ConversationMemory
 from .embedding_cache import EmbeddingCache, EmbeddingCacheStats

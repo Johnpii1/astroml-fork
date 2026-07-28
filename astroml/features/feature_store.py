@@ -13,6 +13,19 @@ Key Features:
 - Time-travel and point-in-time queries
 - Feature metadata and documentation
 - Integration with existing feature modules
+
+Key components:
+- FeatureStore: Main feature store interface with caching
+- FeatureRegistry: Feature computer registration and discovery
+- FeatureStorage: SQLite-backed storage backend
+- FeatureDefinition: Feature metadata and configuration
+- FeatureValue: Computed feature value container
+
+Dependencies:
+- pandas: Data manipulation for feature values
+- cachetools: TTL-based caching
+- sqlite3: Metadata storage
+- astroml.features.schema_validation: Feature validation
 """
 
 from __future__ import annotations
@@ -46,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 class FeatureType(Enum):
     """Supported feature data types."""
+
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
     BOOLEAN = "boolean"
@@ -56,6 +70,7 @@ class FeatureType(Enum):
 
 class FeatureStatus(Enum):
     """Feature lifecycle status."""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"

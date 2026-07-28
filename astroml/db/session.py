@@ -1,9 +1,23 @@
 """Database session factory for AstroML.
 
-Resolves the database URL from (in priority order):
-1. ``ASTROML_DATABASE_URL`` environment variable
-2. ``config/database.yaml``
-3. Fallback default: ``postgresql://astroml:@localhost:5432/astroml``
+This module provides database connection management and session creation with:
+- Configuration loading from YAML files
+- Environment variable override support
+- Connection pooling with health monitoring
+- Query profiling in debug mode
+- Pool statistics and health checks
+
+Key components:
+- DatabaseConfig: Validated database configuration
+- get_engine: Cached SQLAlchemy engine
+- get_session: Session factory
+- load_database_config: YAML configuration loader
+- resolve_database_url: URL resolution with fallbacks
+
+Dependencies:
+- sqlalchemy: ORM and database toolkit
+- pydantic: Configuration validation
+- pyyaml: YAML parsing
 """
 from __future__ import annotations
 
@@ -116,8 +130,13 @@ def load_database_config(config_path: Optional[pathlib.Path] = None) -> Database
 
 
 def _database_yaml_template() -> str:
-    """Schema-by-example printed in error messages. Mirrors
-    config/database.yaml so operators can copy-paste a known-good block."""
+    """Schema-by-example printed in error messages.
+
+    Mirrors config/database.yaml so operators can copy-paste a known-good block.
+
+    Returns:
+        YAML template string for database configuration.
+    """
     return (
         "database:\n"
         "  host: localhost            # non-empty string\n"
