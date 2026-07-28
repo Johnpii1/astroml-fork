@@ -5,6 +5,8 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal
 
+from astroml.utils.validators import validate_positive_int, validate_range
+
 from .state import StateStore
 
 logger = logging.getLogger("astroml.ingestion.service")
@@ -79,6 +81,8 @@ class IngestionService:
 
         return IngestionResult(attempted=attempted, processed=processed, skipped=skipped)
 
+    @validate_positive_int("batch_size")
+    @validate_range("batch_size", start=1)
     def ingest_stream(
         self,
         start_ledger: int | None = None,
@@ -122,8 +126,6 @@ class IngestionService:
         flushed before the generator returns or is closed early (e.g. the
         caller stops iterating partway through), via a ``finally`` block.
         """
-        if batch_size < 1:
-            raise ValueError("batch_size must be >= 1")
 
         state = self.state.load()
         processed_set = state.processed_ledgers
