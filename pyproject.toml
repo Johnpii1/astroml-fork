@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 [project.entry-points."astroml.feature_computers"]
 frequency = "astroml.features.frequency"
 structural = "astroml.features.structural_importance"
+
 [project.optional-dependencies]
 gpu = ["torch>=2.0.0", "torch-geometric>=2.3.0"]
 viz = ["matplotlib>=3.7.0", "seaborn>=0.12.0"]
@@ -24,11 +25,7 @@ include = ["astroml*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-# Scope collection to the dedicated tests/ tree so root-level standalone
-# scripts (e.g. test_data_quality_import.py — a manual smoke that calls
-# sys.exit(1) on ImportError) don't poison pytest collection.
 testpaths = ["tests"]
-# Custom markers used by the CI matrix (#186).
 markers = [
     "gpu: requires a CUDA-capable runner; auto-skipped on CPU-only environments",
     "e2e: end-to-end pipeline test (#193)",
@@ -74,3 +71,7 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
 ]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"

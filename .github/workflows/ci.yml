@@ -41,6 +41,8 @@ jobs:
 
       - name: Check code complexity with xenon
         run: xenon --max-absolute C --max-modules D --max-average C astroml/
+      - name: Check function complexity
+        run: python -m astroml.ci.complexity_check astroml api
 
       - name: Run tests
         run: pytest tests/ -v --tb=short -p no:randomly

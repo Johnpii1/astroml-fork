@@ -1,3 +1,17 @@
+"""Ingestion service for processing Stellar network ledgers.
+
+This module provides the core ingestion service for processing Stellar ledger data
+with idempotency guarantees and state management.
+
+Key components:
+- IngestionService: Main service for ledger ingestion
+- IngestionResult: Summary of ingestion results
+- LedgerOutcome: Per-ledger processing outcome
+
+Dependencies:
+- StateStore: Persistent state management
+- observability.metrics: Job tracking metrics
+"""
 from __future__ import annotations
 
 import logging
@@ -14,9 +28,17 @@ logger = logging.getLogger("astroml.ingestion.service")
 
 @dataclass
 class IngestionResult:
-    attempted: list[int]
-    processed: list[int]
-    skipped: list[int]
+    """Summary of ingestion results.
+
+    Attributes:
+        attempted: List of ledger IDs that were attempted
+        processed: List of ledger IDs that were successfully processed
+        skipped: List of ledger IDs that were skipped (already processed)
+    """
+
+    attempted: List[int]
+    processed: List[int]
+    skipped: List[int]
 
 
 @dataclass(frozen=True)
@@ -32,7 +54,15 @@ class LedgerOutcome:
 
 
 class IngestionService:
-    def __init__(self, state_store: StateStore | None = None) -> None:
+    """Service for ingesting Stellar ledger data with idempotency guarantees."""
+
+    def __init__(self, state_store: Optional[StateStore] = None) -> None:
+        """Initialize the ingestion service.
+
+        Args:
+            state_store: Optional state store for tracking processed ledgers.
+                        Defaults to a new StateStore instance.
+        """
         self.state = state_store or StateStore()
 
     def ingest(
