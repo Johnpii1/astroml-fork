@@ -1,13 +1,12 @@
 """Interactive chat mode with streaming support."""
 
-import sys
 from typing import Any
 
 from rich.live import Live
-from rich.panel import Panel
 from rich.text import Text
 
 from astroml.llm.providers.base import LLMProvider
+
 from .formatters import console
 
 

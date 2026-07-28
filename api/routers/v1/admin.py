@@ -1,15 +1,16 @@
 """
 Admin endpoints for managing rate limits (issue #299).
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from api.auth.config import ADMIN_BLACKLIST, ADMIN_WHITELIST
 from api.auth.dependencies import get_current_admin_user
-from api.auth.rate_limit import rate_limiter, RateLimitConfig
-from api.auth.config import ADMIN_WHITELIST, ADMIN_BLACKLIST
+from api.auth.rate_limit import RateLimitConfig, rate_limiter
 
 router = APIRouter(prefix="/admin/rate-limit", tags=["admin"])
 

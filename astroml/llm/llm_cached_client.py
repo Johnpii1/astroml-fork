@@ -14,20 +14,19 @@ API can expose hit rate and average lookup latency.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 import uuid
-import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Tuple, Protocol
+from typing import Any, Protocol
 
-from astroml.cache.redis_cache import RedisCache
 from astroml.cache.llm_semantic_cache import (
-    LLMSemanticCache,
     LLMEmbeddingProvider,
+    LLMSemanticCache,
     SemanticCacheConfig,
-    SemanticCacheHit,
 )
+from astroml.cache.redis_cache import RedisCache
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +38,8 @@ class LLMProvider(Protocol):
 
 @dataclass(frozen=True)
 class LLMCachedClientConfig:
-    redis_url: Optional[str] = os.environ.get("LLM_CACHE_REDIS_URL")
-    model: Optional[str] = None
+    redis_url: str | None = os.environ.get("LLM_CACHE_REDIS_URL")
+    model: str | None = None
     embedding_model: str = os.environ.get("LLM_CACHE_EMBEDDING_MODEL", "text-embedding-placeholder")
 
     similarity_threshold: float = float(os.environ.get("LLM_CACHE_SIMILARITY_THRESHOLD", "0.88"))
@@ -58,8 +57,8 @@ class LLMCachedClient:
         provider: LLMProvider,
         *,
         embedding_provider: LLMEmbeddingProvider,
-        config: Optional[LLMCachedClientConfig] = None,
-        redis_cache: Optional[RedisCache] = None,
+        config: LLMCachedClientConfig | None = None,
+        redis_cache: RedisCache | None = None,
     ):
         self._provider = provider
         self._redis_cache = redis_cache or RedisCache()
@@ -96,7 +95,9 @@ class LLMCachedClient:
         except Exception:
             pass
 
-    def complete(self, *, model: str, prompt: str, request_id: Optional[str] = None, **kwargs: Any) -> Any:
+    def complete(
+        self, *, model: str, prompt: str, request_id: str | None = None, **kwargs: Any
+    ) -> Any:
         request_id = request_id or str(uuid.uuid4())
 
         # Lookup
@@ -117,7 +118,9 @@ class LLMCachedClient:
 
         # Miss -> call provider
         start = time.perf_counter()
-        response = self._provider.complete(model=model, prompt=prompt, request_id=request_id, **kwargs)
+        response = self._provider.complete(
+            model=model, prompt=prompt, request_id=request_id, **kwargs
+        )
         _ = time.perf_counter() - start
 
         # Store
@@ -135,7 +138,9 @@ class LLMCachedClient:
         return response
 
 
-def get_semantic_cache_metrics(*, redis_cache: Optional[RedisCache] = None, metrics_prefix: str = "llm:semantic:metrics") -> Dict[str, Any]:
+def get_semantic_cache_metrics(
+    *, redis_cache: RedisCache | None = None, metrics_prefix: str = "llm:semantic:metrics"
+) -> dict[str, Any]:
     rc = redis_cache or RedisCache()
     redis_client = rc.client
 
@@ -169,4 +174,3 @@ def get_semantic_cache_metrics(*, redis_cache: Optional[RedisCache] = None, metr
         "avg_lookup_ms": avg_lookup_ms,
         "total_lookups": total,
     }
-

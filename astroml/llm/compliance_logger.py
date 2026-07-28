@@ -1,10 +1,10 @@
 """Compliance and audit logging service for LLM interactions (issue #412)."""
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models.orm import LLMComplianceLog
@@ -17,19 +17,19 @@ class ComplianceLogger:
     async def log_interaction(
         self,
         session: AsyncSession,
-        user_id: Optional[int] = None,
-        username: Optional[str] = None,
+        user_id: int | None = None,
+        username: str | None = None,
         interaction_type: str = "query",
         feature: str = "default",
         prompt: str = "",
         response: str = "",
-        model_used: Optional[str] = None,
-        tokens_used: Optional[int] = None,
-        latency_ms: Optional[int] = None,
+        model_used: str | None = None,
+        tokens_used: int | None = None,
+        latency_ms: int | None = None,
         status: str = "success",
-        error_message: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
+        error_message: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
     ) -> LLMComplianceLog:
         """Log an LLM interaction with automatic PII redaction.
 
@@ -90,12 +90,12 @@ class ComplianceLogger:
     async def search_logs(
         self,
         session: AsyncSession,
-        user_id: Optional[int] = None,
-        interaction_type: Optional[str] = None,
-        feature: Optional[str] = None,
-        pii_detected: Optional[bool] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        user_id: int | None = None,
+        interaction_type: str | None = None,
+        feature: str | None = None,
+        pii_detected: bool | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[LLMComplianceLog]:
@@ -133,21 +133,18 @@ class ComplianceLogger:
 
         if conditions:
             from sqlalchemy import and_
+
             query = query.where(and_(*conditions))
 
-        query = (
-            query.order_by(LLMComplianceLog.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        query = query.order_by(LLMComplianceLog.created_at.desc()).limit(limit).offset(offset)
         result = await session.execute(query)
         return list(result.scalars().all())
 
     async def get_audit_report(
         self,
         session: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict:
         """Generate audit report for LLM interactions.
 
@@ -185,9 +182,7 @@ class ComplianceLogger:
 
         for feature_data in by_feature.values():
             if feature_data["count"] > 0:
-                feature_data["avg_latency"] = (
-                    feature_data["total_latency"] / feature_data["count"]
-                )
+                feature_data["avg_latency"] = feature_data["total_latency"] / feature_data["count"]
             del feature_data["total_latency"]
 
         return {
@@ -212,8 +207,8 @@ class ComplianceLogger:
     async def export_logs(
         self,
         session: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         format: str = "json",
     ) -> str:
         """Export compliance logs in specified format.
@@ -227,8 +222,8 @@ class ComplianceLogger:
         Returns:
             Exported logs as string
         """
-        import json
         import csv
+        import json
         from io import StringIO
 
         logs = await self.search_logs(

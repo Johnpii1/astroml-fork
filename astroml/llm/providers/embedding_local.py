@@ -16,16 +16,16 @@ Trade-offs
   dimension when mixing with dense providers.
 - **Requirement**: ``numpy`` (already in requirements.txt).
 """
+
 from __future__ import annotations
 
 import math
 import re
 from collections import Counter
-from typing import Dict, List, Optional
 
 import numpy as np
 
-from .embedding_base import EmbeddingProvider, EmbeddingError
+from .embedding_base import EmbeddingProvider
 
 
 class LocalEmbeddingProvider(EmbeddingProvider):
@@ -37,18 +37,18 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
     def __init__(self, max_vocab: int = 4096) -> None:
         self.max_vocab = max_vocab
-        self._vocab: Dict[str, int] = {}
-        self._df: Dict[str, int] = {}
+        self._vocab: dict[str, int] = {}
+        self._df: dict[str, int] = {}
         self._n_docs: int = 0
 
     # ------------------------------------------------------------------
     # Tokenisation & vocabulary management
     # ------------------------------------------------------------------
 
-    def _tokenise(self, text: str) -> List[str]:
+    def _tokenise(self, text: str) -> list[str]:
         return re.findall(r"[a-z0-9]+", text.lower())
 
-    def _ensure_token(self, token: str) -> Optional[int]:
+    def _ensure_token(self, token: str) -> int | None:
         if token in self._vocab:
             return self._vocab[token]
         if len(self._vocab) >= self.max_vocab:
@@ -95,10 +95,10 @@ class LocalEmbeddingProvider(EmbeddingProvider):
     def is_available(self) -> bool:
         return True  # Always available — pure Python + NumPy
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         return self._encode(text).tolist()
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         return [self._encode(t).tolist() for t in texts]
 
     @property

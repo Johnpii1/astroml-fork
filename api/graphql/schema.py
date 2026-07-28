@@ -1,4 +1,5 @@
 """GraphQL schema definition."""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -6,50 +7,50 @@ from typing import List, Optional
 import strawberry
 from strawberry import ID
 from strawberry.tools import merge_types
+from strawberry.types import Info
 
 from api.database import _sync_session_factory
-from api.models.orm import (
-    ApiAccount,
-    ApiTransaction,
-    FraudAlert,
-    LoyaltyPoints,
-    PointsTransaction,
-    ModelRegistry,
-    User,
-    ApiKey,
-    Mentor,
-    Mentee,
-    Mentorship,
-    Notification,
-    FAQ,
-    AuditLog,
-)
+from api.graphql.context import GraphQLContext, get_graphql_context
+from api.graphql.types import FAQ as GFAQ
 from api.graphql.types import (
     Account,
-    Transaction,
-    FraudAlert,
-    LoyaltyPoints as GLoyaltyPoints,
-    PointsTransaction as GPointsTransaction,
-    ModelRegistry as GModelRegistry,
-    User as GUser,
-    ApiKey as GApiKey,
-    Mentor as GMentor,
-    Mentee as GMentee,
-    Mentorship as GMentorship,
-    Notification as GNotification,
-    FAQ as GFAQ,
-    AuditLog as GAuditLog,
     AccountConnection,
-    TransactionConnection,
-    FraudAlertConnection,
-    PageInfo,
-    MutationResult,
     CreateAccountInput,
     CreateFraudAlertInput,
+    FraudAlert,
+    FraudAlertConnection,
+    MutationResult,
+    PageInfo,
+    Transaction,
+    TransactionConnection,
     UpdateLoyaltyPointsInput,
 )
-from api.graphql.context import get_graphql_context, GraphQLContext
-from strawberry.types import Info
+from api.graphql.types import ApiKey as GApiKey
+from api.graphql.types import AuditLog as GAuditLog
+from api.graphql.types import LoyaltyPoints as GLoyaltyPoints
+from api.graphql.types import Mentee as GMentee
+from api.graphql.types import Mentor as GMentor
+from api.graphql.types import Mentorship as GMentorship
+from api.graphql.types import ModelRegistry as GModelRegistry
+from api.graphql.types import Notification as GNotification
+from api.graphql.types import PointsTransaction as GPointsTransaction
+from api.graphql.types import User as GUser
+from api.models.orm import (
+    FAQ,
+    ApiAccount,
+    ApiKey,
+    ApiTransaction,
+    AuditLog,
+    FraudAlert,
+    LoyaltyPoints,
+    Mentee,
+    Mentor,
+    Mentorship,
+    ModelRegistry,
+    Notification,
+    PointsTransaction,
+    User,
+)
 
 
 # Query resolvers
@@ -319,7 +320,9 @@ class Query:
         """Get the current authenticated user."""
         if not info.context.user:
             return None
-        user = info.context.session.query(User).filter_by(id=info.context.user.get("user_id")).first()
+        user = (
+            info.context.session.query(User).filter_by(id=info.context.user.get("user_id")).first()
+        )
         if not user:
             return None
         return GUser(
@@ -341,10 +344,14 @@ class Query:
         """Get notifications for the current user."""
         if not info.context.user:
             return []
-        query = info.context.session.query(Notification).filter_by(user_id=info.context.user.get("user_id"))
+        query = info.context.session.query(Notification).filter_by(
+            user_id=info.context.user.get("user_id")
+        )
         if is_read is not None:
             query = query.filter_by(is_read=is_read)
-        notifications = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
+        notifications = (
+            query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
+        )
 
         return [
             GNotification(
@@ -397,7 +404,9 @@ class Mutation:
     @strawberry.mutation
     def create_account(self, input: CreateAccountInput, info: Info) -> MutationResult:
         """Create a new account."""
-        existing = info.context.session.query(ApiAccount).filter_by(public_key=input.public_key).first()
+        existing = (
+            info.context.session.query(ApiAccount).filter_by(public_key=input.public_key).first()
+        )
         if existing:
             return MutationResult(success=False, message="Account already exists")
 
@@ -450,7 +459,9 @@ class Mutation:
         info: Info,
     ) -> MutationResult:
         """Update loyalty points for an account."""
-        lp = info.context.session.query(LoyaltyPoints).filter_by(account_id=input.account_id).first()
+        lp = (
+            info.context.session.query(LoyaltyPoints).filter_by(account_id=input.account_id).first()
+        )
         if not lp:
             lp = LoyaltyPoints(account_id=input.account_id, balance=0)
             info.context.session.add(lp)
@@ -482,7 +493,9 @@ class Mutation:
         notification.is_read = True
         info.context.session.commit()
 
-        return MutationResult(success=True, message="Notification marked as read", id=str(notification.id))
+        return MutationResult(
+            success=True, message="Notification marked as read", id=str(notification.id)
+        )
 
     @strawberry.mutation
     def mark_all_notifications_read(self, info: Info) -> MutationResult:
@@ -508,6 +521,7 @@ class Subscription:
     async def transaction_created(self) -> Transaction:
         """Subscribe to new transactions."""
         import asyncio
+
         from api.graphql.subscriptions import transaction_queue
 
         while True:
@@ -536,6 +550,7 @@ class Subscription:
     async def fraud_alert_created(self) -> FraudAlert:
         """Subscribe to new fraud alerts."""
         import asyncio
+
         from api.graphql.subscriptions import fraud_alert_queue
 
         while True:
@@ -560,6 +575,7 @@ class Subscription:
     async def loyalty_points_updated(self) -> GLoyaltyPoints:
         """Subscribe to loyalty points updates."""
         import asyncio
+
         from api.graphql.subscriptions import loyalty_points_queue
 
         while True:

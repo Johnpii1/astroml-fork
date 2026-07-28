@@ -1,13 +1,14 @@
 """Locale-specific validation rules."""
 
-from typing import Dict, Any, Tuple
+from typing import Any
+
 from .translator import SupportedLanguage
 
 
 class LocaleValidator:
     """
     Validate input and output for locale-specific rules.
-    
+
     Ensures culturally appropriate and valid content.
     """
 
@@ -15,7 +16,7 @@ class LocaleValidator:
         """Initialize validator."""
         self.rules = self._setup_validation_rules()
 
-    def _setup_validation_rules(self) -> Dict[str, Dict[str, Any]]:
+    def _setup_validation_rules(self) -> dict[str, dict[str, Any]]:
         """Setup locale-specific validation rules."""
         return {
             "en": {"date_format": "MM/DD/YYYY", "currency": "USD"},
@@ -30,7 +31,7 @@ class LocaleValidator:
         self,
         date_str: str,
         language: SupportedLanguage,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Validate date format for locale.
 
@@ -54,7 +55,7 @@ class LocaleValidator:
         self,
         amount: float,
         language: SupportedLanguage,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Validate currency amount for locale.
 
@@ -76,7 +77,7 @@ class LocaleValidator:
         self,
         content: str,
         language: SupportedLanguage,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Check if content is culturally appropriate for locale.
 
@@ -97,7 +98,7 @@ class LocaleValidator:
         self,
         phone: str,
         language: SupportedLanguage,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         """
         Validate phone number format for locale.
 
@@ -117,9 +118,9 @@ class LocaleValidator:
 
     def validate_all(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         language: SupportedLanguage,
-    ) -> Dict[str, Tuple[bool, str]]:
+    ) -> dict[str, tuple[bool, str]]:
         """
         Validate all fields in data for locale.
 

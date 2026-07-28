@@ -3,6 +3,7 @@
 Resolves #455: Intercepts LLM API requests and responses, applies safety checks,
 and blocks or logs harmful content before it reaches handlers or users.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,9 +20,7 @@ from astroml.llm.safety.guards import SafetyGuard, StrictnessLevel
 logger = logging.getLogger(__name__)
 
 # Routes that go through safety checks
-_PROTECTED_PREFIXES = (
-    "/api/v1/llm/",
-)
+_PROTECTED_PREFIXES = ("/api/v1/llm/",)
 
 
 class SafetyMiddleware(BaseHTTPMiddleware):

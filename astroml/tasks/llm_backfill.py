@@ -1,13 +1,12 @@
 """Celery tasks for LLM backfill processing."""
 
-import json
 import logging
 from typing import Any
 
-from astroml.tasks.celery_app import app
-from astroml.llm.providers import get_llm_provider
 from astroml.llm.batch import BatchProcessor, CheckpointManager
 from astroml.llm.batch.strategies import FixedSizeStrategy
+from astroml.llm.providers import get_llm_provider
+from astroml.tasks.celery_app import app
 from astroml.tasks.llm_jobs import get_job_handler
 
 logger = logging.getLogger(__name__)
@@ -49,7 +48,10 @@ def process_batch(
         checkpoint = CheckpointManager.from_json(job_id, checkpoint_json)
 
         import asyncio
-        processor = BatchProcessor(provider, checkpoint, FixedSizeStrategy(len(items)), rate_per_minute=120)
+
+        processor = BatchProcessor(
+            provider, checkpoint, FixedSizeStrategy(len(items)), rate_per_minute=120
+        )
         results = asyncio.run(processor.process_range(items, handler.process_item))
 
         return {

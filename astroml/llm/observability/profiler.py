@@ -3,6 +3,7 @@
 Resolves #456: Token throughput, TTFT (time to first token), provider latency
 profiling, and memory usage benchmarks.
 """
+
 from __future__ import annotations
 
 import time
@@ -33,7 +34,11 @@ class ProfileResult:
             f"Operation  : {self.operation}",
             f"Provider   : {self.provider or 'N/A'} / {self.model or 'N/A'}",
             f"Latency    : {self.total_latency_ms:.1f}ms",
-            f"TTFT       : {self.time_to_first_token_ms:.1f}ms" if self.time_to_first_token_ms else "TTFT       : N/A",
+            (
+                f"TTFT       : {self.time_to_first_token_ms:.1f}ms"
+                if self.time_to_first_token_ms
+                else "TTFT       : N/A"
+            ),
             f"Throughput : {self.tokens_per_second:.1f} tok/s",
             f"Tokens     : {self.prompt_tokens}p + {self.completion_tokens}c = {self.total_tokens}",
             f"Cost       : ${self.cost_usd:.6f}",
@@ -98,14 +103,10 @@ class LLMProfiler:
         end_time = time.monotonic()
         total_ms = (end_time - self._start_time) * 1000
         ttft_ms = (
-            (self._first_token_time - self._start_time) * 1000
-            if self._first_token_time
-            else None
+            (self._first_token_time - self._start_time) * 1000 if self._first_token_time else None
         )
         total_tokens = prompt_tokens + completion_tokens
-        tokens_per_sec = (
-            total_tokens / (total_ms / 1000) if total_ms > 0 else 0.0
-        )
+        tokens_per_sec = total_tokens / (total_ms / 1000) if total_ms > 0 else 0.0
 
         result = self._current
         result.total_latency_ms = total_ms
@@ -141,7 +142,5 @@ class LLMProfiler:
             "p99_ms": round(_p(0.99), 2),
             "min_ms": round(latencies[0], 2),
             "max_ms": round(latencies[-1], 2),
-            "avg_tokens_per_sec": round(
-                sum(r.tokens_per_second for r in self._results) / n, 2
-            ),
+            "avg_tokens_per_sec": round(sum(r.tokens_per_second for r in self._results) / n, 2),
         }

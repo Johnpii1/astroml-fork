@@ -2,11 +2,12 @@
 
 See ADR-005 (docs/adr/005-pydantic-data-validation.md) for Pydantic schema validation architecture.
 """
+
 from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Literal
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -27,6 +28,7 @@ def _validate_stellar_account(value: str, field_name: str = "account") -> str:
 
 
 # ─── Fraud ────────────────────────────────────────────────────────────────────
+
 
 class EdgeInput(BaseModel):
     src: str = Field(..., min_length=56, max_length=56, examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
@@ -141,6 +143,7 @@ class FraudStatsResponse(BaseModel):
 
 # ─── Accounts ─────────────────────────────────────────────────────────────────
 
+
 class AccountOut(BaseModel):
     account_id: str = Field(..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
     balance: Optional[float] = Field(None, examples=[1000.5])
@@ -219,17 +222,22 @@ class LoyaltySummaryOut(BaseModel):
 
 # ─── Monitoring ───────────────────────────────────────────────────────────────
 
+
 class ModelMetricsOut(BaseModel):
     accuracy: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     precision: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     recall: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     f1: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    f1_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)   # alias populated from f1 for compatibility
+    f1_score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0
+    )  # alias populated from f1 for compatibility
     auc: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-    auc_roc: Optional[float] = Field(default=None, ge=0.0, le=1.0)    # alias populated from auc for compatibility
+    auc_roc: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0
+    )  # alias populated from auc for compatibility
     drift_score: Optional[float] = Field(default=None, ge=0.0)
     recorded_at: Optional[datetime] = None
-    
+
     # LLM Tracking
     llm_cost: Optional[float] = Field(default=None, ge=0.0)
     llm_prompt_tokens: Optional[int] = Field(default=None, ge=0)
@@ -265,6 +273,7 @@ class LatencyStats(BaseModel):
 
 
 # ─── Loyalty ──────────────────────────────────────────────────────────────────
+
 
 class LoyaltyTierOut(BaseModel):
     id: str
@@ -326,6 +335,7 @@ class ReferralOut(BaseModel):
 
 
 # ─── Mentorship ────────────────────────────────────────────────────────────
+
 
 class MentorProfileIn(BaseModel):
     bio: Optional[str] = Field(default=None, max_length=1000)
@@ -479,6 +489,7 @@ class MenteeListResponse(BaseModel):
 
 # ─── Notifications ─────────────────────────────────────────────────────────
 
+
 class NotificationOut(BaseModel):
     id: int
     event_type: str
@@ -552,6 +563,7 @@ class DigestEmailOut(BaseModel):
 
 # ─── Onboarding ────────────────────────────────────────────────────────────
 
+
 class OnboardingStepIn(BaseModel):
     step: str
 
@@ -574,6 +586,7 @@ class OnboardingProgressOut(BaseModel):
 
 
 # ─── FAQ (issue #307) ───────────────────────────────────────────────────────────
+
 
 class FAQOut(BaseModel):
     id: int
@@ -779,7 +792,9 @@ class RoadmapResponse(BaseModel):
     in_progress: List[RoadmapItem]
     completed: List[RoadmapItem]
 
+
 # ─── LLM feedback (#402) ────────────────────────────────────────────────────
+
 
 class LLMFeedbackIn(BaseModel):
     feature: str = Field(min_length=1, max_length=64)
@@ -835,6 +850,7 @@ class LLMPromptImprovement(BaseModel):
 
 # ─── Translation (Issue 1) ──────────────────────────────────────────────────────────
 
+
 class TranslationRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000, examples=["Hello, world!"])
     target_language: str = Field(..., min_length=2, max_length=10, examples=["es"])
@@ -886,6 +902,7 @@ class TranslationCacheStatsResponse(BaseModel):
 
 # ─── Predictive Alerts (Issue 2) ────────────────────────────────────────────────
 
+
 class BehavioralBaseline(BaseModel):
     account_id: str
     metric_name: str
@@ -900,19 +917,23 @@ class BehavioralBaseline(BaseModel):
 
 # --- LLM Feature Schemas ---
 
+
 class SuggestionItem(BaseModel):
     query: str
     popularity: int
     is_correction: bool
 
+
 class SuggestionResponse(BaseModel):
     suggestions: List[SuggestionItem]
     corrected_query: Optional[str] = None
+
 
 class SearchRequest(BaseModel):
     query: str = Field(..., examples=["fraud detection"])
     filters: Optional[Dict[str, Any]] = Field(None, examples=[{"category": "security"}])
     top_k: int = Field(5, examples=[5])
+
 
 class SearchResult(BaseModel):
     id: str
@@ -921,9 +942,11 @@ class SearchResult(BaseModel):
     data: Dict[str, Any]
     explanation: str
 
+
 class SearchResponse(BaseModel):
     results: List[SearchResult]
     query_time_ms: int
+
 
 class CostMetric(BaseModel):
     provider: str
@@ -931,9 +954,11 @@ class CostMetric(BaseModel):
     total_cost: float
     total_tokens: int
 
+
 class BudgetAlert(BaseModel):
     threshold_percent: int
     is_triggered: bool
+
 
 class CostDashboardResponse(BaseModel):
     metrics: List[CostMetric]

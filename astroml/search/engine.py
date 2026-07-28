@@ -1,7 +1,8 @@
-from typing import List, Dict, Any, Optional
-from .retrievers import Retriever
+from typing import Any
+
 from .rerankers import Reranker
-from .indexer import get_indexer
+from .retrievers import Retriever
+
 
 class SearchEngine:
     def __init__(self):
@@ -11,10 +12,10 @@ class SearchEngine:
     def search(
         self,
         query: str,
-        mode: str = "hybrid", # "semantic", "keyword", "hybrid"
+        mode: str = "hybrid",  # "semantic", "keyword", "hybrid"
         top_k: int = 10,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         # 1. Retrieve
         if mode == "semantic":
             results = self.retriever.retrieve_semantic(query, top_k=top_k * 2)
@@ -22,7 +23,7 @@ class SearchEngine:
             results = self.retriever.retrieve_keyword(query, top_k=top_k * 2)
         else:
             results = self.retriever.retrieve_hybrid(query, top_k=top_k * 2)
-            
+
         # 2. Filter metadata
         if filters:
             filtered_results = []
@@ -38,12 +39,14 @@ class SearchEngine:
                 if match:
                     filtered_results.append(r)
             results = filtered_results
-            
+
         # 3. Rerank
         reranked_results = self.reranker.rerank(query, results)
         return reranked_results[:top_k]
 
+
 _engine = SearchEngine()
+
 
 def get_search_engine() -> SearchEngine:
     return _engine

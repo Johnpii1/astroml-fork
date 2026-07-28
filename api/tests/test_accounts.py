@@ -5,6 +5,7 @@ Tests cover: fixture availability, sample data shape, and future CRUD stubs.
 These are designed to wire into CI immediately and expand as the accounts API
 endpoint is implemented.
 """
+
 import pytest
 
 

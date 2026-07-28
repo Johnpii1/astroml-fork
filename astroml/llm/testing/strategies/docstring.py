@@ -6,9 +6,9 @@ parameter descriptions, and usage patterns.
 
 from __future__ import annotations
 
-import re
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,34 +19,38 @@ class DocstringStrategy:
     def __init__(self, docstring: str):
         self.docstring = docstring
 
-    def extract_examples(self) -> List[Dict[str, Any]]:
+    def extract_examples(self) -> list[dict[str, Any]]:
         """Extract usage examples from the docstring."""
         examples = []
 
         code_blocks = re.findall(
-            r'```(?:python)?\n(.*?)```',
+            r"```(?:python)?\n(.*?)```",
             self.docstring,
             re.DOTALL,
         )
         for block in code_blocks:
-            examples.append({
-                "type": "code_block",
-                "code": block.strip(),
-            })
+            examples.append(
+                {
+                    "type": "code_block",
+                    "code": block.strip(),
+                }
+            )
 
         example_lines = re.findall(
-            r'(?:>>>|\.\.\.)\s*(.*)',
+            r"(?:>>>|\.\.\.)\s*(.*)",
             self.docstring,
         )
         if example_lines:
-            examples.append({
-                "type": "doctest",
-                "code": "\n".join(example_lines),
-            })
+            examples.append(
+                {
+                    "type": "doctest",
+                    "code": "\n".join(example_lines),
+                }
+            )
 
         return examples
 
-    def extract_params(self) -> List[Dict[str, str]]:
+    def extract_params(self) -> list[dict[str, str]]:
         """Extract parameter descriptions from the docstring."""
         params = []
         patterns = [
@@ -68,7 +72,7 @@ class DocstringStrategy:
                             params.append({"name": m.group(1), "description": m.group(2)})
         return params
 
-    def extract_return_description(self) -> Optional[str]:
+    def extract_return_description(self) -> str | None:
         """Extract return value description."""
         patterns = [
             r":return:\s*(.*)",
@@ -81,7 +85,7 @@ class DocstringStrategy:
                 return match.group(1).strip() if match.lastindex else match.group(0).strip()
         return None
 
-    def extract_raises(self) -> List[str]:
+    def extract_raises(self) -> list[str]:
         """Extract exception information from the docstring."""
         raises = []
         pattern = r":raises\s+(\w+):\s*(.*)"
@@ -91,7 +95,7 @@ class DocstringStrategy:
 
     def has_doctests(self) -> bool:
         """Check if the docstring contains embedded doctests."""
-        return bool(re.search(r'>>>\s', self.docstring))
+        return bool(re.search(r">>>\s", self.docstring))
 
     def get_description(self) -> str:
         """Extract the first paragraph as a brief description."""

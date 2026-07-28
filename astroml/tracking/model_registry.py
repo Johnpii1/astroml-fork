@@ -8,14 +8,15 @@ Enhanced with:
 - A/B testing support
 - Deployment tracking
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from astroml.db.schema import Model, ModelVersion
@@ -60,11 +61,13 @@ class SemanticVersion:
         self.major, self.minor, self.patch = self._parse(version)
 
     @staticmethod
-    def _parse(version: str) -> Tuple[int, int, int]:
+    def _parse(version: str) -> tuple[int, int, int]:
         """Parse semantic version string into major, minor, patch."""
         parts = version.split(".")
         if len(parts) != 3:
-            raise ValueError(f"Invalid semantic version: {version}. Expected format: major.minor.patch")
+            raise ValueError(
+                f"Invalid semantic version: {version}. Expected format: major.minor.patch"
+            )
 
         try:
             major = int(parts[0])
@@ -75,7 +78,7 @@ class SemanticVersion:
 
         return major, minor, patch
 
-    def __lt__(self, other: "SemanticVersion") -> bool:
+    def __lt__(self, other: SemanticVersion) -> bool:
         """Compare if this version is less than another."""
         if self.major != other.major:
             return self.major < other.major
@@ -86,11 +89,7 @@ class SemanticVersion:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SemanticVersion):
             return False
-        return (
-            self.major == other.major
-            and self.minor == other.minor
-            and self.patch == other.patch
-        )
+        return self.major == other.major and self.minor == other.minor and self.patch == other.patch
 
     def __repr__(self) -> str:
         return self.version
@@ -103,7 +102,7 @@ class ModelRegistry:
     with helper methods for common registry operations.
     """
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize the registry.
 
         Args:
@@ -125,7 +124,7 @@ class ModelRegistry:
             self._session.close()
             self._session = None
 
-    def __enter__(self) -> "ModelRegistry":
+    def __enter__(self) -> ModelRegistry:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -140,7 +139,7 @@ class ModelRegistry:
         name: str,
         framework: str,
         task_type: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         is_active: bool = True,
     ) -> Model:
         """Create a new model.
@@ -175,21 +174,21 @@ class ModelRegistry:
         logger.info("Created model: %s (id=%d)", name, model.id)
         return model
 
-    def get_model(self, model_id: int) -> Optional[Model]:
+    def get_model(self, model_id: int) -> Model | None:
         """Get a model by ID."""
         return self.session.get(Model, model_id)
 
-    def get_model_by_name(self, name: str) -> Optional[Model]:
+    def get_model_by_name(self, name: str) -> Model | None:
         """Get a model by name."""
         stmt = select(Model).where(Model.name == name)
         return self.session.execute(stmt).scalar_one_or_none()
 
     def list_models(
         self,
-        framework: Optional[str] = None,
-        task_type: Optional[str] = None,
-        is_active: Optional[bool] = None,
-    ) -> List[Model]:
+        framework: str | None = None,
+        task_type: str | None = None,
+        is_active: bool | None = None,
+    ) -> list[Model]:
         """List models with optional filters."""
         stmt = select(Model)
         if framework:
@@ -204,9 +203,9 @@ class ModelRegistry:
     def update_model(
         self,
         model_id: int,
-        description: Optional[str] = None,
-        is_active: Optional[bool] = None,
-    ) -> Optional[Model]:
+        description: str | None = None,
+        is_active: bool | None = None,
+    ) -> Model | None:
         """Update a model."""
         model = self.get_model(model_id)
         if not model:
@@ -240,9 +239,7 @@ class ModelRegistry:
     def _get_next_version(self, model_name: str) -> str:
         """Get the next semantic version for a model."""
         # Get all versions for this model
-        stmt = select(ModelVersion).where(
-            ModelVersion.model.has(name=model_name)
-        )
+        stmt = select(ModelVersion).where(ModelVersion.model.has(name=model_name))
         versions = list(self.session.execute(stmt).scalars().all())
 
         if not versions:
@@ -268,11 +265,11 @@ class ModelRegistry:
         self,
         model_id: int,
         artifact_path: str,
-        hyperparameters: Optional[Dict[str, Any]] = None,
-        metrics: Optional[Dict[str, Any]] = None,
+        hyperparameters: dict[str, Any] | None = None,
+        metrics: dict[str, Any] | None = None,
         status: str = "training",
-        version: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        version: str | None = None,
+        metadata: dict[str, Any] | None = None,
         auto_version: bool = True,
     ) -> ModelVersion:
         """Create a new model version.
@@ -332,7 +329,7 @@ class ModelRegistry:
         )
         return model_version
 
-    def get_model_version(self, model_id: int, version: str) -> Optional[ModelVersion]:
+    def get_model_version(self, model_id: int, version: str) -> ModelVersion | None:
         """Get a specific model version."""
         stmt = select(ModelVersion).where(
             ModelVersion.model_id == model_id,
@@ -340,17 +337,17 @@ class ModelRegistry:
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def get_model_version_by_id(self, version_id: int) -> Optional[ModelVersion]:
+    def get_model_version_by_id(self, version_id: int) -> ModelVersion | None:
         """Get a model version by ID."""
         return self.session.get(ModelVersion, version_id)
 
     def list_model_versions(
         self,
-        model_id: Optional[int] = None,
-        status: Optional[str] = None,
+        model_id: int | None = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[ModelVersion]:
+    ) -> list[ModelVersion]:
         """List model versions with optional filters."""
         stmt = select(ModelVersion)
         if model_id:
@@ -367,7 +364,7 @@ class ModelRegistry:
         new_status: str,
         validate_transition: bool = True,
         **kwargs,
-    ) -> Optional[ModelVersion]:
+    ) -> ModelVersion | None:
         """Update a model version status with optional validation."""
         version = self.get_model_version_by_id(version_id)
         if not version:
@@ -398,8 +395,8 @@ class ModelRegistry:
     def update_model_version_metrics(
         self,
         version_id: int,
-        metrics: Dict[str, Any],
-    ) -> Optional[ModelVersion]:
+        metrics: dict[str, Any],
+    ) -> ModelVersion | None:
         """Update metrics for a model version."""
         version = self.get_model_version_by_id(version_id)
         if not version:
@@ -414,8 +411,8 @@ class ModelRegistry:
     def update_model_version_metadata(
         self,
         version_id: int,
-        metadata: Dict[str, Any],
-    ) -> Optional[ModelVersion]:
+        metadata: dict[str, Any],
+    ) -> ModelVersion | None:
         """Update metadata for a model version."""
         version = self.get_model_version_by_id(version_id)
         if not version:
@@ -442,7 +439,7 @@ class ModelRegistry:
     # Advanced operations
     # ------------------------------------------------------------------
 
-    def get_latest_version(self, model_id: int) -> Optional[ModelVersion]:
+    def get_latest_version(self, model_id: int) -> ModelVersion | None:
         """Get the latest version of a model by creation time."""
         stmt = (
             select(ModelVersion)
@@ -452,7 +449,7 @@ class ModelRegistry:
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def get_latest_deployed_version(self, model_id: int) -> Optional[ModelVersion]:
+    def get_latest_deployed_version(self, model_id: int) -> ModelVersion | None:
         """Get the latest deployed version of a model."""
         stmt = (
             select(ModelVersion)
@@ -465,7 +462,9 @@ class ModelRegistry:
         )
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def get_version_by_semver(self, model_id: int, major: int, minor: int, patch: int) -> Optional[ModelVersion]:
+    def get_version_by_semver(
+        self, model_id: int, major: int, minor: int, patch: int
+    ) -> ModelVersion | None:
         """Get a model version by semantic version components."""
         version_str = f"{major}.{minor}.{patch}"
         return self.get_model_version(model_id, version_str)
@@ -475,7 +474,7 @@ class ModelRegistry:
         model_id: int,
         target_version: str,
         reason: str = "Rollback requested",
-    ) -> Tuple[ModelVersion, ModelVersion]:
+    ) -> tuple[ModelVersion, ModelVersion]:
         """
         Rollback to a previous version.
 
@@ -531,28 +530,30 @@ class ModelRegistry:
 
         return target, current
 
-    def get_version_history(self, model_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_version_history(self, model_id: int, limit: int = 10) -> list[dict[str, Any]]:
         """Get version history with status transitions for a model."""
         versions = self.list_model_versions(model_id=model_id, limit=limit)
 
         history = []
         for version in versions:
-            history.append({
-                "id": version.id,
-                "version": version.version,
-                "status": version.status,
-                "metrics": version.metrics,
-                "created_at": version.created_at.isoformat(),
-                "deployed_at": version.deployed_at.isoformat() if version.deployed_at else None,
-                "metadata": version.metadata,
-            })
+            history.append(
+                {
+                    "id": version.id,
+                    "version": version.version,
+                    "status": version.status,
+                    "metrics": version.metrics,
+                    "created_at": version.created_at.isoformat(),
+                    "deployed_at": version.deployed_at.isoformat() if version.deployed_at else None,
+                    "metadata": version.metadata,
+                }
+            )
 
         return history
 
     def compare_versions(
         self,
-        version_ids: List[int],
-    ) -> Dict[str, Any]:
+        version_ids: list[int],
+    ) -> dict[str, Any]:
         """Compare multiple model versions across metrics."""
         versions = []
         for vid in version_ids:
@@ -570,10 +571,7 @@ class ModelRegistry:
                 all_metrics.update(v.metrics.keys())
 
         comparison = {
-            "versions": [
-                {"id": v.id, "version": v.version, "status": v.status}
-                for v in versions
-            ],
+            "versions": [{"id": v.id, "version": v.version, "status": v.status} for v in versions],
             "metrics": {},
             "summary": {},
         }
@@ -609,8 +607,8 @@ class ModelRegistry:
         control_version: str,
         treatment_version: str,
         traffic_split: float = 0.5,
-        metrics: List[str] = None,
-    ) -> Dict[str, Any]:
+        metrics: list[str] = None,
+    ) -> dict[str, Any]:
         """
         Set up an A/B test between two model versions.
 
@@ -673,7 +671,7 @@ class ModelRegistry:
         self,
         model_id: int,
         ab_test_id: str = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get A/B test results for a model."""
         # Implementation would query metrics storage
         # This is a placeholder that returns mock data
@@ -690,9 +688,9 @@ class ModelRegistry:
         self,
         version_id: int,
         environment: DeploymentEnvironment,
-        deployed_by: Optional[str] = None,
-        notes: Optional[str] = None,
-    ) -> Optional[ModelVersion]:
+        deployed_by: str | None = None,
+        notes: str | None = None,
+    ) -> ModelVersion | None:
         """
         Track deployment of a model version.
 
@@ -745,7 +743,7 @@ class ModelRegistry:
     def get_deployment_history(
         self,
         version_id: int,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get deployment history for a model version."""
         version = self.get_model_version_by_id(version_id)
         if not version:

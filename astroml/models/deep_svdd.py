@@ -6,11 +6,12 @@ limited labeled examples.
 """
 from __future__ import annotations
 
+from typing import Dict, Optional, Tuple, Union
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from typing import Dict, Optional, Tuple, Union
 from sklearn.base import BaseEstimator
 from sklearn.preprocessing import StandardScaler
 

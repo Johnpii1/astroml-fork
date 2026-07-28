@@ -151,9 +151,7 @@ class TestCheckDisk:
 
         assert check_disk("/data").status is HealthStatus.FAIL
 
-    def test_oserror_is_reported_not_raised(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_oserror_is_reported_not_raised(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def _boom(_path: Any) -> Any:
             raise OSError("not mounted")
 

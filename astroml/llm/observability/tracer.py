@@ -3,14 +3,16 @@
 Resolves #456: Full request lifecycle tracing from prompt to response,
 including provider routing, retry tracking, and token/cost attribution.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 import uuid
-import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Generator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,8 @@ logger = logging.getLogger(__name__)
 try:
     from opentelemetry import trace as otel_trace
     from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
+    from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
+
     _OTEL_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _OTEL_AVAILABLE = False

@@ -1,6 +1,7 @@
 """Tool registration and discovery."""
 
 from typing import Any
+
 from .definitions import BaseTool
 
 

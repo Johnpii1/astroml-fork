@@ -8,22 +8,21 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-from astroml.llm.providers.factory import get_llm_provider
 from astroml.llm.providers.embedding_router import build_default_router
+from astroml.llm.providers.factory import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
 
 def compute_embeddings(
-    texts: List[str],
+    texts: list[str],
     provider: str = "openai",
     model: str = "text-embedding-ada-002",
-) -> List[List[float]]:
+) -> list[list[float]]:
     """Compute embeddings for a list of texts using the configured provider."""
     if not texts:
         return []
@@ -41,7 +40,7 @@ def compute_fraud_scores(
     entity_col: str,
     model: str = "gpt-4",
     prompt_version: str = "v1",
-) -> List[float]:
+) -> list[float]:
     """Compute fraud probability scores for transactions using LLM."""
     scores = []
     provider = get_llm_provider("openai")
@@ -65,7 +64,7 @@ def compute_confidence_scores(
     entity_col: str,
     model: str = "gpt-4",
     prompt_version: str = "v1",
-) -> List[float]:
+) -> list[float]:
     """Compute confidence scores for LLM explanations."""
     confidence = []
     provider = get_llm_provider("openai")
@@ -91,7 +90,7 @@ def compute_uncertainty(
     num_samples: int = 5,
 ) -> pd.DataFrame:
     """Compute uncertainty estimates via Monte Carlo sampling of LLM outputs."""
-    results: List[Dict[str, float]] = []
+    results: list[dict[str, float]] = []
     provider = get_llm_provider("openai")
 
     for _, row in data.iterrows():
@@ -106,19 +105,23 @@ def compute_uncertainty(
                 continue
 
         if samples:
-            results.append({
-                "uncertainty_mean": float(np.mean(samples)),
-                "uncertainty_std": float(np.std(samples)),
-                "uncertainty_min": float(np.min(samples)),
-                "uncertainty_max": float(np.max(samples)),
-            })
+            results.append(
+                {
+                    "uncertainty_mean": float(np.mean(samples)),
+                    "uncertainty_std": float(np.std(samples)),
+                    "uncertainty_min": float(np.min(samples)),
+                    "uncertainty_max": float(np.max(samples)),
+                }
+            )
         else:
-            results.append({
-                "uncertainty_mean": 0.0,
-                "uncertainty_std": 1.0,
-                "uncertainty_min": 0.0,
-                "uncertainty_max": 1.0,
-            })
+            results.append(
+                {
+                    "uncertainty_mean": 0.0,
+                    "uncertainty_std": 1.0,
+                    "uncertainty_min": 0.0,
+                    "uncertainty_max": 1.0,
+                }
+            )
 
     return pd.DataFrame(results, index=data[entity_col].values)
 
@@ -154,7 +157,8 @@ def _build_uncertainty_prompt(row: pd.Series) -> str:
 def _parse_score(text: str) -> float:
     """Parse a numerical score from LLM response text."""
     import re
-    matches = re.findall(r'0\.\d+|1\.0|0|1', text.strip())
+
+    matches = re.findall(r"0\.\d+|1\.0|0|1", text.strip())
     if matches:
         score = float(matches[0])
         return max(0.0, min(1.0, score))

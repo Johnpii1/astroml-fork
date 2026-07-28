@@ -1,4 +1,5 @@
 """Tests for streaming API endpoints."""
+
 from __future__ import annotations
 
 import pytest
@@ -21,24 +22,27 @@ class TestStreamingEndpoints:
     def test_streaming_health_with_state(self):
         """Test streaming health endpoint with registered streams."""
         # Import here to avoid circular imports
-        from api.routers.streaming import update_stream_state, _stream_state
+        from api.routers.streaming import _stream_state, update_stream_state
 
         # Reset state first
         _stream_state.streams.clear()
         _stream_state.last_updated = None
 
         # Add a test stream
-        update_stream_state("test-stream", {
-            "stream_type": "effects",
-            "horizon_url": "https://horizon-testnet.stellar.org",
-            "is_healthy": True,
-            "status": "active",
-            "cursor": "123456789",
-            "processed_count": 100,
-            "consecutive_failures": 0,
-            "current_backoff": 1.0,
-            "lag_seconds": 5.0
-        })
+        update_stream_state(
+            "test-stream",
+            {
+                "stream_type": "effects",
+                "horizon_url": "https://horizon-testnet.stellar.org",
+                "is_healthy": True,
+                "status": "active",
+                "cursor": "123456789",
+                "processed_count": 100,
+                "consecutive_failures": 0,
+                "current_backoff": 1.0,
+                "lag_seconds": 5.0,
+            },
+        )
 
         # Test the endpoint
         with TestClient(app) as test_client:

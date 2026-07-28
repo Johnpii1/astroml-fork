@@ -1,4 +1,5 @@
 """Tests for input validation middleware and rate limiting (issues #533, #532)."""
+
 from __future__ import annotations
 
 import time
@@ -7,14 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from api.validation import InputValidator, ValidationError
-from api.validation_middleware import ValidationMiddleware, MAX_REQUEST_SIZE_BYTES
 from api.auth.rate_limit import (
-    RateLimiter,
     RateLimitConfig,
+    RateLimiter,
     RateLimitResult,
     TokenBucket,
 )
+from api.validation import InputValidator, ValidationError
+from api.validation_middleware import MAX_REQUEST_SIZE_BYTES, ValidationMiddleware
 
 # A valid synthetic 56-character Stellar account ID (G + 55 base32 chars).
 _VALID_STELLAR = "G" + "A" * 55
@@ -197,6 +198,7 @@ class TestSchemaValidators:
 
 
 # ─── #533 Validation Middleware — request size ────────────────────────────────
+
 
 # Build a minimal test app using only the middleware under test — avoids the
 # full api.app import which requires opentelemetry and other optional deps.
@@ -389,9 +391,9 @@ class TestRateLimitHeaders:
 
     def test_x_ratelimit_headers_present_on_success(self) -> None:
         """Verify the middleware adds rate limit headers when a request is allowed."""
-        from fastapi.testclient import TestClient
         from fastapi import FastAPI, Request, Response
         from fastapi.responses import JSONResponse
+        from fastapi.testclient import TestClient
 
         # Simulate what AuthMiddleware does: inject rate limit headers on every response.
         app = FastAPI()

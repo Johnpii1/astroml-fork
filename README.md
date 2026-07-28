@@ -3,6 +3,7 @@
 
 [![CI](https://github.com/lordemaverick/astroml/actions/workflows/pytest.yml/badge.svg)](https://github.com/lordemaverick/astroml/actions/workflows/pytest.yml)
 [![codecov](https://codecov.io/gh/lordemaverick/astroml/branch/main/graph/badge.svg)](https://codecov.io/gh/lordemaverick/astroml)
+[![Code Complexity](https://img.shields.io/badge/complexity-A-brightgreen)](https://github.com/mombu/xenon)
 
 ## Dynamic Graph Machine Learning Framework for the Stellar Network
 

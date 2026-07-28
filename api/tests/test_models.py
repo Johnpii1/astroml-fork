@@ -1,8 +1,10 @@
 """Integration tests — model registry (issue #237)."""
+
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 @pytest.mark.xdist_group("api_models")
@@ -17,11 +19,14 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        resp = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": str(src),
-            "metrics": {"auc": 0.95},
-        })
+        resp = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": str(src),
+                "metrics": {"auc": 0.95},
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["name"] == "gcn"
@@ -34,51 +39,66 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        parent = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.0.0",
-            "path": str(src),
-        }).json()
-        
-        child = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.1.0",
-            "path": str(src),
-            "parent_id": parent["id"],
-        }).json()
-        
+        parent = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.0.0",
+                "path": str(src),
+            },
+        ).json()
+
+        child = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.1.0",
+                "path": str(src),
+                "parent_id": parent["id"],
+            },
+        ).json()
+
         assert child["parent_id"] == parent["id"]
 
     def test_register_model_with_invalid_parent(self, client, tmp_path):
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
-        
-        resp = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": str(src),
-            "parent_id": 9999,
-        })
+
+        resp = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": str(src),
+                "parent_id": 9999,
+            },
+        )
         assert resp.status_code == 404
 
     def test_register_model_with_custom_version(self, client, tmp_path):
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        resp = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.0.0",
-            "path": str(src),
-            "metrics": {"auc": 0.95},
-        })
+        resp = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.0.0",
+                "path": str(src),
+                "metrics": {"auc": 0.95},
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["version"] == "v1.0.0"
 
     def test_register_model_nonexistent_path(self, client):
-        resp = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": "/nonexistent/path/model.pth",
-        })
+        resp = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": "/nonexistent/path/model.pth",
+            },
+        )
         assert resp.status_code == 201
         data = resp.json()
         assert data["path"] == "/nonexistent/path/model.pth"
@@ -87,10 +107,13 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        created = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": str(src),
-        }).json()
+        created = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": str(src),
+            },
+        ).json()
 
         resp = client.post(f"/api/v1/models/{created['id']}/activate")
         assert resp.status_code == 200
@@ -101,16 +124,22 @@ class TestModelRegistry:
         src.write_bytes(b"fake-checkpoint")
 
         # Create two versions
-        v1 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.0.0",
-            "path": str(src),
-        }).json()
-        v2 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v2.0.0",
-            "path": str(src),
-        }).json()
+        v1 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.0.0",
+                "path": str(src),
+            },
+        ).json()
+        v2 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v2.0.0",
+                "path": str(src),
+            },
+        ).json()
 
         # Activate v1
         client.post(f"/api/v1/models/{v1['id']}/activate")
@@ -129,11 +158,14 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        created = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": str(src),
-            "metrics": {"f1": 0.88},
-        }).json()
+        created = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": str(src),
+                "metrics": {"f1": 0.88},
+            },
+        ).json()
 
         resp = client.get(f"/api/v1/models/{created['id']}/metrics")
         assert resp.status_code == 200
@@ -143,10 +175,13 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        created = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": str(src),
-        }).json()
+        created = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": str(src),
+            },
+        ).json()
 
         resp = client.get(f"/api/v1/models/{created['id']}/metrics")
         assert resp.status_code == 200
@@ -177,32 +212,41 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        v1 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.0.0",
-            "path": str(src),
-            "metrics": {"auc": 0.90, "precision": 0.80},
-        }).json()
-        v2 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.1.0",
-            "path": str(src),
-            "metrics": {"auc": 0.92, "precision": 0.85},
-        }).json()
-        
-        resp = client.post("/api/v1/models/compare", json={
-            "version_ids": [v1["id"], v2["id"]],
-        })
+        v1 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.0.0",
+                "path": str(src),
+                "metrics": {"auc": 0.90, "precision": 0.80},
+            },
+        ).json()
+        v2 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.1.0",
+                "path": str(src),
+                "metrics": {"auc": 0.92, "precision": 0.85},
+            },
+        ).json()
+
+        resp = client.post(
+            "/api/v1/models/compare",
+            json={
+                "version_ids": [v1["id"], v2["id"]],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["versions"]) == 2
         assert len(data["metric_deltas"]) == 2
-        
+
         auc_delta = next(m for m in data["metric_deltas"] if m["metric"] == "auc")
         assert auc_delta["delta"] == 0.02
         assert auc_delta["best"] == v2["id"]
         assert auc_delta["worst"] == v1["id"]
-        
+
         precision_delta = next(m for m in data["metric_deltas"] if m["metric"] == "precision")
         assert precision_delta["delta"] == 0.05
         assert precision_delta["best"] == v2["id"]
@@ -215,10 +259,13 @@ class TestModelRegistry:
     def test_compare_versions_missing_id(self, client, tmp_path):
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
-        v1 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "path": str(src),
-        }).json()
+        v1 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "path": str(src),
+            },
+        ).json()
         resp = client.post("/api/v1/models/compare", json={"version_ids": [v1["id"], 9999]})
         assert resp.status_code == 404
 
@@ -226,24 +273,33 @@ class TestModelRegistry:
         src = tmp_path / "model.pth"
         src.write_bytes(b"fake-checkpoint")
 
-        v1 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.0.0",
-            "path": str(src),
-        }).json()
-        v2 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.1.0",
-            "path": str(src),
-            "parent_id": v1["id"],
-        }).json()
-        v3 = client.post("/api/v1/models", json={
-            "name": "gcn",
-            "version": "v1.2.0",
-            "path": str(src),
-            "parent_id": v2["id"],
-        }).json()
-        
+        v1 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.0.0",
+                "path": str(src),
+            },
+        ).json()
+        v2 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.1.0",
+                "path": str(src),
+                "parent_id": v1["id"],
+            },
+        ).json()
+        v3 = client.post(
+            "/api/v1/models",
+            json={
+                "name": "gcn",
+                "version": "v1.2.0",
+                "path": str(src),
+                "parent_id": v2["id"],
+            },
+        ).json()
+
         resp = client.get(f"/api/v1/models/{v3['id']}/lineage")
         assert resp.status_code == 200
         chain = resp.json()["chain"]

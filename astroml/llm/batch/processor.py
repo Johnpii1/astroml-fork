@@ -3,11 +3,13 @@
 import asyncio
 import logging
 import time
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from astroml.llm.providers.base import LLMProvider
-from .strategies import BatchingStrategy, FixedSizeStrategy
+
 from .checkpoint import CheckpointManager
+from .strategies import BatchingStrategy, FixedSizeStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class BatchProcessor:
         batch_size = self._strategy.get_batch_size()
 
         for i in range(0, len(items), batch_size):
-            batch = items[i:i + batch_size]
+            batch = items[i : i + batch_size]
             batch_result = await self._process_batch(batch, process_fn)
             results.extend(batch_result)
 

@@ -4,15 +4,16 @@ Registry for optimized models with metadata and versioning.
 Tracks optimized models, their metrics, and deployment targets.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 import json
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
 
 
 @dataclass
 class OptimizedModelEntry:
     """Entry in the optimized model registry."""
+
     model_id: str
     model_path: str
     base_model: str
@@ -21,8 +22,8 @@ class OptimizedModelEntry:
     quality_score: float
     size_reduction: float
     speedup: float
-    deployment_targets: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    deployment_targets: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -49,7 +50,7 @@ class OptimizedModelRegistry:
 
     def __init__(self):
         """Initialize registry."""
-        self._models: Dict[str, OptimizedModelEntry] = {}
+        self._models: dict[str, OptimizedModelEntry] = {}
 
     def register_model(
         self,
@@ -60,7 +61,7 @@ class OptimizedModelRegistry:
         quality_score: float,
         size_reduction: float,
         speedup: float,
-        deployment_targets: Optional[List[str]] = None,
+        deployment_targets: list[str] | None = None,
     ) -> OptimizedModelEntry:
         """
         Register an optimized model.
@@ -93,11 +94,11 @@ class OptimizedModelRegistry:
         self._models[model_id] = entry
         return entry
 
-    def get_model(self, model_id: str) -> Optional[OptimizedModelEntry]:
+    def get_model(self, model_id: str) -> OptimizedModelEntry | None:
         """Get model entry by ID."""
         return self._models.get(model_id)
 
-    def list_models(self) -> List[OptimizedModelEntry]:
+    def list_models(self) -> list[OptimizedModelEntry]:
         """List all registered models."""
         return list(self._models.values())
 
@@ -106,7 +107,7 @@ class OptimizedModelRegistry:
         base_model: str,
         deployment_target: str,
         min_quality: float = 0.90,
-    ) -> Optional[OptimizedModelEntry]:
+    ) -> OptimizedModelEntry | None:
         """
         Find best optimized model for a deployment target.
 
@@ -119,7 +120,8 @@ class OptimizedModelRegistry:
             Best matching OptimizedModelEntry or None
         """
         candidates = [
-            m for m in self._models.values()
+            m
+            for m in self._models.values()
             if m.base_model == base_model
             and m.quality_score >= min_quality
             and deployment_target in m.deployment_targets
@@ -131,24 +133,18 @@ class OptimizedModelRegistry:
         # Return model with best speedup
         return max(candidates, key=lambda m: m.speedup)
 
-    def list_by_optimization_type(self, optimization_type: str) -> List[OptimizedModelEntry]:
+    def list_by_optimization_type(self, optimization_type: str) -> list[OptimizedModelEntry]:
         """List models by optimization type."""
-        return [
-            m for m in self._models.values()
-            if m.optimization_type == optimization_type
-        ]
+        return [m for m in self._models.values() if m.optimization_type == optimization_type]
 
-    def list_by_base_model(self, base_model: str) -> List[OptimizedModelEntry]:
+    def list_by_base_model(self, base_model: str) -> list[OptimizedModelEntry]:
         """List all optimizations of a base model."""
-        return [
-            m for m in self._models.values()
-            if m.base_model == base_model
-        ]
+        return [m for m in self._models.values() if m.base_model == base_model]
 
     def update_deployment_targets(
         self,
         model_id: str,
-        deployment_targets: List[str],
+        deployment_targets: list[str],
     ) -> bool:
         """
         Update deployment targets for a model.
@@ -181,7 +177,7 @@ class OptimizedModelRegistry:
             output_path: Path to save registry JSON
         """
         data = [m.to_dict() for m in self._models.values()]
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(data, f, indent=2)
 
     def import_registry(self, input_path: str) -> None:
@@ -191,25 +187,25 @@ class OptimizedModelRegistry:
         Args:
             input_path: Path to registry JSON
         """
-        with open(input_path, 'r') as f:
+        with open(input_path) as f:
             data = json.load(f)
 
         for item in data:
             entry = OptimizedModelEntry(
-                model_id=item['model_id'],
-                model_path=item['model_path'],
-                base_model=item['base_model'],
-                optimization_type=item['optimization_type'],
-                created_at=item['created_at'],
-                quality_score=item['quality_score'],
-                size_reduction=item['size_reduction'],
-                speedup=item['speedup'],
-                deployment_targets=item.get('deployment_targets', []),
-                metadata=item.get('metadata', {}),
+                model_id=item["model_id"],
+                model_path=item["model_path"],
+                base_model=item["base_model"],
+                optimization_type=item["optimization_type"],
+                created_at=item["created_at"],
+                quality_score=item["quality_score"],
+                size_reduction=item["size_reduction"],
+                speedup=item["speedup"],
+                deployment_targets=item.get("deployment_targets", []),
+                metadata=item.get("metadata", {}),
             )
             self._models[entry.model_id] = entry
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get registry statistics."""
         models = list(self._models.values())
 
@@ -230,14 +226,14 @@ class OptimizedModelRegistry:
             "avg_speedup": sum(m.speedup for m in models) / len(models),
         }
 
-    def _count_by_type(self, models: List[OptimizedModelEntry]) -> Dict[str, int]:
+    def _count_by_type(self, models: list[OptimizedModelEntry]) -> dict[str, int]:
         """Count models by optimization type."""
         counts = {}
         for model in models:
             counts[model.optimization_type] = counts.get(model.optimization_type, 0) + 1
         return counts
 
-    def _count_by_base_model(self, models: List[OptimizedModelEntry]) -> Dict[str, int]:
+    def _count_by_base_model(self, models: list[OptimizedModelEntry]) -> dict[str, int]:
         """Count models by base model."""
         counts = {}
         for model in models:

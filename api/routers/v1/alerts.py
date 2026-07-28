@@ -1,4 +1,5 @@
 """Alerts API router (issue XXX)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -10,21 +11,20 @@ from sqlalchemy.orm import Session
 
 from api.database import get_sync_db
 from api.models.orm import ApiTransaction, FraudAlert
-from api.schemas import (
-    FraudAlertOut,
-    FraudAlertsResponse,
-    FraudExplanationOut,
-    PrioritizedAlertOut,
-    PrioritizedAlertsResponse,
-    TransactionSummaryOut,
-    # Predictive Alerts schemas
+from api.schemas import (  # Predictive Alerts schemas
+    AlertGenerationRequest,
+    AlertGenerationResponse,
     BehavioralBaseline,
     BehavioralBaselineResponse,
     DeviationAlert,
+    FraudAlertOut,
+    FraudAlertsResponse,
+    FraudExplanationOut,
     PredictiveAlertRequest,
     PredictiveAlertResponse,
-    AlertGenerationRequest,
-    AlertGenerationResponse,
+    PrioritizedAlertOut,
+    PrioritizedAlertsResponse,
+    TransactionSummaryOut,
 )
 from api.services.alert_prioritization import alert_prioritizer
 from api.services.predictive_alerts import predictive_alert_service
@@ -71,7 +71,8 @@ def get_prioritized_alerts(
                         asset_code=tx["asset_code"],
                         destination_account=tx["destination_account"],
                         created_at=tx["created_at"],
-                    ) for tx in enriched.recent_transactions
+                    )
+                    for tx in enriched.recent_transactions
                 ],
                 account_activity_score=enriched.account_activity_score,
                 is_duplicate=enriched.is_duplicate,
@@ -97,51 +98,46 @@ def get_predictive_alerts(
 ):
     """
     Generate predictive alerts for account behavior changes.
-    
+
     Analyzes historical transaction data to establish behavioral baselines
     and detects significant deviations that may indicate unusual activity.
     """
     # Validate account exists (basic check)
     if not account_id or len(account_id) < 10:  # Stellar addresses are typically longer
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid account ID format"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account ID format"
         )
-    
+
     # Use the predictive alert service
     result = predictive_alert_service.generate_predictive_alerts(
-        account_id=account_id,
-        lookback_days=lookback_days,
-        metrics=metrics,
-        sensitivity=sensitivity
+        account_id=account_id, lookback_days=lookback_days, metrics=metrics, sensitivity=sensitivity
     )
-    
+
     # Check if service returned an error
     if "error" in result:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result["error"]
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=result["error"]
         )
-    
+
     # Check for informational messages (no alerts generated)
     if "message" in result and "alerts" not in result:
         # Return empty alerts list with metadata
         return PredictiveAlertResponse(
-            alerts=[],
-            baselines_used=[],
-            generated_at=datetime.utcnow(),
-            total_analyzed=0
+            alerts=[], baselines_used=[], generated_at=datetime.utcnow(), total_analyzed=0
         )
-    
+
     # Convert to response model
     return PredictiveAlertResponse(
         alerts=[DeviationAlert(**alert) for alert in result.get("alerts", [])],
         baselines_used=[
-            BehavioralBaseline(**baseline) 
-            for baseline in result.get("baselines_used", [])
+            BehavioralBaseline(**baseline) for baseline in result.get("baselines_used", [])
         ],
-        generated_at=datetime.fromisoformat(result["generated_at"]) if isinstance(result.get("generated_at"), str) else result.get("generated_at", datetime.utcnow()),
-        total_analyzed=result.get("total_analyzed", 0)
+        generated_at=(
+            datetime.fromisoformat(result["generated_at"])
+            if isinstance(result.get("generated_at"), str)
+            else result.get("generated_at", datetime.utcnow())
+        ),
+        total_analyzed=result.get("total_analyzed", 0),
     )
 
 
@@ -164,23 +160,23 @@ def generate_alert_explanations(
                 {
                     "metric_name": deviation.metric_name,
                     "current_value": deviation.current_value,
-                    "expected_value": sum(deviation.expected_range) / 2 if deviation.expected_range else 0,
+                    "expected_value": (
+                        sum(deviation.expected_range) / 2 if deviation.expected_range else 0
+                    ),
                     "deviation_score": deviation.deviation_score,
-                    "severity": deviation.severity
-                }
+                    "severity": deviation.severity,
+                },
             )
             explanations.append(explanation_result.get("explanation", "No explanation available"))
-        
+
         return AlertGenerationResponse(
-            alerts=request.deviations,
-            explanations=explanations,
-            generated_at=datetime.utcnow()
+            alerts=request.deviations, explanations=explanations, generated_at=datetime.utcnow()
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate explanations"
+            detail="Failed to generate explanations",
         )
 
 

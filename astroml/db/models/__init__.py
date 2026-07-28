@@ -5,12 +5,24 @@ from datetime import datetime
 from typing import Literal, Optional
 
 from sqlalchemy import (
-    BigInteger, Boolean, CheckConstraint, ForeignKey, ForeignKeyConstraint,
-    Index, Integer, JSON, Numeric, SmallInteger, String, Text,
-    UniqueConstraint, func,
+    JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
 
 class Base(DeclarativeBase):
     pass

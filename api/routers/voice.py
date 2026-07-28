@@ -1,14 +1,15 @@
 """Voice interface for LLM queries (issue #411)."""
+
 from __future__ import annotations
 
 import base64
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.auth.dependencies import get_current_auth, AuthContext
+from api.auth.dependencies import AuthContext, get_current_auth
 from api.database import get_db
 from api.routers.llm import log_llm_interaction
 
@@ -29,6 +30,7 @@ SUPPORTED_LANGUAGES = {
 
 class STTRequest(BaseModel):
     """Speech-to-text request."""
+
     audio_data: str
     language: str = "en"
     format: str = "wav"
@@ -36,6 +38,7 @@ class STTRequest(BaseModel):
 
 class STTResponse(BaseModel):
     """Speech-to-text response."""
+
     text: str
     confidence: float
     language: str
@@ -43,6 +46,7 @@ class STTResponse(BaseModel):
 
 class TTSRequest(BaseModel):
     """Text-to-speech request."""
+
     text: str
     language: str = "en"
     voice: Optional[str] = None
@@ -51,6 +55,7 @@ class TTSRequest(BaseModel):
 
 class TTSResponse(BaseModel):
     """Text-to-speech response."""
+
     audio_data: str
     duration_ms: float
     language: str
@@ -75,6 +80,7 @@ async def speech_to_text(
         audio_bytes = base64.b64decode(request.audio_data)
 
         import time
+
         start_time = time.time()
 
         text = await mock_stt(audio_bytes, request.language)
@@ -123,6 +129,7 @@ async def text_to_speech(
             raise ValueError("Speed must be between 0.5 and 2.0")
 
         import time
+
         start_time = time.time()
 
         audio_data, duration_ms = await mock_tts(
@@ -170,6 +177,7 @@ async def voice_query(
     """
     try:
         import time
+
         start_time = time.time()
 
         if language not in SUPPORTED_LANGUAGES:
@@ -179,6 +187,7 @@ async def voice_query(
         text = await mock_stt(audio_bytes, language)
 
         from api.services.llm_query import QueryTranslator
+
         query_translator = QueryTranslator()
         sql_response = query_translator.translate_to_sql(text)
 

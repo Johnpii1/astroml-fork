@@ -1,9 +1,10 @@
 """E2E test report generation."""
+
 import json
 import time
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any
+from pathlib import Path
+from typing import Any
 
 
 class E2ETestReporter:
@@ -22,16 +23,11 @@ class E2ETestReporter:
                 "failed": 0,
                 "skipped": 0,
                 "duration": 0,
-            }
+            },
         }
 
     def add_test_result(
-        self,
-        name: str,
-        status: str,
-        duration: float,
-        error: str = None,
-        metadata: Dict = None
+        self, name: str, status: str, duration: float, error: str = None, metadata: dict = None
     ):
         """Add a test result."""
         result = {
@@ -39,7 +35,7 @@ class E2ETestReporter:
             "status": status,
             "duration": duration,
             "error": error,
-            "metadata": metadata or {}
+            "metadata": metadata or {},
         }
         self.results["tests"].append(result)
 
@@ -52,32 +48,33 @@ class E2ETestReporter:
         elif status == "skipped":
             self.results["summary"]["skipped"] += 1
 
-    def detect_flaky_tests(self, threshold: float = 0.5) -> List[str]:
+    def detect_flaky_tests(self, threshold: float = 0.5) -> list[str]:
         """Detect potentially flaky tests."""
         # Analyze test patterns for instability
         flaky = []
         for test in self.results["tests"]:
             if test["status"] == "failed" and test.get("error"):
                 # Tests with timeout or connection errors are often flaky
-                if any(keyword in test["error"].lower() for keyword in ["timeout", "connection", "reset"]):
+                if any(
+                    keyword in test["error"].lower()
+                    for keyword in ["timeout", "connection", "reset"]
+                ):
                     flaky.append(test["name"])
         return flaky
 
-    def generate_report(self) -> Dict[str, Any]:
+    def generate_report(self) -> dict[str, Any]:
         """Generate complete report."""
         self.results["summary"]["duration"] = time.time() - self.start_time
-        
+
         # Add flaky test detection
         flaky_tests = self.detect_flaky_tests()
         self.results["summary"]["flaky_tests"] = flaky_tests
-        
+
         # Calculate pass rate
         total = self.results["summary"]["total"]
         if total > 0:
-            self.results["summary"]["pass_rate"] = (
-                self.results["summary"]["passed"] / total * 100
-            )
-        
+            self.results["summary"]["pass_rate"] = self.results["summary"]["passed"] / total * 100
+
         return self.results
 
     def save_json_report(self):
@@ -90,7 +87,7 @@ class E2ETestReporter:
     def save_html_report(self):
         """Save report as HTML."""
         report_data = self.generate_report()
-        
+
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -141,18 +138,18 @@ class E2ETestReporter:
         </body>
         </html>
         """
-        
+
         report_path = self.report_dir / "e2e-report.html"
         with open(report_path, "w") as f:
             f.write(html_template)
         return report_path
 
     @staticmethod
-    def _flaky_section(flaky_tests: List[str]) -> str:
+    def _flaky_section(flaky_tests: list[str]) -> str:
         """Generate flaky tests warning section."""
         if not flaky_tests:
             return ""
-        
+
         return f"""
             <div class="flaky-warning">
                 <h3>⚠️ Potentially Flaky Tests Detected</h3>

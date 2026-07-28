@@ -1,8 +1,9 @@
 """Configuration for artifact storage."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -12,13 +13,13 @@ class S3StorageConfig(BaseModel):
 
     bucket: str = Field(..., description="S3 bucket name")
     prefix: str = Field(default="", description="Prefix for all artifacts in bucket")
-    aws_access_key_id: Optional[str] = Field(
+    aws_access_key_id: str | None = Field(
         default=None, description="AWS access key (uses env var if not provided)"
     )
-    aws_secret_access_key: Optional[str] = Field(
+    aws_secret_access_key: str | None = Field(
         default=None, description="AWS secret key (uses env var if not provided)"
     )
-    region_name: Optional[str] = Field(
+    region_name: str | None = Field(
         default=None, description="AWS region (uses default if not provided)"
     )
 
@@ -28,10 +29,10 @@ class GCSStorageConfig(BaseModel):
 
     bucket: str = Field(..., description="GCS bucket name")
     prefix: str = Field(default="", description="Prefix for all artifacts in bucket")
-    project_id: Optional[str] = Field(
+    project_id: str | None = Field(
         default=None, description="GCP project ID (uses env var if not provided)"
     )
-    credentials_path: Optional[str] = Field(
+    credentials_path: str | None = Field(
         default=None, description="Path to service account JSON (uses env var if not provided)"
     )
 
@@ -89,11 +90,11 @@ class ArtifactStorageConfig(BaseModel):
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert config to dictionary."""
         return self.model_dump()
 
     @classmethod
-    def from_dict(cls, data: Dict) -> ArtifactStorageConfig:
+    def from_dict(cls, data: dict) -> ArtifactStorageConfig:
         """Create config from dictionary."""
         return cls(**data)

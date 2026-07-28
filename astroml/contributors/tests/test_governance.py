@@ -1,16 +1,15 @@
 """Tests for astroml.contributors.governance."""
+
 from __future__ import annotations
 
 import pytest
 
 from astroml.contributors.governance import (
     CONTRIBUTION_THRESHOLDS,
-    ROLE_PERMISSIONS,
     ROLES,
     ContributorRecord,
     GovernanceSystem,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

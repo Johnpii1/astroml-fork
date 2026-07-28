@@ -4,6 +4,7 @@ Accepts contact form submissions, verifies reCAPTCHA (when configured),
 persists a support ticket, and sends a support notification plus an auto-reply
 confirmation to the submitter.
 """
+
 from __future__ import annotations
 
 import secrets
@@ -65,9 +66,7 @@ async def get_ticket(
     db: AsyncSession = Depends(get_db),
 ) -> SupportTicket:
     """Look up a support ticket by its reference."""
-    result = await db.execute(
-        select(SupportTicket).where(SupportTicket.reference == reference)
-    )
+    result = await db.execute(select(SupportTicket).where(SupportTicket.reference == reference))
     ticket = result.scalar_one_or_none()
     if ticket is None:
         raise HTTPException(status_code=404, detail="Ticket not found")

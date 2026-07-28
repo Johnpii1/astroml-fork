@@ -4,10 +4,9 @@ import json
 from typing import Any
 
 from rich.console import Console
-from rich.table import Table
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.syntax import Syntax
+from rich.table import Table
 
 console = Console()
 
@@ -32,7 +31,9 @@ def print_table(rows: list[list[str]], headers: list[str], title: str = "") -> N
     console.print(table)
 
 
-def print_llm_response(text: str, tokens: int = 0, cost: float = 0.0, latency: float = 0.0, model: str = "") -> None:
+def print_llm_response(
+    text: str, tokens: int = 0, cost: float = 0.0, latency: float = 0.0, model: str = ""
+) -> None:
     console.print(Panel(text, border_style="green"))
     parts = []
     if model:

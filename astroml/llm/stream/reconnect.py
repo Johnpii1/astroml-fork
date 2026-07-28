@@ -1,10 +1,11 @@
 import time
 import uuid
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 
 class ReconnectionManager:
     def __init__(self, ttl_seconds: int = 300):
-        self.sessions: Dict[str, Dict[str, Any]] = {}
+        self.sessions: dict[str, dict[str, Any]] = {}
         self.ttl = ttl_seconds
 
     def create_session(self, prompt: str) -> str:
@@ -13,16 +14,16 @@ class ReconnectionManager:
             "prompt": prompt,
             "tokens": [],
             "created_at": time.time(),
-            "last_accessed": time.time()
+            "last_accessed": time.time(),
         }
         return session_id
 
-    def append_tokens(self, session_id: str, tokens: List[str]):
+    def append_tokens(self, session_id: str, tokens: list[str]):
         if session_id in self.sessions:
             self.sessions[session_id]["tokens"].extend(tokens)
             self.sessions[session_id]["last_accessed"] = time.time()
 
-    def resume_stream(self, session_id: str, last_token_index: int) -> Optional[List[str]]:
+    def resume_stream(self, session_id: str, last_token_index: int) -> list[str] | None:
         self._cleanup()
         if session_id not in self.sessions:
             return None
@@ -39,7 +40,9 @@ class ReconnectionManager:
         for sid in expired:
             del self.sessions[sid]
 
+
 _reconnect_manager = ReconnectionManager()
+
 
 def get_reconnection_manager() -> ReconnectionManager:
     return _reconnect_manager

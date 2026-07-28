@@ -1,4 +1,5 @@
 """Contributor onboarding checklist API — Issue #281."""
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,13 +1,13 @@
 """Experiment result reporting and visualization."""
 
-from typing import Dict, Any, List
 from datetime import datetime
+from typing import Any
 
 
 class ExperimentReporter:
     """
     Generate reports on experiment results.
-    
+
     Produces summaries for stakeholders and automated decision-making.
     """
 
@@ -18,8 +18,8 @@ class ExperimentReporter:
 
     def generate_summary_report(
         self,
-        test_results: Dict[str, Any],
-        statistical_results: Dict[str, Any],
+        test_results: dict[str, Any],
+        statistical_results: dict[str, Any],
     ) -> str:
         """
         Generate executive summary report.
@@ -61,9 +61,9 @@ Action: {'Deploy winner' if statistical_results['is_significant'] else 'Continue
 
     def generate_detailed_report(
         self,
-        test_results: Dict[str, Any],
-        statistical_results: Dict[str, Any],
-        safety_metrics: Dict[str, Any] = None,
+        test_results: dict[str, Any],
+        statistical_results: dict[str, Any],
+        safety_metrics: dict[str, Any] = None,
     ) -> str:
         """
         Generate detailed technical report.
@@ -92,7 +92,7 @@ Anomalies Detected: {safety_metrics.get('anomalies_detected', 'N/A')}
 
     def export_results_csv(
         self,
-        observations: List[Dict[str, Any]],
+        observations: list[dict[str, Any]],
         output_path: str,
     ) -> None:
         """
@@ -107,12 +107,12 @@ Anomalies Detected: {safety_metrics.get('anomalies_detected', 'N/A')}
         for obs in observations[:10]:  # First 10 rows
             csv_content += f"{obs.get('user_id')},{obs.get('variant')},{obs.get('success')},{obs.get('timestamp')},\n"
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             f.write(csv_content)
 
     def generate_metrics_table(
         self,
-        metrics_by_variant: Dict[str, Dict[str, float]],
+        metrics_by_variant: dict[str, dict[str, float]],
     ) -> str:
         """
         Generate formatted metrics table.

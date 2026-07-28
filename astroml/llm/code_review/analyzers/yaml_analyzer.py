@@ -6,7 +6,7 @@ including pattern matching for common YAML issues.
 """
 
 import re
-from typing import List, Dict, Any
+from typing import Any
 
 from astroml.llm.code_review.suggestions import (
     Suggestion,
@@ -27,7 +27,7 @@ class YAMLAnalyzer:
         """Initialize the YAML analyzer."""
         self.patterns = self._init_patterns()
 
-    def _init_patterns(self) -> Dict[str, Dict[str, Any]]:
+    def _init_patterns(self) -> dict[str, dict[str, Any]]:
         """Initialize YAML analysis patterns."""
         return {
             "hardcoded_secret": {
@@ -41,14 +41,14 @@ class YAMLAnalyzer:
                 "suggested_fix": "Use environment variable references or secret management",
             },
             "debug_enabled": {
-                "pattern": re.compile(r'debug:\s*true', re.IGNORECASE),
+                "pattern": re.compile(r"debug:\s*true", re.IGNORECASE),
                 "severity": SuggestionSeverity.MEDIUM,
                 "category": SuggestionCategory.SECURITY,
                 "message": "Debug mode enabled in configuration",
                 "suggested_fix": "Disable debug mode in production configurations",
             },
             "insecure_port": {
-                "pattern": re.compile(r'port:\s*(80|8080|5000)\s*$', re.MULTILINE),
+                "pattern": re.compile(r"port:\s*(80|8080|5000)\s*$", re.MULTILINE),
                 "severity": SuggestionSeverity.LOW,
                 "category": SuggestionCategory.SECURITY,
                 "message": "Using non-HTTPS port",
@@ -63,9 +63,7 @@ class YAMLAnalyzer:
             },
         }
 
-    def analyze_diff(
-        self, diff_content: str, file_path: str
-    ) -> List[Suggestion]:
+    def analyze_diff(self, diff_content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze a git diff for YAML code issues.
 
@@ -84,9 +82,7 @@ class YAMLAnalyzer:
 
         return suggestions
 
-    def analyze_code(
-        self, content: str, file_path: str
-    ) -> List[Suggestion]:
+    def analyze_code(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze YAML code content for issues.
 
@@ -105,7 +101,7 @@ class YAMLAnalyzer:
 
         return suggestions
 
-    def _extract_added_lines(self, diff_content: str) -> List[tuple]:
+    def _extract_added_lines(self, diff_content: str) -> list[tuple]:
         """
         Extract added lines from a git diff.
 
@@ -120,7 +116,7 @@ class YAMLAnalyzer:
 
         for line in diff_content.split("\n"):
             if line.startswith("@@"):
-                match = re.search(r'\+(\d+)', line)
+                match = re.search(r"\+(\d+)", line)
                 if match:
                     current_line_num = int(match.group(1))
             elif line.startswith("+") and not line.startswith("+++"):
@@ -133,7 +129,7 @@ class YAMLAnalyzer:
 
     def _analyze_line(
         self, line_content: str, file_path: str, line_number: int
-    ) -> List[Suggestion]:
+    ) -> list[Suggestion]:
         """
         Analyze a single line of YAML code.
 

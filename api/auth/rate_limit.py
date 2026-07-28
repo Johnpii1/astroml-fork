@@ -6,6 +6,7 @@ Enhanced with:
 - Admin override capabilities (issue #299)
 - Rate limit headers (issue #299)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from threading import Lock
-from typing import Optional, Tuple, Dict, Any, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from api.auth.config import (
     ADMIN_BLACKLIST,
@@ -183,12 +184,10 @@ class RateLimiter:
             # ── Auth ─────────────────────────────────────────────────────────
             # Strict limit on login to mitigate credential-stuffing attacks.
             "/api/v1/auth/login": RateLimitConfig(requests_per_minute=5, burst_size=2),
-
             # ── Public endpoints (100 req/min) ────────────────────────────────
             "/api/v1/health": RateLimitConfig(requests_per_minute=100, burst_size=20),
             "/api/v1/faq": RateLimitConfig(requests_per_minute=100, burst_size=20),
             "/api/v1/onboarding": RateLimitConfig(requests_per_minute=100, burst_size=20),
-
             # ── Authenticated endpoints (1 000 req/min) ───────────────────────
             "/api/v1/transactions": RateLimitConfig(requests_per_minute=1000, burst_size=100),
             "/api/v1/accounts": RateLimitConfig(requests_per_minute=1000, burst_size=100),
@@ -197,12 +196,16 @@ class RateLimiter:
             "/api/v1/models": RateLimitConfig(requests_per_minute=1000, burst_size=100),
             "/api/v1/loyalty": RateLimitConfig(requests_per_minute=1000, burst_size=100),
             "/api/v1/mentorship": RateLimitConfig(requests_per_minute=1000, burst_size=100),
-
             # ── LLM endpoints — sliding window to smooth bursty inference traffic
-            "/api/v1/llm": RateLimitConfig(requests_per_minute=100, burst_size=20, algorithm="sliding_window"),
-            "/api/v1/llm/embedding": RateLimitConfig(requests_per_minute=200, burst_size=50, algorithm="sliding_window"),
-            "/api/v1/llm/chat": RateLimitConfig(requests_per_minute=50, burst_size=10, algorithm="sliding_window"),
-
+            "/api/v1/llm": RateLimitConfig(
+                requests_per_minute=100, burst_size=20, algorithm="sliding_window"
+            ),
+            "/api/v1/llm/embedding": RateLimitConfig(
+                requests_per_minute=200, burst_size=50, algorithm="sliding_window"
+            ),
+            "/api/v1/llm/chat": RateLimitConfig(
+                requests_per_minute=50, burst_size=10, algorithm="sliding_window"
+            ),
             # ── Admin endpoints (50 req/min) ──────────────────────────────────
             "/api/v1/admin": RateLimitConfig(requests_per_minute=50, burst_size=10),
             "/api/v1/audit": RateLimitConfig(requests_per_minute=50, burst_size=10),
@@ -290,7 +293,7 @@ class RateLimiter:
         requests_per_minute = min(requests_per_minute, config.requests_per_minute)
 
         # Determine algorithm
-        algorithm = config.algorithm if hasattr(config, 'algorithm') else RATE_LIMIT_ALGORITHM
+        algorithm = config.algorithm if hasattr(config, "algorithm") else RATE_LIMIT_ALGORITHM
 
         # Use sliding window if configured
         if algorithm == "sliding_window":
@@ -408,4 +411,8 @@ def init_rate_limiter(redis_client=None) -> None:
     """Initialize rate limiter with Redis client for distributed rate limiting."""
     global rate_limiter
     rate_limiter = RateLimiter(redis_client)
-    logger.info("Rate limiter initialized with Redis support" if redis_client else "Rate limiter initialized without Redis")
+    logger.info(
+        "Rate limiter initialized with Redis support"
+        if redis_client
+        else "Rate limiter initialized without Redis"
+    )

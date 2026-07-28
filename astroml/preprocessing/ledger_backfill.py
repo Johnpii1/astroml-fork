@@ -6,21 +6,22 @@ columnar output with low memory overhead.
 
 Idempotent backfill is ensured by tracking processed ledgers in the database.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, Literal, Optional
+import logging
+from collections.abc import Iterable
 from datetime import datetime
+from pathlib import Path
+from typing import Literal
 
 import polars as pl
-import logging
-
-from sqlalchemy import select, or_, insert
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import Session
 
-from astroml.db.session import get_session
 from astroml.db.schema import ProcessedLedger
+from astroml.db.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +33,15 @@ def upsert_processed_ledger(
     ledger_sequence: int,
     source: str,
     status: str,
-    num_operations: Optional[int] = None,
-    num_transactions: Optional[int] = None,
-    error_message: Optional[str] = None,
+    num_operations: int | None = None,
+    num_transactions: int | None = None,
+    error_message: str | None = None,
 ) -> ProcessedLedger:
     """Upsert a processed ledger record with idempotent behavior.
-    
+
     Uses PostgreSQL ON CONFLICT for proper upsert semantics when available,
     falling back to merge for SQLite compatibility.
-    
+
     Args:
         session: Database session
         ledger_sequence: Ledger sequence number
@@ -49,7 +50,7 @@ def upsert_processed_ledger(
         num_operations: Number of operations processed
         num_transactions: Number of transactions processed
         error_message: Error message if failed
-        
+
     Returns:
         The ProcessedLedger record
     """
@@ -64,33 +65,33 @@ def upsert_processed_ledger(
             num_transactions=num_transactions,
             error_message=error_message,
         )
-        
+
         # On conflict, update the record
         stmt = stmt.on_conflict_do_update(
-            index_elements=['ledger_sequence'],
+            index_elements=["ledger_sequence"],
             set_=dict(
                 status=stmt.excluded.status,
                 processed_at=stmt.excluded.processed_at,
                 num_operations=stmt.excluded.num_operations,
                 num_transactions=stmt.excluded.num_transactions,
                 error_message=stmt.excluded.error_message,
-            )
+            ),
         )
-        
+
         session.execute(stmt)
         session.commit()
-        
+
         # Return the updated record
         return session.execute(
             select(ProcessedLedger).where(ProcessedLedger.ledger_sequence == ledger_sequence)
         ).scalar_one()
-        
+
     except Exception:
         # Fallback to SQLAlchemy merge for SQLite or other databases
         existing = session.execute(
             select(ProcessedLedger).where(ProcessedLedger.ledger_sequence == ledger_sequence)
         ).scalar_one_or_none()
-        
+
         if existing:
             existing.status = status
             existing.processed_at = datetime.utcnow()
@@ -108,7 +109,7 @@ def upsert_processed_ledger(
                 error_message=error_message,
             )
             session.add(new_ledger)
-        
+
         session.commit()
         return existing or new_ledger
 
@@ -134,9 +135,7 @@ def _infer_input_format(path: Path) -> BackfillFormat:
             return "csv"
         if list(path.glob("*.ndjson")) or list(path.glob("*.jsonl")):
             return "ndjson"
-    raise ValueError(
-        f"Unable to infer input format for '{path}'. Use input_format explicitly."
-    )
+    raise ValueError(f"Unable to infer input format for '{path}'. Use input_format explicitly.")
 
 
 def _resolve_scan_target(path: Path, patterns: Iterable[str]) -> str:
@@ -146,9 +145,7 @@ def _resolve_scan_target(path: Path, patterns: Iterable[str]) -> str:
     for pattern in patterns:
         if list(path.glob(pattern)):
             return str(path / pattern)
-    raise FileNotFoundError(
-        f"No files matched {tuple(patterns)} in input directory '{path}'."
-    )
+    raise FileNotFoundError(f"No files matched {tuple(patterns)} in input directory '{path}'.")
 
 
 def scan_backfill_dataset(
@@ -248,8 +245,7 @@ def preprocess_ledger_backfill(frame: pl.LazyFrame) -> pl.LazyFrame:
     timestamp = (
         pl.when(raw_timestamp.is_null())
         .then(None)
-        .otherwise(
-            raw_timestamp.cast(pl.String).str.to_datetime(strict=False, time_zone="UTC"))
+        .otherwise(raw_timestamp.cast(pl.String).str.to_datetime(strict=False, time_zone="UTC"))
         .alias("timestamp")
     )
     transaction_hash = pl.coalesce(
@@ -316,7 +312,7 @@ def preprocess_to_parquet(
     """
     source_path_str = str(input_path)
     frame = scan_backfill_dataset(input_path=input_path, input_format=input_format)
-    
+
     # Get processed ledgers from DB to skip
     if skip_processed:
         with get_session() as session:
@@ -324,19 +320,23 @@ def preprocess_to_parquet(
                 ProcessedLedger.status == "completed"
             )
             processed_sequences = {row[0] for row in session.execute(stmt)}
-        
+
         if processed_sequences:
             logger.info("Skipping %d already processed ledgers", len(processed_sequences))
             frame = frame.filter(~pl.col("ledger_sequence").is_in(processed_sequences))
-    
+
     processed = preprocess_ledger_backfill(frame)
-    
+
     # Collect stats from processed data
-    stats_df = processed.group_by("ledger_sequence").agg(
-        pl.col("operation_id").count().alias("num_operations"),
-        pl.col("transaction_hash").n_unique().alias("num_transactions")
-    ).collect()
-    
+    stats_df = (
+        processed.group_by("ledger_sequence")
+        .agg(
+            pl.col("operation_id").count().alias("num_operations"),
+            pl.col("transaction_hash").n_unique().alias("num_transactions"),
+        )
+        .collect()
+    )
+
     # Update processed_ledgers in DB using upsert for idempotency
     if not stats_df.is_empty():
         logger.info("Marking %d ledgers as processing", len(stats_df))
@@ -347,14 +347,14 @@ def preprocess_to_parquet(
                     session,
                     ledger_sequence=row["ledger_sequence"],
                     source=source_path_str,
-                    status="processing"
+                    status="processing",
                 )
-        
+
         # Write data
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         processed.sink_parquet(str(out), compression="zstd")
-        
+
         # Mark as completed
         logger.info("Marking %d ledgers as completed", len(stats_df))
         with get_session() as session:
@@ -365,11 +365,11 @@ def preprocess_to_parquet(
                     source=source_path_str,
                     status="completed",
                     num_operations=row["num_operations"],
-                    num_transactions=row["num_transactions"]
+                    num_transactions=row["num_transactions"],
                 )
     else:
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         processed.sink_parquet(str(out), compression="zstd")
-    
+
     return out

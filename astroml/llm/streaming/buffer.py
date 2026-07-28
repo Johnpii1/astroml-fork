@@ -1,9 +1,10 @@
 """Buffering and backpressure handling for slow consumers."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import AsyncIterator, TypeVar, Generic
+from typing import Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class StreamBuffer(Generic[T]):
         """Push an item to the buffer. Respects queue capacity limit (backpressure)."""
         if self._aborted:
             return False
-            
+
         try:
             # If queue is full, this will wait asynchronously, applying backpressure
             await self._queue.put(item)

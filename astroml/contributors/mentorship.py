@@ -6,11 +6,11 @@ Features:
   - Feedback collection and storage
   - Progress metrics and KPIs
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 @dataclass
 class SkillScore:
     """Compatibility score for a mentor-mentee pair."""
+
     mentor_id: int
     mentee_id: int
     skill_overlap: float  # 0-1: matching skill interests
@@ -52,9 +53,7 @@ class MentorshipMatcher:
         from api.models.orm import Mentee as MenteeModel  # noqa: PLC0415
         from api.models.orm import Mentor as MentorModel  # noqa: PLC0415
 
-        mentee_result = self.db.execute(
-            select(MenteeModel).where(MenteeModel.id == mentee_id)
-        )
+        mentee_result = self.db.execute(select(MenteeModel).where(MenteeModel.id == mentee_id))
         mentee = mentee_result.scalar_one_or_none()
         if not mentee:
             return []
@@ -79,21 +78,19 @@ class MentorshipMatcher:
                 mentor.preferred_session_day, mentee.preferred_session_day
             )
 
-            total_score = (
-                skill_overlap * 0.5 +
-                experience_gap * 0.3 +
-                availability_match * 0.2
-            )
+            total_score = skill_overlap * 0.5 + experience_gap * 0.3 + availability_match * 0.2
 
             if total_score >= min_score:
-                scores.append(SkillScore(
-                    mentor_id=mentor.id,
-                    mentee_id=mentee_id,
-                    skill_overlap=skill_overlap,
-                    experience_gap=experience_gap,
-                    availability_match=availability_match,
-                    total_score=total_score,
-                ))
+                scores.append(
+                    SkillScore(
+                        mentor_id=mentor.id,
+                        mentee_id=mentee_id,
+                        skill_overlap=skill_overlap,
+                        experience_gap=experience_gap,
+                        availability_match=availability_match,
+                        total_score=total_score,
+                    )
+                )
 
         return sorted(scores, key=lambda s: s.total_score, reverse=True)[:limit]
 
@@ -127,7 +124,7 @@ class MentorshipMatcher:
         return gap / 10.0  # Linear scale 0-10 years
 
     @staticmethod
-    def _calculate_availability_match(mentor_day: Optional[str], mentee_day: Optional[str]) -> float:
+    def _calculate_availability_match(mentor_day: str | None, mentee_day: str | None) -> float:
         """Match preferred session days (0-1).
 
         Returns 1.0 if both prefer same day, 0.5 if both flexible, 0.0 if conflict.
@@ -150,7 +147,7 @@ class MentorshipTracking:
         mentorship_id: int,
         duration_minutes: int,
         topic: str,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> int:
         """Record a completed mentorship session.
 
@@ -180,7 +177,7 @@ class MentorshipTracking:
         self,
         session_id: int,
         rating: int,
-        feedback_text: Optional[str] = None,
+        feedback_text: str | None = None,
         mentor_feedback: bool = False,
     ) -> int:
         """Collect feedback for a mentorship session.
@@ -215,14 +212,12 @@ class MentorshipTracking:
             topics_covered, last_session_date
         """
         from api.models.orm import (  # noqa: PLC0415
-            MentorshipSession,
             MentorshipFeedback,
+            MentorshipSession,
         )
 
         sessions_result = self.db.execute(
-            select(MentorshipSession).where(
-                MentorshipSession.mentorship_id == mentorship_id
-            )
+            select(MentorshipSession).where(MentorshipSession.mentorship_id == mentorship_id)
         )
         sessions = sessions_result.scalars().all()
 
@@ -239,9 +234,7 @@ class MentorshipTracking:
 
         # Get all feedback ratings for this mentorship
         feedback_result = self.db.execute(
-            select(MentorshipFeedback).where(
-                MentorshipFeedback.mentorship_id == mentorship_id
-            )
+            select(MentorshipFeedback).where(MentorshipFeedback.mentorship_id == mentorship_id)
         )
         all_feedback = feedback_result.scalars().all()
         ratings = [f.rating for f in all_feedback if f.rating]

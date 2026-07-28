@@ -1,18 +1,18 @@
 """LLM CLI command implementations."""
 
-import json
 import sys
 from typing import Any
 
 from astroml.llm.providers import get_llm_provider
+
 from .config import load_cli_config
 from .formatters import (
-    print_text,
+    output_result,
+    print_error,
+    print_json,
     print_llm_response,
     print_table,
-    print_json,
-    print_error,
-    output_result,
+    print_text,
 )
 from .interactive import run_chat
 
@@ -68,7 +68,9 @@ def register_llm_subcommands(sub) -> None:
     p = sub.add_parser("prompts", help="Prompt management")
     prompts_sub = p.add_subparsers(dest="prompts_command", required=True)
 
-    prompts_sub.add_parser("list", help="List all prompt templates").set_defaults(func=cmd_prompts_list)
+    prompts_sub.add_parser("list", help="List all prompt templates").set_defaults(
+        func=cmd_prompts_list
+    )
 
     pr = prompts_sub.add_parser("render", help="Render a prompt template")
     pr.add_argument("name", help="Template name")
@@ -92,7 +94,9 @@ def register_llm_subcommands(sub) -> None:
     er.add_argument("--model", help="Model name")
     er.set_defaults(func=cmd_eval_run)
 
-    eval_sub.add_parser("results", help="View evaluation history").set_defaults(func=cmd_eval_results)
+    eval_sub.add_parser("results", help="View evaluation history").set_defaults(
+        func=cmd_eval_results
+    )
 
     # ── models ──
     sub.add_parser("models", help="List available models").set_defaults(func=cmd_models)
@@ -108,7 +112,12 @@ def register_llm_subcommands(sub) -> None:
     bf_sub = bf.add_subparsers(dest="backfill_command", required=True)
 
     bf_create = bf_sub.add_parser("create", help="Create a new backfill job")
-    bf_create.add_argument("--type", required=True, choices=["embedding", "explanation", "label", "report"], help="Job type")
+    bf_create.add_argument(
+        "--type",
+        required=True,
+        choices=["embedding", "explanation", "label", "report"],
+        help="Job type",
+    )
     bf_create.add_argument("--total", type=int, default=1000, help="Total items to process")
     bf_create.set_defaults(func=cmd_backfill_create)
 
@@ -146,15 +155,17 @@ def cmd_generate(args) -> None:
     try:
         resp = provider.generate_detailed(prompt, **kwargs)
         if args.json:
-            print_json({
-                "text": resp.text,
-                "prompt_tokens": resp.prompt_tokens,
-                "completion_tokens": resp.completion_tokens,
-                "total_tokens": resp.total_tokens,
-                "cost": resp.cost,
-                "latency": resp.latency,
-                "model": resp.model,
-            })
+            print_json(
+                {
+                    "text": resp.text,
+                    "prompt_tokens": resp.prompt_tokens,
+                    "completion_tokens": resp.completion_tokens,
+                    "total_tokens": resp.total_tokens,
+                    "cost": resp.cost,
+                    "latency": resp.latency,
+                    "model": resp.model,
+                }
+            )
         else:
             print_llm_response(resp.text, resp.total_tokens, resp.cost, resp.latency, resp.model)
     except Exception as e:
@@ -172,9 +183,10 @@ def cmd_chat(args) -> None:
 def cmd_rag_query(args) -> None:
     provider, cfg = get_provider(args.provider, args.model)
     try:
+        from astroml.llm.embeddings import EmbeddingsService
         from astroml.llm.rag import RAGPipeline
         from astroml.llm.rag.retriever import Retriever
-        from astroml.llm.embeddings import EmbeddingsService
+
         emb = EmbeddingsService()
         retriever = Retriever(embeddings_service=emb)
         pipeline = RAGPipeline(retriever=retriever, llm_provider=provider)
@@ -205,7 +217,9 @@ def cmd_embed(args) -> None:
         if args.json:
             print_json({"text": text, "vector": vector, "dimensions": len(vector)})
         else:
-            output_result(f"Embedding ({len(vector)} dimensions): {str(vector[:5])}...", as_json=False)
+            output_result(
+                f"Embedding ({len(vector)} dimensions): {str(vector[:5])}...", as_json=False
+            )
     except Exception as e:
         print_error(str(e))
 
@@ -213,6 +227,7 @@ def cmd_embed(args) -> None:
 def cmd_prompts_list(args) -> None:
     try:
         from astroml.llm.prompts import PromptRegistry
+
         registry = PromptRegistry()
         templates = registry.list_templates()
         if not templates:
@@ -227,6 +242,7 @@ def cmd_prompts_list(args) -> None:
 def cmd_prompts_render(args) -> None:
     try:
         from astroml.llm.prompts import PromptRegistry
+
         variables = {}
         for v in args.var:
             if "=" in v:
@@ -243,6 +259,7 @@ def cmd_prompts_test(args) -> None:
     provider, _ = get_provider(args.provider, args.model)
     try:
         from astroml.llm.prompts import PromptRegistry
+
         variables = {}
         for v in args.var:
             if "=" in v:
@@ -261,6 +278,7 @@ def cmd_eval_run(args) -> None:
     provider, _ = get_provider(args.provider, args.model)
     try:
         from astroml.llm.eval.benchmarks import BenchmarkRunner
+
         runner = BenchmarkRunner()
         results = runner.run(args.benchmark, provider)
         print_json(results)
@@ -271,12 +289,15 @@ def cmd_eval_run(args) -> None:
 def cmd_eval_results(args) -> None:
     try:
         from astroml.llm.eval.framework import LLMEvalFramework
+
         framework = LLMEvalFramework(model_name="", generation_fn=None)
         history = framework.load_results()
         if not history:
             print_text("No evaluation results found.")
             return
-        rows = [[r.get("benchmark", ""), str(r.get("score", "")), r.get("date", "")] for r in history]
+        rows = [
+            [r.get("benchmark", ""), str(r.get("score", "")), r.get("date", "")] for r in history
+        ]
         print_table(rows, ["Benchmark", "Score", "Date"], title="Evaluation History")
     except Exception as e:
         print_error(str(e))
@@ -293,12 +314,15 @@ def cmd_models(args) -> None:
         ["huggingface", "meta-llama/Llama-2-7b-chat-hf", "free (HF)"],
         ["local", "any local model", "free"],
     ]
-    print_table(known_models, ["Provider", "Model", "Cost (input/output per 1K)"], title="Available Models")
+    print_table(
+        known_models, ["Provider", "Model", "Cost (input/output per 1K)"], title="Available Models"
+    )
 
 
 def cmd_cost(args) -> None:
     try:
         from astroml.llm.cost.analytics import get_cost_summary
+
         summary = get_cost_summary()
         print_json(summary)
     except Exception as e:
@@ -308,6 +332,7 @@ def cmd_cost(args) -> None:
 def cmd_cache(args) -> None:
     try:
         from astroml.llm.cache import CacheManager
+
         cache = CacheManager()
         stats = cache.get_stats()
         print_json(stats)
@@ -320,6 +345,7 @@ def cmd_cache(args) -> None:
 
 def cmd_backfill_create(args) -> None:
     from astroml.llm.batch import get_scheduler
+
     scheduler = get_scheduler()
     job = scheduler.create_job(
         job_type=args.type,
@@ -331,17 +357,22 @@ def cmd_backfill_create(args) -> None:
 
 def cmd_backfill_list(args) -> None:
     from astroml.llm.batch import get_scheduler
+
     scheduler = get_scheduler()
     jobs = scheduler.list_jobs()
     if not jobs:
         print_text("No backfill jobs found.")
         return
-    rows = [[j["id"], j["job_type"], j["status"], str(j["total_items"]), str(j["processed_items"])] for j in jobs]
+    rows = [
+        [j["id"], j["job_type"], j["status"], str(j["total_items"]), str(j["processed_items"])]
+        for j in jobs
+    ]
     print_table(rows, ["ID", "Type", "Status", "Total", "Processed"], title="Backfill Jobs")
 
 
 def cmd_backfill_status(args) -> None:
     from astroml.llm.batch import get_scheduler
+
     scheduler = get_scheduler()
     job = scheduler.get_job(args.job_id)
     if job is None:
@@ -352,6 +383,7 @@ def cmd_backfill_status(args) -> None:
 
 def cmd_backfill_pause(args) -> None:
     from astroml.llm.batch import get_scheduler
+
     scheduler = get_scheduler()
     job = scheduler.pause_job(args.job_id)
     if job is None:
@@ -362,6 +394,7 @@ def cmd_backfill_pause(args) -> None:
 
 def cmd_backfill_resume(args) -> None:
     from astroml.llm.batch import get_scheduler
+
     scheduler = get_scheduler()
     job = scheduler.resume_job(args.job_id)
     if job is None:

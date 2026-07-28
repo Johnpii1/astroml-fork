@@ -7,16 +7,17 @@ Provides a pipeline architecture for running multiple validation stages:
 - Statistical validation
 - Custom validation rules
 """
+
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Callable, Set
 from enum import Enum
+from typing import Any
 
-from .api_validation import ValidationResult, ValidationError
-from .data_quality import DataQualityReport, ValidationResult as DQValidationResult
+from .api_validation import ValidationError, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -44,24 +45,24 @@ class PipelineResult:
     """
 
     is_valid: bool
-    stage_results: Dict[str, ValidationResult] = field(default_factory=dict)
+    stage_results: dict[str, ValidationResult] = field(default_factory=dict)
     total_errors: int = 0
     execution_time_ms: float = 0.0
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def get_errors_by_stage(self, stage: ValidationStage) -> List[ValidationError]:
+    def get_errors_by_stage(self, stage: ValidationStage) -> list[ValidationError]:
         """Get all errors from a specific stage."""
         result = self.stage_results.get(stage.value)
         return result.errors if result else []
 
-    def get_all_errors(self) -> List[ValidationError]:
+    def get_all_errors(self) -> list[ValidationError]:
         """Get all errors from all stages."""
         all_errors = []
         for result in self.stage_results.values():
             all_errors.extend(result.errors)
         return all_errors
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert result to dictionary for API responses."""
         return {
             "is_valid": self.is_valid,
@@ -69,8 +70,7 @@ class PipelineResult:
             "execution_time_ms": self.execution_time_ms,
             "timestamp": self.timestamp.isoformat(),
             "stage_results": {
-                stage: result.to_dict()
-                for stage, result in self.stage_results.items()
+                stage: result.to_dict() for stage, result in self.stage_results.items()
             },
         }
 
@@ -83,7 +83,7 @@ class ValidationStageConfig:
         stage: ValidationStage,
         enabled: bool = True,
         fail_on_error: bool = True,
-        custom_validator: Optional[Callable] = None,
+        custom_validator: Callable | None = None,
     ):
         self.stage = stage
         self.enabled = enabled
@@ -96,38 +96,38 @@ class ValidationPipeline:
 
     def __init__(self):
         """Initialize the validation pipeline."""
-        self.stages: Dict[ValidationStage, ValidationStageConfig] = {}
-        self.metrics: Dict[str, Any] = {
+        self.stages: dict[ValidationStage, ValidationStageConfig] = {}
+        self.metrics: dict[str, Any] = {
             "total_runs": 0,
             "successful_runs": 0,
             "failed_runs": 0,
             "average_execution_time_ms": 0.0,
         }
 
-    def add_stage(self, config: ValidationStageConfig) -> "ValidationPipeline":
+    def add_stage(self, config: ValidationStageConfig) -> ValidationPipeline:
         """Add a validation stage to the pipeline."""
         self.stages[config.stage] = config
         return self
 
-    def remove_stage(self, stage: ValidationStage) -> "ValidationPipeline":
+    def remove_stage(self, stage: ValidationStage) -> ValidationPipeline:
         """Remove a validation stage from the pipeline."""
         if stage in self.stages:
             del self.stages[stage]
         return self
 
-    def enable_stage(self, stage: ValidationStage) -> "ValidationPipeline":
+    def enable_stage(self, stage: ValidationStage) -> ValidationPipeline:
         """Enable a specific validation stage."""
         if stage in self.stages:
             self.stages[stage].enabled = True
         return self
 
-    def disable_stage(self, stage: ValidationStage) -> "ValidationPipeline":
+    def disable_stage(self, stage: ValidationStage) -> ValidationPipeline:
         """Disable a specific validation stage."""
         if stage in self.stages:
             self.stages[stage].enabled = False
         return self
 
-    def run(self, data: Dict[str, Any], context: Optional[Dict[str, Any]] = None) -> PipelineResult:
+    def run(self, data: dict[str, Any], context: dict[str, Any] | None = None) -> PipelineResult:
         """Run the validation pipeline on the provided data.
 
         Args:
@@ -140,7 +140,7 @@ class ValidationPipeline:
         import time
 
         start_time = time.time()
-        stage_results: Dict[str, ValidationResult] = {}
+        stage_results: dict[str, ValidationResult] = {}
         total_errors = 0
         is_valid = True
 
@@ -163,11 +163,13 @@ class ValidationPipeline:
                 logger.error(f"Validation stage {stage.value} failed: {e}")
                 stage_results[stage.value] = ValidationResult(
                     is_valid=False,
-                    errors=[ValidationError(
-                        field="pipeline",
-                        message=f"Stage execution failed: {str(e)}",
-                        error_type="STAGE_ERROR"
-                    )]
+                    errors=[
+                        ValidationError(
+                            field="pipeline",
+                            message=f"Stage execution failed: {str(e)}",
+                            error_type="STAGE_ERROR",
+                        )
+                    ],
                 )
                 if config.fail_on_error:
                     is_valid = False
@@ -181,9 +183,9 @@ class ValidationPipeline:
         else:
             self.metrics["failed_runs"] += 1
         self.metrics["average_execution_time_ms"] = (
-            (self.metrics["average_execution_time_ms"] * (self.metrics["total_runs"] - 1) + execution_time_ms)
-            / self.metrics["total_runs"]
-        )
+            self.metrics["average_execution_time_ms"] * (self.metrics["total_runs"] - 1)
+            + execution_time_ms
+        ) / self.metrics["total_runs"]
 
         return PipelineResult(
             is_valid=is_valid,
@@ -193,7 +195,7 @@ class ValidationPipeline:
         )
 
     def _run_stage(
-        self, stage: ValidationStage, data: Dict[str, Any], context: Dict[str, Any]
+        self, stage: ValidationStage, data: dict[str, Any], context: dict[str, Any]
     ) -> ValidationResult:
         """Run a single validation stage."""
         config = self.stages[stage]
@@ -215,9 +217,13 @@ class ValidationPipeline:
 
         return ValidationResult(is_valid=True)
 
-    def _validate_schema(self, data: Dict[str, Any], context: Dict[str, Any]) -> ValidationResult:
+    def _validate_schema(self, data: dict[str, Any], context: dict[str, Any]) -> ValidationResult:
         """Validate data schema using Pydantic."""
-        from .api_validation import validate_transaction_input, validate_account_input, validate_feature_data
+        from .api_validation import (
+            validate_account_input,
+            validate_feature_data,
+            validate_transaction_input,
+        )
 
         data_type = context.get("data_type", "transaction")
 
@@ -230,7 +236,9 @@ class ValidationPipeline:
         else:
             return ValidationResult(is_valid=True)
 
-    def _validate_data_quality(self, data: Dict[str, Any], context: Dict[str, Any]) -> ValidationResult:
+    def _validate_data_quality(
+        self, data: dict[str, Any], context: dict[str, Any]
+    ) -> ValidationResult:
         """Validate data quality using existing data quality module."""
         errors = []
 
@@ -238,25 +246,31 @@ class ValidationPipeline:
         critical_fields = context.get("critical_fields", [])
         for field in critical_fields:
             if field in data and data[field] is None:
-                errors.append(ValidationError(
-                    field=field,
-                    message=f"Critical field '{field}' is null",
-                    error_type="NULL_CRITICAL_FIELD"
-                ))
+                errors.append(
+                    ValidationError(
+                        field=field,
+                        message=f"Critical field '{field}' is null",
+                        error_type="NULL_CRITICAL_FIELD",
+                    )
+                )
 
         # Check for empty strings
         string_fields = context.get("string_fields", [])
         for field in string_fields:
             if field in data and isinstance(data[field], str) and not data[field].strip():
-                errors.append(ValidationError(
-                    field=field,
-                    message=f"String field '{field}' is empty",
-                    error_type="EMPTY_STRING_FIELD"
-                ))
+                errors.append(
+                    ValidationError(
+                        field=field,
+                        message=f"String field '{field}' is empty",
+                        error_type="EMPTY_STRING_FIELD",
+                    )
+                )
 
         return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
-    def _validate_business_rules(self, data: Dict[str, Any], context: Dict[str, Any]) -> ValidationResult:
+    def _validate_business_rules(
+        self, data: dict[str, Any], context: dict[str, Any]
+    ) -> ValidationResult:
         """Validate business rules."""
         from .api_validation import CustomValidationRules
 
@@ -283,7 +297,9 @@ class ValidationPipeline:
 
         return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
-    def _validate_statistical(self, data: Dict[str, Any], context: Dict[str, Any]) -> ValidationResult:
+    def _validate_statistical(
+        self, data: dict[str, Any], context: dict[str, Any]
+    ) -> ValidationResult:
         """Validate statistical properties."""
         errors = []
 
@@ -294,15 +310,17 @@ class ValidationPipeline:
                 value = data[field]
                 # Check for extreme values
                 if abs(value) > 1e15:
-                    errors.append(ValidationError(
-                        field=field,
-                        message=f"Value {value} is extremely large",
-                        error_type="EXTREME_VALUE"
-                    ))
+                    errors.append(
+                        ValidationError(
+                            field=field,
+                            message=f"Value {value} is extremely large",
+                            error_type="EXTREME_VALUE",
+                        )
+                    )
 
         return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get pipeline metrics."""
         return self.metrics.copy()
 
@@ -317,6 +335,7 @@ class ValidationPipeline:
 
 
 # ─── Default Pipeline Configurations ───────────────────────────────────────
+
 
 def create_transaction_pipeline() -> ValidationPipeline:
     """Create a validation pipeline for transaction data."""

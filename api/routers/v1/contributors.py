@@ -7,6 +7,7 @@ GET /api/v1/contributors/activity     — Contribution activity over time
 GET /api/v1/contributors/new          — New contributors (first contribution within window)
 GET /api/v1/contributors/{username}   — Single contributor profile with badges
 """
+
 from __future__ import annotations
 
 import os
@@ -62,6 +63,7 @@ async def _gh_get(path: str) -> list | dict:
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
+
 class ContributorBadge(BaseModel):
     id: str
     label: str
@@ -80,7 +82,7 @@ class ContributorOut(BaseModel):
 
 
 class ActivityPoint(BaseModel):
-    date: str        # ISO date YYYY-MM-DD
+    date: str  # ISO date YYYY-MM-DD
     commits: int
     pull_requests: int
     issues: int
@@ -99,19 +101,34 @@ class ActivityResponse(BaseModel):
 def _assign_badges(commits: int, prs: int, issues: int) -> list[ContributorBadge]:
     badges: list[ContributorBadge] = []
     if commits >= 100:
-        badges.append(ContributorBadge(id="centurion", label="Centurion", description="100+ commits"))
+        badges.append(
+            ContributorBadge(id="centurion", label="Centurion", description="100+ commits")
+        )
     elif commits >= 10:
-        badges.append(ContributorBadge(id="active", label="Active Contributor", description="10+ commits"))
+        badges.append(
+            ContributorBadge(id="active", label="Active Contributor", description="10+ commits")
+        )
     if prs >= 10:
-        badges.append(ContributorBadge(id="pr_champion", label="PR Champion", description="10+ pull requests merged"))
+        badges.append(
+            ContributorBadge(
+                id="pr_champion", label="PR Champion", description="10+ pull requests merged"
+            )
+        )
     if issues >= 5:
-        badges.append(ContributorBadge(id="reporter", label="Reporter", description="5+ issues opened"))
+        badges.append(
+            ContributorBadge(id="reporter", label="Reporter", description="5+ issues opened")
+        )
     if commits >= 1 and prs >= 1 and issues >= 1:
-        badges.append(ContributorBadge(id="all_rounder", label="All-Rounder", description="Commits, PRs, and issues"))
+        badges.append(
+            ContributorBadge(
+                id="all_rounder", label="All-Rounder", description="Commits, PRs, and issues"
+            )
+        )
     return badges
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
 
 @router.get("", response_model=ContributorsResponse)
 async def list_contributors(
@@ -157,16 +174,18 @@ async def list_contributors(
         commits = c.get("contributions", 0)
         prs = pr_counts.get(login, 0)
         issues = issue_counts.get(login, 0)
-        contributors.append(ContributorOut(
-            username=login,
-            avatar_url=c.get("avatar_url", ""),
-            profile_url=c.get("html_url", f"https://github.com/{login}"),
-            commits=commits,
-            pull_requests=prs,
-            issues=issues,
-            total_contributions=commits + prs + issues,
-            badges=_assign_badges(commits, prs, issues),
-        ))
+        contributors.append(
+            ContributorOut(
+                username=login,
+                avatar_url=c.get("avatar_url", ""),
+                profile_url=c.get("html_url", f"https://github.com/{login}"),
+                commits=commits,
+                pull_requests=prs,
+                issues=issues,
+                total_contributions=commits + prs + issues,
+                badges=_assign_badges(commits, prs, issues),
+            )
+        )
 
     sort_key = {
         "commits": lambda x: x.commits,
@@ -227,14 +246,12 @@ async def new_contributors(
     if cached is not None:
         return cached
 
-    all_stats: list[dict] = await _gh_get(
-        f"/repos/{REPO_OWNER}/{REPO_NAME}/stats/contributors"
-    )
+    all_stats: list[dict] = await _gh_get(f"/repos/{REPO_OWNER}/{REPO_NAME}/stats/contributors")
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     new_ones: list[ContributorOut] = []
 
-    for entry in (all_stats or []):
+    for entry in all_stats or []:
         weeks: list[dict] = entry.get("weeks", [])
         # Find earliest week with a commit
         first_week = next((w for w in weeks if w.get("c", 0) > 0), None)
@@ -245,16 +262,18 @@ async def new_contributors(
             author = entry.get("author", {})
             login = author.get("login", "")
             commits = entry.get("total", 0)
-            new_ones.append(ContributorOut(
-                username=login,
-                avatar_url=author.get("avatar_url", ""),
-                profile_url=author.get("html_url", f"https://github.com/{login}"),
-                commits=commits,
-                pull_requests=0,
-                issues=0,
-                total_contributions=commits,
-                badges=_assign_badges(commits, 0, 0),
-            ))
+            new_ones.append(
+                ContributorOut(
+                    username=login,
+                    avatar_url=author.get("avatar_url", ""),
+                    profile_url=author.get("html_url", f"https://github.com/{login}"),
+                    commits=commits,
+                    pull_requests=0,
+                    issues=0,
+                    total_contributions=commits,
+                    badges=_assign_badges(commits, 0, 0),
+                )
+            )
 
     result = ContributorsResponse(contributors=new_ones, total=len(new_ones))
     _store(cache_key, result)
@@ -265,7 +284,8 @@ async def new_contributors(
 async def get_contributor(username: str):
     """Single contributor profile with badges."""
     import re
-    if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,38}[a-zA-Z0-9])?$', username):
+
+    if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,38}[a-zA-Z0-9])?$", username):
         raise HTTPException(status_code=400, detail="Invalid GitHub username format")
     cache_key = f"contributor:{username}:{REPO_OWNER}/{REPO_NAME}"
     cached = _cached(cache_key)
@@ -284,8 +304,7 @@ async def get_contributor(username: str):
         f"/repos/{REPO_OWNER}/{REPO_NAME}/pulls?state=closed&per_page=100"
     )
     prs = sum(
-        1 for p in pr_data
-        if p.get("user", {}).get("login") == username and p.get("merged_at")
+        1 for p in pr_data if p.get("user", {}).get("login") == username and p.get("merged_at")
     )
 
     issue_data: list[dict] = await _gh_get(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 from typing import Iterable
 
 
@@ -74,11 +74,20 @@ def _score_source(question: str, source: RagSource) -> int:
     lowered = question.lower()
     if "faq" in lowered and source.id == "faq":
         bonus += 5
-    if any(term in lowered for term in ("example", "quick start", "how do i")) and source.id == "usage-examples":
+    if (
+        any(term in lowered for term in ("example", "quick start", "how do i"))
+        and source.id == "usage-examples"
+    ):
         bonus += 4
-    if any(term in lowered for term in ("reference", "parameter", "schema", "api")) and source.id == "api-reference":
+    if (
+        any(term in lowered for term in ("reference", "parameter", "schema", "api"))
+        and source.id == "api-reference"
+    ):
         bonus += 4
-    if any(term in lowered for term in ("llm", "rag", "answer", "question")) and source.id == "llm-router":
+    if (
+        any(term in lowered for term in ("llm", "rag", "answer", "question"))
+        and source.id == "llm-router"
+    ):
         bonus += 3
 
     return overlap * 2 + bonus
@@ -151,4 +160,3 @@ def build_rag_answer(question: str, citations: list[RagCitation]) -> str:
         f"{lead} Based on the retrieved sources, a practical answer to '{question.strip()}' is to "
         f"follow the documented workflow and verify it against the cited endpoints and guides."
     )
-

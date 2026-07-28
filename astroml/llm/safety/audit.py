@@ -3,6 +3,7 @@
 Resolves #455: Structured logging of all safety incidents with user attribution,
 category breakdown, and compliance reporting support.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,9 +23,7 @@ class SafetyIncident:
     """A single safety incident record."""
 
     incident_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     user_id: str | None = None
     is_output: bool = False
     decision: str = "block"
@@ -67,8 +66,14 @@ class SafetyAuditLog:
         incident = SafetyIncident(
             user_id=user_id,
             is_output=is_output,
-            decision=result.decision.value if hasattr(result.decision, "value") else str(result.decision),
-            category=result.category.value if result.category and hasattr(result.category, "value") else str(result.category) if result.category else None,
+            decision=(
+                result.decision.value if hasattr(result.decision, "value") else str(result.decision)
+            ),
+            category=(
+                result.category.value
+                if result.category and hasattr(result.category, "value")
+                else str(result.category) if result.category else None
+            ),
             reason=result.reason,
             confidence=result.confidence,
             text_preview=text[:200],  # store only preview for privacy

@@ -5,9 +5,8 @@ This module implements documentation-focused checks for code review,
 including missing docstrings, incomplete documentation, and documentation quality.
 """
 
-import re
 import ast
-from typing import List
+import re
 
 from astroml.llm.code_review.checks.security import BaseCheck
 from astroml.llm.code_review.suggestions import (
@@ -36,20 +35,20 @@ class DocumentationCheck(BaseCheck):
         """Initialize documentation issue patterns."""
         return {
             "todo_without_issue": {
-                "pattern": r'#\s*TODO(?!\s*#\s*\d+)',
+                "pattern": r"#\s*TODO(?!\s*#\s*\d+)",
                 "severity": SuggestionSeverity.LOW,
                 "message": "TODO comment without issue reference",
                 "suggested_fix": "Add issue reference to TODO comment",
             },
             "fixme_without_issue": {
-                "pattern": r'#\s*FIXME(?!\s*#\s*\d+)',
+                "pattern": r"#\s*FIXME(?!\s*#\s*\d+)",
                 "severity": SuggestionSeverity.LOW,
                 "message": "FIXME comment without issue reference",
                 "suggested_fix": "Add issue reference to FIXME comment",
             },
         }
 
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform documentation checks on the given content.
 
@@ -89,7 +88,7 @@ class DocumentationCheck(BaseCheck):
 
         return suggestions
 
-    def _check_docstrings(self, content: str, file_path: str) -> List[Suggestion]:
+    def _check_docstrings(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Check for missing docstrings using AST.
 

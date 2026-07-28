@@ -5,29 +5,27 @@ This module implements the core code review functionality,
 coordinating analyzers and checks to provide comprehensive code review.
 """
 
-import os
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import List, Dict, Optional, Set
 from enum import Enum
+from pathlib import Path
 
+from astroml.llm.code_review.analyzers.python_analyzer import PythonAnalyzer
+from astroml.llm.code_review.analyzers.sql_analyzer import SQLAnalyzer
+from astroml.llm.code_review.analyzers.yaml_analyzer import YAMLAnalyzer
+from astroml.llm.code_review.checks.complexity import ComplexityCheck
+from astroml.llm.code_review.checks.correctness import CorrectnessCheck
+from astroml.llm.code_review.checks.documentation import DocumentationCheck
+from astroml.llm.code_review.checks.performance import PerformanceCheck
+from astroml.llm.code_review.checks.security import SecurityCheck
+from astroml.llm.code_review.checks.style import StyleCheck
+from astroml.llm.code_review.checks.testing import TestingCheck
 from astroml.llm.code_review.suggestions import (
     Suggestion,
     SuggestionCategory,
     SuggestionGroup,
     SuggestionSeverity,
 )
-from astroml.llm.code_review.analyzers.python_analyzer import PythonAnalyzer
-from astroml.llm.code_review.analyzers.sql_analyzer import SQLAnalyzer
-from astroml.llm.code_review.analyzers.yaml_analyzer import YAMLAnalyzer
-from astroml.llm.code_review.checks.security import SecurityCheck
-from astroml.llm.code_review.checks.performance import PerformanceCheck
-from astroml.llm.code_review.checks.style import StyleCheck
-from astroml.llm.code_review.checks.correctness import CorrectnessCheck
-from astroml.llm.code_review.checks.testing import TestingCheck
-from astroml.llm.code_review.checks.documentation import DocumentationCheck
-from astroml.llm.code_review.checks.complexity import ComplexityCheck
 
 
 class ReviewStatus(Enum):
@@ -54,11 +52,11 @@ class ReviewResult:
     """
 
     status: ReviewStatus
-    suggestions: List[Suggestion] = field(default_factory=list)
-    suggestion_groups: List[SuggestionGroup] = field(default_factory=list)
+    suggestions: list[Suggestion] = field(default_factory=list)
+    suggestion_groups: list[SuggestionGroup] = field(default_factory=list)
     files_reviewed: int = 0
     duration_seconds: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
     def format_markdown(self) -> str:
         """
@@ -83,7 +81,7 @@ class ReviewResult:
 
         return "\n".join(lines)
 
-    def get_summary(self) -> Dict[str, int]:
+    def get_summary(self) -> dict[str, int]:
         """
         Get a summary of suggestions by category and severity.
 
@@ -122,7 +120,7 @@ class CodeReviewer:
         self,
         enable_llm: bool = False,
         max_review_time: int = 120,
-        ignored_rules: Optional[Set[str]] = None,
+        ignored_rules: set[str] | None = None,
     ):
         """
         Initialize the code reviewer.
@@ -156,12 +154,10 @@ class CodeReviewer:
         ]
 
         # Learning from human decisions (simple storage)
-        self.accepted_suggestions: Dict[str, int] = {}
-        self.rejected_suggestions: Dict[str, int] = {}
+        self.accepted_suggestions: dict[str, int] = {}
+        self.rejected_suggestions: dict[str, int] = {}
 
-    def review_diff(
-        self, diff_content: str, file_path: str
-    ) -> ReviewResult:
+    def review_diff(self, diff_content: str, file_path: str) -> ReviewResult:
         """
         Review a git diff for code issues.
 
@@ -191,9 +187,7 @@ class CodeReviewer:
                 suggestions.extend(check_suggestions)
 
             # Filter out ignored rules
-            suggestions = [
-                s for s in suggestions if s.rule_id not in self.ignored_rules
-            ]
+            suggestions = [s for s in suggestions if s.rule_id not in self.ignored_rules]
 
             # Group suggestions by category
             suggestion_groups = self._group_suggestions(suggestions)
@@ -231,7 +225,7 @@ class CodeReviewer:
 
         try:
             # Read file content
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Get file extension
@@ -249,9 +243,7 @@ class CodeReviewer:
                 suggestions.extend(check_suggestions)
 
             # Filter out ignored rules
-            suggestions = [
-                s for s in suggestions if s.rule_id not in self.ignored_rules
-            ]
+            suggestions = [s for s in suggestions if s.rule_id not in self.ignored_rules]
 
             # Group suggestions by category
             suggestion_groups = self._group_suggestions(suggestions)
@@ -275,7 +267,7 @@ class CodeReviewer:
             )
 
     def review_directory(
-        self, directory_path: str, file_patterns: Optional[List[str]] = None
+        self, directory_path: str, file_patterns: list[str] | None = None
     ) -> ReviewResult:
         """
         Review all files in a directory.
@@ -328,9 +320,7 @@ class CodeReviewer:
                 duration_seconds=duration,
             )
 
-    def review_pr(
-        self, pr_diff: Dict[str, str]
-    ) -> ReviewResult:
+    def review_pr(self, pr_diff: dict[str, str]) -> ReviewResult:
         """
         Review a pull request by analyzing its diff.
 
@@ -372,7 +362,7 @@ class CodeReviewer:
                 duration_seconds=duration,
             )
 
-    def _group_suggestions(self, suggestions: List[Suggestion]) -> List[SuggestionGroup]:
+    def _group_suggestions(self, suggestions: list[Suggestion]) -> list[SuggestionGroup]:
         """
         Group suggestions by category.
 
@@ -403,15 +393,11 @@ class CodeReviewer:
             accepted: Whether the suggestion was accepted
         """
         if accepted:
-            self.accepted_suggestions[rule_id] = (
-                self.accepted_suggestions.get(rule_id, 0) + 1
-            )
+            self.accepted_suggestions[rule_id] = self.accepted_suggestions.get(rule_id, 0) + 1
         else:
-            self.rejected_suggestions[rule_id] = (
-                self.rejected_suggestions.get(rule_id, 0) + 1
-            )
+            self.rejected_suggestions[rule_id] = self.rejected_suggestions.get(rule_id, 0) + 1
 
-    def get_rule_statistics(self) -> Dict[str, Dict[str, int]]:
+    def get_rule_statistics(self) -> dict[str, dict[str, int]]:
         """
         Get statistics on rule performance.
 
@@ -420,7 +406,9 @@ class CodeReviewer:
         """
         stats = {}
 
-        for rule_id in set(list(self.accepted_suggestions.keys()) + list(self.rejected_suggestions.keys())):
+        for rule_id in set(
+            list(self.accepted_suggestions.keys()) + list(self.rejected_suggestions.keys())
+        ):
             stats[rule_id] = {
                 "accepted": self.accepted_suggestions.get(rule_id, 0),
                 "rejected": self.rejected_suggestions.get(rule_id, 0),

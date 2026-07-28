@@ -3,23 +3,21 @@
 These tests verify the complete workflow from database operations
 to graph construction, snapshot creation, and graph analysis.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
 
-import numpy as np
-import pytest
 from sqlalchemy.orm import Session
 
-from astroml.db.schema import Operation, NormalizedTransaction
+from astroml.db.schema import NormalizedTransaction, Operation
 from astroml.features.graph.snapshot import (
     Edge,
-    window_snapshot,
-    snapshot_last_n_days,
     SnapshotWindow,
     iter_db_snapshots,
+    snapshot_last_n_days,
+    window_snapshot,
 )
 from astroml.features.transaction_graph import TransactionGraph
 
@@ -34,7 +32,7 @@ class TestGraphConstructionIntegration:
         """Test building a transaction graph from database operations."""
         # Query operations from database
         operations = populated_test_db.query(Operation).all()
-        
+
         # Build graph
         graph = TransactionGraph()
         for op in operations:
@@ -46,7 +44,7 @@ class TestGraphConstructionIntegration:
                     asset=op.asset_code or "XLM",
                     metadata={"operation_type": op.type},
                 )
-        
+
         # Verify graph structure
         assert len(graph.nodes) > 0
         summary = graph.summary()
@@ -58,13 +56,13 @@ class TestGraphConstructionIntegration:
     ) -> None:
         """Test graph construction with multiple asset types."""
         graph = TransactionGraph()
-        
+
         # Add transactions with different assets
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("B", "C", 50.0, "USDC")
         graph.add_transaction("C", "A", 25.0, "BTC")
         graph.add_transaction("A", "C", 75.0, "XLM")
-        
+
         # Verify multiple assets
         assets = graph.get_assets()
         assert len(assets) == 3
@@ -77,19 +75,19 @@ class TestGraphConstructionIntegration:
     ) -> None:
         """Test edge weight aggregation methods."""
         graph = TransactionGraph()
-        
+
         # Add multiple transactions between same accounts
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("A", "B", 50.0, "XLM")
         graph.add_transaction("A", "B", 25.0, "XLM")
-        
+
         # Test different aggregations
         sum_weight = graph.get_edge_weight("A", "B", aggregation="sum")
         mean_weight = graph.get_edge_weight("A", "B", aggregation="mean")
         count_weight = graph.get_edge_weight("A", "B", aggregation="count")
         max_weight = graph.get_edge_weight("A", "B", aggregation="max")
         min_weight = graph.get_edge_weight("A", "B", aggregation="min")
-        
+
         assert sum_weight == 175.0
         assert mean_weight == 175.0 / 3
         assert count_weight == 3.0
@@ -101,18 +99,18 @@ class TestGraphConstructionIntegration:
     ) -> None:
         """Test exporting graph to NetworkX format."""
         graph = TransactionGraph()
-        
+
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("B", "C", 50.0, "USDC")
         graph.add_transaction("C", "A", 25.0, "XLM")
-        
+
         # Export to NetworkX
         nx_graph = graph.to_networkx()
-        
+
         # Verify structure
         assert nx_graph.number_of_nodes() == 3
         assert nx_graph.number_of_edges() == 3
-        
+
         # Verify edge weights
         assert nx_graph["A"]["B"]["weight"] == 100.0
         assert nx_graph["B"]["C"]["weight"] == 50.0
@@ -122,14 +120,14 @@ class TestGraphConstructionIntegration:
     ) -> None:
         """Test graph summary statistics computation."""
         graph = TransactionGraph()
-        
+
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("B", "C", 50.0, "USDC")
         graph.add_transaction("A", "C", 25.0, "XLM")
         graph.add_transaction("C", "A", 75.0, "BTC")
-        
+
         summary = graph.summary()
-        
+
         assert summary["node_count"] == 3
         assert summary["edge_count"] == 4
         assert summary["transaction_count"] == 4
@@ -146,20 +144,20 @@ class TestGraphSnapshotIntegration:
     ) -> None:
         """Test creating a time-windowed graph snapshot."""
         base_time = int(datetime(2024, 1, 1).timestamp())
-        
+
         edges = [
             Edge(src="A", dst="B", timestamp=base_time),
             Edge(src="B", dst="C", timestamp=base_time + 3600),  # +1 hour
             Edge(src="C", dst="D", timestamp=base_time + 7200),  # +2 hours
             Edge(src="D", dst="E", timestamp=base_time + 86400),  # +1 day
         ]
-        
+
         # Create 12-hour window
         start_ts = base_time
         end_ts = base_time + 12 * 3600
-        
+
         nodes, window_edges = window_snapshot(edges, start_ts, end_ts)
-        
+
         # Should include first 3 edges (within 12 hours)
         assert len(window_edges) == 3
         assert len(nodes) == 4  # A, B, C, D
@@ -170,17 +168,17 @@ class TestGraphSnapshotIntegration:
     ) -> None:
         """Test snapshot creation for last N days."""
         now_ts = int(datetime(2024, 1, 15).timestamp())
-        
+
         edges = [
             Edge(src="A", dst="B", timestamp=now_ts - 86400),  # 1 day ago
             Edge(src="B", dst="C", timestamp=now_ts - 172800),  # 2 days ago
             Edge(src="C", dst="D", timestamp=now_ts - 259200),  # 3 days ago
             Edge(src="D", dst="E", timestamp=now_ts - 432000),  # 5 days ago
         ]
-        
+
         # Get last 3 days
         nodes, window_edges = snapshot_last_n_days(edges, now_ts, days=3)
-        
+
         # Should include edges from last 3 days
         assert len(window_edges) == 3
         assert len(nodes) == 4
@@ -190,19 +188,19 @@ class TestGraphSnapshotIntegration:
     ) -> None:
         """Test snapshot creation with pre-sorted edges."""
         base_time = int(datetime(2024, 1, 1).timestamp())
-        
+
         edges = [
             Edge(src="A", dst="B", timestamp=base_time),
             Edge(src="B", dst="C", timestamp=base_time + 3600),
             Edge(src="C", dst="D", timestamp=base_time + 7200),
         ]
-        
+
         # With presorted=True (should be faster)
         nodes1, edges1 = window_snapshot(edges, base_time, base_time + 7200, presorted=True)
-        
+
         # With presorted=False (should sort first)
         nodes2, edges2 = window_snapshot(edges, base_time, base_time + 7200, presorted=False)
-        
+
         # Results should be identical
         assert len(nodes1) == len(nodes2)
         assert len(edges1) == len(edges2)
@@ -212,17 +210,15 @@ class TestGraphSnapshotIntegration:
     ) -> None:
         """Test snapshot creation when no edges fall in window."""
         base_time = int(datetime(2024, 1, 1).timestamp())
-        
+
         edges = [
             Edge(src="A", dst="B", timestamp=base_time),
             Edge(src="B", dst="C", timestamp=base_time + 3600),
         ]
-        
+
         # Window with no edges
-        nodes, window_edges = window_snapshot(
-            edges, base_time + 7200, base_time + 10800
-        )
-        
+        nodes, window_edges = window_snapshot(edges, base_time + 7200, base_time + 10800)
+
         # Should be empty
         assert len(nodes) == 0
         assert len(window_edges) == 0
@@ -238,7 +234,7 @@ class TestDatabaseSnapshotIntegration:
         """Test creating snapshots from normalized transactions in database."""
         # Add normalized transactions
         base_time = datetime(2024, 1, 1)
-        
+
         transactions = [
             NormalizedTransaction(
                 transaction_hash="tx1",
@@ -265,25 +261,27 @@ class TestDatabaseSnapshotIntegration:
                 timestamp=base_time + timedelta(hours=2),
             ),
         ]
-        
+
         for tx in transactions:
             test_session.add(tx)
         test_session.commit()
-        
+
         # Create snapshot
         t0 = base_time
         t_now = base_time + timedelta(hours=3)
-        
-        snapshots = list(iter_db_snapshots(
-            window="1h",
-            t0=t0,
-            t_now=t_now,
-            session=test_session,
-        ))
-        
+
+        snapshots = list(
+            iter_db_snapshots(
+                window="1h",
+                t0=t0,
+                t_now=t_now,
+                session=test_session,
+            )
+        )
+
         # Should have 3 hourly snapshots
         assert len(snapshots) == 3
-        
+
         # Verify snapshot structure
         for snapshot in snapshots:
             assert isinstance(snapshot, SnapshotWindow)
@@ -299,7 +297,7 @@ class TestDatabaseSnapshotIntegration:
     ) -> None:
         """Test creating rolling window snapshots from database."""
         base_time = datetime(2024, 1, 1)
-        
+
         # Add transactions
         for i in range(10):
             tx = NormalizedTransaction(
@@ -312,19 +310,21 @@ class TestDatabaseSnapshotIntegration:
             )
             test_session.add(tx)
         test_session.commit()
-        
+
         # Create rolling snapshots (2-hour window, 1-hour step)
         t0 = base_time
         t_now = base_time + timedelta(hours=10)
-        
-        snapshots = list(iter_db_snapshots(
-            window="2h",
-            step="1h",
-            t0=t0,
-            t_now=t_now,
-            session=test_session,
-        ))
-        
+
+        snapshots = list(
+            iter_db_snapshots(
+                window="2h",
+                step="1h",
+                t0=t0,
+                t_now=t_now,
+                session=test_session,
+            )
+        )
+
         # Should have 10 snapshots (rolling with overlap)
         assert len(snapshots) == 10
 
@@ -339,7 +339,7 @@ class TestGraphConstructionPipelineIntegration:
         """Test complete pipeline from database to graph snapshot."""
         # Step 1: Extract operations from database
         operations = populated_test_db.query(Operation).all()
-        
+
         # Step 2: Build transaction graph
         graph = TransactionGraph()
         for op in operations:
@@ -350,7 +350,7 @@ class TestGraphConstructionPipelineIntegration:
                     amount=float(op.amount) if op.amount else 0.0,
                     asset=op.asset_code or "XLM",
                 )
-        
+
         # Step 3: Convert to edge format for snapshot
         base_time = int(datetime(2024, 1, 1).timestamp())
         edges = []
@@ -358,10 +358,10 @@ class TestGraphConstructionPipelineIntegration:
             for dst in dsts:
                 for txn in graph.edges[src][dst]:
                     edges.append(Edge(src=src, dst=dst, timestamp=base_time))
-        
+
         # Step 4: Create snapshot
         nodes, window_edges = window_snapshot(edges, base_time, base_time + 86400)
-        
+
         # Verify pipeline
         assert len(graph.nodes) > 0
         assert len(edges) > 0
@@ -376,14 +376,14 @@ class TestGraphConstructionPipelineIntegration:
         graph = TransactionGraph()
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("B", "C", 50.0, "USDC")
-        
+
         initial_summary = graph.summary()
         assert initial_summary["transaction_count"] == 2
-        
+
         # Add new transactions
         graph.add_transaction("C", "D", 25.0, "BTC")
         graph.add_transaction("D", "A", 75.0, "XLM")
-        
+
         updated_summary = graph.summary()
         assert updated_summary["transaction_count"] == 4
         assert updated_summary["node_count"] == 4
@@ -393,16 +393,16 @@ class TestGraphConstructionPipelineIntegration:
     ) -> None:
         """Test filtering graph by specific asset."""
         graph = TransactionGraph()
-        
+
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("B", "C", 50.0, "USDC")
         graph.add_transaction("C", "A", 25.0, "XLM")
         graph.add_transaction("A", "D", 75.0, "BTC")
-        
+
         # Filter by XLM
         xlm_txns = graph.get_transactions(asset="XLM")
         assert len(xlm_txns) == 2
-        
+
         # Filter by USDC
         usdc_txns = graph.get_transactions(asset="USDC")
         assert len(usdc_txns) == 1
@@ -413,23 +413,24 @@ class TestGraphConstructionPipelineIntegration:
     ) -> None:
         """Test saving and loading graph data."""
         graph = TransactionGraph()
-        
+
         graph.add_transaction("A", "B", 100.0, "XLM")
         graph.add_transaction("B", "C", 50.0, "USDC")
-        
+
         # Save graph summary
         summary = graph.summary()
         import json
+
         summary_path = temp_output_dir / "graph_summary.json"
-        with open(summary_path, 'w') as f:
+        with open(summary_path, "w") as f:
             json.dump(summary, f)
-        
+
         # Verify file exists
         assert summary_path.exists()
-        
+
         # Load and verify
-        with open(summary_path, 'r') as f:
+        with open(summary_path) as f:
             loaded_summary = json.load(f)
-        
+
         assert loaded_summary["node_count"] == 3
         assert loaded_summary["transaction_count"] == 2

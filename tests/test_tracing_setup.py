@@ -1,4 +1,5 @@
 """Tests for the API tracing configuration."""
+
 from __future__ import annotations
 
 import pytest

@@ -14,13 +14,14 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class TrainerType(Enum):
     """Supported fine-tuning trainer types."""
+
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     LORA = "lora"
@@ -30,6 +31,7 @@ class TrainerType(Enum):
 @dataclass
 class TrainerConfig:
     """Configuration for the fine-tuning trainer."""
+
     model: str = "gpt-3.5-turbo"
     learning_rate: float = 1e-5
     num_epochs: int = 3
@@ -44,7 +46,7 @@ class TrainerConfig:
     wandb_project: str = "astroml-fine-tuning"
     output_dir: str = "./fine_tuned_models"
     seed: int = 42
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class FineTuneTrainer:
@@ -63,13 +65,13 @@ class FineTuneTrainer:
     ):
         self.config = config
         self.trainer_type = trainer_type
-        self.training_metrics: Dict[str, Any] = {}
+        self.training_metrics: dict[str, Any] = {}
         self._model_id: str = ""
 
     def train(
         self,
-        train_data: List[Dict[str, str]],
-        val_data: Optional[List[Dict[str, str]]] = None,
+        train_data: list[dict[str, str]],
+        val_data: list[dict[str, str]] | None = None,
     ) -> str:
         """Run fine-tuning training.
 
@@ -91,12 +93,13 @@ class FineTuneTrainer:
 
     def _train_openai(
         self,
-        train_data: List[Dict[str, str]],
-        val_data: Optional[List[Dict[str, str]]],
+        train_data: list[dict[str, str]],
+        val_data: list[dict[str, str]] | None,
     ) -> str:
         """Fine-tune using OpenAI API."""
         try:
             import openai
+
             from .dataset import FineTuneDataset
         except ImportError:
             logger.error("openai package not installed")
@@ -106,9 +109,7 @@ class FineTuneTrainer:
         dataset.config = None
         formatted_train = dataset.format_for_openai(train_data)
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".jsonl", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
             for record in formatted_train:
                 f.write(json.dumps(record) + "\n")
             train_path = f.name
@@ -140,8 +141,8 @@ class FineTuneTrainer:
 
     def _train_anthropic(
         self,
-        train_data: List[Dict[str, str]],
-        val_data: Optional[List[Dict[str, str]]],
+        train_data: list[dict[str, str]],
+        val_data: list[dict[str, str]] | None,
     ) -> str:
         """Fine-tune using Anthropic API."""
         try:
@@ -151,10 +152,7 @@ class FineTuneTrainer:
             raise
 
         client = anthropic.Anthropic()
-        formatted = [
-            {"role": "user", "content": r["input"]}
-            for r in train_data
-        ]
+        formatted = [{"role": "user", "content": r["input"]} for r in train_data]
         response = client.beta.fine_tuning.jobs.create(
             model=self.config.model,
             training_data=formatted,
@@ -169,35 +167,30 @@ class FineTuneTrainer:
 
     def _train_lora(
         self,
-        train_data: List[Dict[str, str]],
-        val_data: Optional[List[Dict[str, str]]],
+        train_data: list[dict[str, str]],
+        val_data: list[dict[str, str]] | None,
         trainer_type: TrainerType,
     ) -> str:
         """Fine-tune using LoRA/QLoRA for open-source models."""
         try:
             import torch
-            from transformers import (
-                AutoModelForCausalLM,
-                AutoTokenizer,
-                TrainingArguments,
-                Trainer,
-            )
+            from datasets import Dataset
             from peft import (
                 LoraConfig,
                 get_peft_model,
                 prepare_model_for_kbit_training,
             )
-            from datasets import Dataset
-        except ImportError:
-            logger.error(
-                "transformers/torch/datasets/peft packages not installed for LoRA"
+            from transformers import (
+                AutoModelForCausalLM,
+                AutoTokenizer,
+                Trainer,
+                TrainingArguments,
             )
+        except ImportError:
+            logger.error("transformers/torch/datasets/peft packages not installed for LoRA")
             raise
 
-        texts = [
-            f"{r['input']}\n{r['output']}"
-            for r in train_data
-        ]
+        texts = [f"{r['input']}\n{r['output']}" for r in train_data]
         hf_dataset = Dataset.from_dict({"text": texts})
 
         use_4bit = trainer_type == TrainerType.QLORA

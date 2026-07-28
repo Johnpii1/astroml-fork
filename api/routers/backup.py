@@ -8,20 +8,23 @@ Provides endpoints for:
 - Applying retention policy
 - Backup verification
 """
+
 from __future__ import annotations
 
 import os
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from typing import List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from astroml.backup import BackupService, RestoreService, BackupConfig, BackupVerifier
+from astroml.backup import BackupConfig, BackupService, BackupVerifier, RestoreService
 from astroml.backup.service import BackupType, StorageBackend
 
 router = APIRouter(prefix="/backup", tags=["backup"])
 
 
 # ─── Request/Response Schemas ─────────────────────────────────────────────
+
 
 class BackupRequest(BaseModel):
     """Request schema for creating a backup."""
@@ -69,17 +72,15 @@ class RestoreResponse(BaseModel):
 
 # ─── Dependency for Backup Service ────────────────────────────────────────
 
+
 def get_backup_config() -> BackupConfig:
     """Get backup configuration from environment variables."""
     return BackupConfig(
         database_url=os.environ.get(
-            "DATABASE_URL",
-            "postgresql+asyncpg://astroml:astroml@localhost/astroml"
+            "DATABASE_URL", "postgresql+asyncpg://astroml:astroml@localhost/astroml"
         ),
         database_name=os.environ.get("DB_NAME", "astroml"),
-        storage_backend=StorageBackend(
-            os.environ.get("STORAGE_BACKEND", "local")
-        ),
+        storage_backend=StorageBackend(os.environ.get("STORAGE_BACKEND", "local")),
         local_backup_dir=os.environ.get("BACKUP_DIR", "/tmp/backups"),
         s3_bucket=os.environ.get("S3_BUCKET"),
         gcs_bucket=os.environ.get("GCS_BUCKET"),
@@ -90,6 +91,7 @@ def get_backup_config() -> BackupConfig:
 
 
 # ─── Backup Endpoints ─────────────────────────────────────────────────────
+
 
 @router.post("/create", response_model=BackupResponse)
 async def create_backup(
@@ -110,7 +112,9 @@ async def create_backup(
             metadatas = backup_service.create_full_backup(request.description)
             metadata = metadatas[0]
         else:
-            raise HTTPException(status_code=400, detail=f"Unknown backup type: {request.backup_type}")
+            raise HTTPException(
+                status_code=400, detail=f"Unknown backup type: {request.backup_type}"
+            )
 
         return BackupResponse(
             backup_id=metadata.backup_id,
@@ -195,22 +199,15 @@ async def restore_backup(
     try:
         success = False
         if request.backup_type == "database":
-            success = restore_service.restore_database(
-                request.backup_id,
-                request.drop_existing
-            )
+            success = restore_service.restore_database(request.backup_id, request.drop_existing)
         elif request.backup_type == "models":
-            success = restore_service.restore_model_artifacts(
-                request.backup_id,
-                request.target_dir
-            )
+            success = restore_service.restore_model_artifacts(request.backup_id, request.target_dir)
         elif request.backup_type == "full":
-            success = restore_service.restore_full(
-                request.backup_id,
-                request.drop_existing
-            )
+            success = restore_service.restore_full(request.backup_id, request.drop_existing)
         else:
-            raise HTTPException(status_code=400, detail=f"Unknown backup type: {request.backup_type}")
+            raise HTTPException(
+                status_code=400, detail=f"Unknown backup type: {request.backup_type}"
+            )
 
         if success:
             return RestoreResponse(
@@ -268,10 +265,7 @@ async def verify_backup(
             raise HTTPException(status_code=404, detail="Backup not found")
 
         backup_file = backup_metadata.storage_path
-        is_valid = verifier.verify_backup(
-            backup_file,
-            backup_metadata.checksum
-        )
+        is_valid = verifier.verify_backup(backup_file, backup_metadata.checksum)
 
         return {
             "backup_id": backup_id,

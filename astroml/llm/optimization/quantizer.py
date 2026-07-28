@@ -5,13 +5,14 @@ Supports INT8, INT4, GPTQ, and AWQ quantization techniques.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 
 class QuantizationType(str, Enum):
     """Supported quantization types."""
+
     INT8 = "int8"
     INT4 = "int4"
     GPTQ = "gptq"
@@ -22,6 +23,7 @@ class QuantizationType(str, Enum):
 @dataclass
 class QuantizationConfig:
     """Configuration for model quantization."""
+
     quantization_type: QuantizationType = QuantizationType.INT8
     bits: int = 8
     target_quality: float = 0.90  # >90% of base model quality
@@ -70,7 +72,7 @@ class ModelQuantizer:
     while maintaining >90% quality.
     """
 
-    def __init__(self, config: Optional[QuantizationConfig] = None):
+    def __init__(self, config: QuantizationConfig | None = None):
         """Initialize quantizer."""
         self.config = config or QuantizationConfig()
 
@@ -78,7 +80,7 @@ class ModelQuantizer:
         self,
         model_path: str,
         output_path: str,
-        quantization_type: Optional[QuantizationType] = None,
+        quantization_type: QuantizationType | None = None,
     ) -> QuantizationResult:
         """
         Quantize a model to specified format.
@@ -152,7 +154,7 @@ class ModelQuantizer:
             "baichuan-13b",
         ]
 
-    def estimate_speedup(self, quantization_type: QuantizationType) -> Dict[str, float]:
+    def estimate_speedup(self, quantization_type: QuantizationType) -> dict[str, float]:
         """
         Estimate inference speedup for quantization type.
 
@@ -191,7 +193,7 @@ class ModelQuantizer:
         self,
         original_model: str,
         quantized_model: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validate quantization quality.
 

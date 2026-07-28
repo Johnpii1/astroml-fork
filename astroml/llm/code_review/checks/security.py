@@ -6,7 +6,6 @@ including SQL injection, XSS, authentication issues, and more.
 """
 
 from abc import ABC, abstractmethod
-from typing import List
 
 from astroml.llm.code_review.suggestions import (
     Suggestion,
@@ -19,7 +18,7 @@ class BaseCheck(ABC):
     """Base class for code review checks."""
 
     @abstractmethod
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform the check on the given content.
 
@@ -59,7 +58,7 @@ class SecurityCheck(BaseCheck):
                 "suggested_fix": "Use parameterized queries with ? or %s placeholders",
             },
             "xss_render": {
-                "pattern": r'render\s*\(\s*.*\|\s*safe',
+                "pattern": r"render\s*\(\s*.*\|\s*safe",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "XSS risk: using | safe filter on user input",
                 "suggested_fix": "Avoid using | safe on untrusted user input",
@@ -71,26 +70,26 @@ class SecurityCheck(BaseCheck):
                 "suggested_fix": "Use environment variables or secret management",
             },
             "weak_hash": {
-                "pattern": r'(md5|sha1)\s*\(',
+                "pattern": r"(md5|sha1)\s*\(",
                 "severity": SuggestionSeverity.MEDIUM,
                 "message": "Weak cryptographic hash algorithm",
                 "suggested_fix": "Use stronger algorithms like SHA-256 or SHA-512",
             },
             "random_not_crypto": {
-                "pattern": r'import\s+random\s*$',
+                "pattern": r"import\s+random\s*$",
                 "severity": SuggestionSeverity.MEDIUM,
                 "message": "Using random module for security-sensitive operations",
                 "suggested_fix": "Use secrets module for cryptographic operations",
             },
             "verify_disabled_ssl": {
-                "pattern": r'verify\s*=\s*False',
+                "pattern": r"verify\s*=\s*False",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "SSL verification disabled",
                 "suggested_fix": "Enable SSL verification for secure connections",
             },
         }
 
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform security checks on the given content.
 

@@ -1,4 +1,5 @@
 """Tests for configuration layer validation (issue #575)."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -6,7 +7,14 @@ from datetime import timedelta
 import pytest
 from pydantic import ValidationError
 
-from main import DatabaseSettings, GraphSettings, Settings, TrainingSettings, get_settings, validate_config
+from main import (
+    DatabaseSettings,
+    GraphSettings,
+    Settings,
+    TrainingSettings,
+    get_settings,
+    validate_config,
+)
 
 
 class TestDatabaseSettings:

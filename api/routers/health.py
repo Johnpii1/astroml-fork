@@ -1,6 +1,7 @@
 """
 Health check endpoints for the AstroML API.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, status
@@ -21,15 +22,16 @@ async def health_check():
 async def database_health_check():
     """Database connection health check with pool statistics."""
     result = await check_database_connection()
-    
+
     if result["status"] == "unhealthy":
         # Return 503 Service Unavailable for unhealthy DB
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=result.get("error", "Database connection failed"),
         )
-    
+
     return result
 
 
@@ -52,16 +54,19 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
     Checks that the API can connect to the database.
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         # Execute a simple query
         from sqlalchemy import text
+
         await db.execute(text("SELECT 1"))
         return {"status": "ready"}
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
         from fastapi import HTTPException
+
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database not ready",
@@ -84,5 +89,6 @@ async def reset_pool():
     Forces all connections to be recreated.
     """
     from api.database import reset_engines
+
     reset_engines()
     return {"status": "pool reset successfully"}

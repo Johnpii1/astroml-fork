@@ -5,11 +5,12 @@ Endpoints
 ws://host/api/v1/ws/transactions?token=xxx — Stream new transactions
 ws://host/api/v1/ws/alerts?token=xxx       — Stream new fraud alerts
 """
+
 from __future__ import annotations
 
 import asyncio
-import logging
 import json
+import logging
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
@@ -94,43 +95,39 @@ async def _handle_llm_chat(websocket: WebSocket, client):
             raw = await websocket.receive_text()
             message = json.loads(raw)
             msg_type = message.get("type")
-            
+
             if msg_type == "pong":
                 ws_manager.record_pong(client)
             elif msg_type == "chat":
                 # Handle chat message and stream response
-                await ws_manager.send_json(client, {
-                    "type": "chat_start",
-                    "messageId": message.get("messageId")
-                })
-                
+                await ws_manager.send_json(
+                    client, {"type": "chat_start", "messageId": message.get("messageId")}
+                )
+
                 # Simulate streaming response
                 response_chunks = [
-                    "This", " is", " a", " simulated", " LLM", " response", " in", " chunks."
+                    "This",
+                    " is",
+                    " a",
+                    " simulated",
+                    " LLM",
+                    " response",
+                    " in",
+                    " chunks.",
                 ]
                 for chunk in response_chunks:
-                    await ws_manager.send_json(client, {
-                        "type": "chunk",
-                        "data": chunk
-                    })
+                    await ws_manager.send_json(client, {"type": "chunk", "data": chunk})
                     await asyncio.sleep(0.1)  # Simulate processing time
-                
-                await ws_manager.send_json(client, {
-                    "type": "chat_end",
-                    "messageId": message.get("messageId")
-                })
+
+                await ws_manager.send_json(
+                    client, {"type": "chat_end", "messageId": message.get("messageId")}
+                )
         except json.JSONDecodeError:
-            await ws_manager.send_json(client, {
-                "type": "error",
-                "error": "Invalid JSON message"
-            })
+            await ws_manager.send_json(client, {"type": "error", "error": "Invalid JSON message"})
         except WebSocketDisconnect:
             break
         except Exception as e:
-            await ws_manager.send_json(client, {
-                "type": "error",
-                "error": "An error occurred"
-            })
+            await ws_manager.send_json(client, {"type": "error", "error": "An error occurred"})
 
 
 @router.websocket("/llm")
@@ -145,15 +142,12 @@ async def ws_llm(
 
     client = await ws_manager.connect(websocket, "llm")
     heartbeat = asyncio.create_task(ws_manager.heartbeat_loop(client))
-    
+
     # Send connected message immediately to meet <500ms requirement
-    await ws_manager.send_json(client, {
-        "type": "connected",
-        "status": "ok"
-    })
-    
+    await ws_manager.send_json(client, {"type": "connected", "status": "ok"})
+
     chat_task = asyncio.create_task(_handle_llm_chat(websocket, client))
-    
+
     try:
         await chat_task
     except WebSocketDisconnect:
@@ -181,20 +175,23 @@ async def poll_and_broadcast_transactions(interval_seconds: int = 5) -> None:
             for tx in reversed(rows):
                 if last_seen and tx.hash <= last_seen:
                     continue
-                await ws_manager.broadcast("transactions", {
-                    "type": "transaction",
-                    "data": {
-                        "hash": tx.hash,
-                        "ledgerSequence": tx.ledger_sequence,
-                        "sourceAccount": tx.source_account,
-                        "destinationAccount": tx.destination_account,
-                        "amount": float(tx.amount) if tx.amount is not None else None,
-                        "assetCode": tx.asset_code,
-                        "fee": tx.fee,
-                        "successful": tx.successful,
-                        "createdAt": tx.created_at.isoformat(),
+                await ws_manager.broadcast(
+                    "transactions",
+                    {
+                        "type": "transaction",
+                        "data": {
+                            "hash": tx.hash,
+                            "ledgerSequence": tx.ledger_sequence,
+                            "sourceAccount": tx.source_account,
+                            "destinationAccount": tx.destination_account,
+                            "amount": float(tx.amount) if tx.amount is not None else None,
+                            "assetCode": tx.asset_code,
+                            "fee": tx.fee,
+                            "successful": tx.successful,
+                            "createdAt": tx.created_at.isoformat(),
+                        },
                     },
-                })
+                )
 
             if rows:
                 last_seen = rows[0].hash

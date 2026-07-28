@@ -3,10 +3,10 @@
 Resolves #458: Validates deterministic behaviour, error injection,
 streaming simulation, and token counting of mock providers.
 """
+
 from __future__ import annotations
 
 import pytest
-import asyncio
 
 from tests.llm.mocks import DeterministicMockProvider, ErrorInjectingProvider, HighLatencyProvider
 
@@ -28,9 +28,7 @@ class TestDeterministicMockProvider:
 
     def test_custom_response_override(self):
         """Custom response mappings should override hash-based responses."""
-        provider = DeterministicMockProvider(
-            custom_responses={"exact prompt": "exact response"}
-        )
+        provider = DeterministicMockProvider(custom_responses={"exact prompt": "exact response"})
         assert provider.generate("exact prompt") == "exact response"
 
     def test_returns_string(self, mock_provider):

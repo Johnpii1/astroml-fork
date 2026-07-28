@@ -8,6 +8,7 @@ a user's session has expired (which is often the condition that triggered the
 error in the first place).  Rate-limiting and input size caps guard against
 abuse.
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +18,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
+
 from astroml.utils.logging import sanitize_log_value
 
 logger = logging.getLogger("astroml.frontend_errors")
@@ -29,6 +31,7 @@ _MAX_STACK_LEN = 8000
 
 
 # ── Schema ────────────────────────────────────────────────────────────────────
+
 
 class FrontendErrorReport(BaseModel):
     """Payload sent by the browser ErrorBoundary / errorReporting module."""
@@ -52,6 +55,7 @@ class FrontendErrorReport(BaseModel):
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/report",

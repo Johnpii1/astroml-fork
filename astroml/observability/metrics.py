@@ -30,8 +30,9 @@ from __future__ import annotations
 import functools
 import inspect
 import time
+from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
-from typing import Any, Awaitable, Callable, Final, Iterator, TypeVar, cast
+from typing import Any, Final, TypeVar, cast
 
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
@@ -218,9 +219,7 @@ def track_time(histogram: Histogram, *label_values: str) -> Callable[[F], F]:
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 started = time.perf_counter()
                 try:
-                    return await cast(Callable[..., Awaitable[Any]], func)(
-                        *args, **kwargs
-                    )
+                    return await cast(Callable[..., Awaitable[Any]], func)(*args, **kwargs)
                 finally:
                     target.observe(time.perf_counter() - started)
 

@@ -1,4 +1,5 @@
 """Tests for contributor onboarding checklist endpoints — Issue #281."""
+
 from __future__ import annotations
 
 import pytest

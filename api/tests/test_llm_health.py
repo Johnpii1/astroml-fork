@@ -1,4 +1,5 @@
 """Integration tests for LLM health endpoints."""
+
 from __future__ import annotations
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
+
 from sqlalchemy import (
     Column,
     DateTime,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+
 from astroml.db.schema import Base
 
 

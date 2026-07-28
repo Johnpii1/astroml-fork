@@ -5,14 +5,15 @@ during CI.  We set ``CELERY_TASK_ALWAYS_EAGER=True`` via the Celery app's
 ``conf.update`` before each test, which makes ``.delay()`` / ``.apply_async()``
 run inline and return an ``EagerResult``.
 """
+
 from __future__ import annotations
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def celery_eager_mode():
@@ -28,6 +29,7 @@ def celery_eager_mode():
 # ---------------------------------------------------------------------------
 # build_graph
 # ---------------------------------------------------------------------------
+
 
 class TestBuildGraphTask:
     def test_returns_node_and_edge_count(self):
@@ -82,31 +84,26 @@ class TestBuildGraphTask:
 # train_model
 # ---------------------------------------------------------------------------
 
+
 class TestTrainModelTask:
     def test_returns_trained_status(self):
         from astroml.tasks.model_train_task import train_model
 
-        result = train_model.apply(
-            args=["link_predictor", {"epochs": 5}]
-        ).get()
+        result = train_model.apply(args=["link_predictor", {"epochs": 5}]).get()
 
         assert result["status"] == "trained"
 
     def test_returns_correct_model_name(self):
         from astroml.tasks.model_train_task import train_model
 
-        result = train_model.apply(
-            args=["fraud_gnn", {"epochs": 3}]
-        ).get()
+        result = train_model.apply(args=["fraud_gnn", {"epochs": 3}]).get()
 
         assert result["model_name"] == "fraud_gnn"
 
     def test_epochs_from_config(self):
         from astroml.tasks.model_train_task import train_model
 
-        result = train_model.apply(
-            args=["my_model", {"epochs": 7}]
-        ).get()
+        result = train_model.apply(args=["my_model", {"epochs": 7}]).get()
 
         assert result["epochs"] == 7
 

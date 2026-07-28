@@ -1,8 +1,9 @@
 """Cache hit rate and cost savings tracking."""
-import time
+
 import logging
+import time
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +121,7 @@ class CacheMetrics:
             return 0.0
         return sum(self.miss_latencies) / len(self.miss_latencies)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get comprehensive cache statistics.
 
         Returns:

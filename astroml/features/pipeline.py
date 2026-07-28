@@ -7,26 +7,25 @@ features such as embeddings, scores, and meta features.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
+from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 
-from astroml.features.feature_store import FeatureStore, FeatureType, FeatureDefinition
-from astroml.features.feature_engine import ComputationEngine
+from astroml.cache import cached_feature
 from astroml.features.embedding_features import (
-    TransactionEmbeddingComputer,
     AccountBehaviorEmbeddingComputer,
     AlertEmbeddingComputer,
+    TransactionEmbeddingComputer,
 )
+from astroml.features.feature_engine import ComputationEngine
+from astroml.features.feature_store import FeatureStore
+from astroml.features.llm_generators import LLMFeatureGenerator
 from astroml.features.scoring_features import (
-    FraudProbabilityComputer,
     ExplanationConfidenceComputer,
+    FraudProbabilityComputer,
     UncertaintyEstimatorComputer,
 )
-from astroml.features.llm_generators import LLMFeatureGenerator
-from astroml.cache import cached_feature
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PipelineConfig:
     """Configuration for the LLM feature pipeline."""
+
     enable_embeddings: bool = True
     enable_scores: bool = True
     enable_meta: bool = True
@@ -57,7 +57,7 @@ class LLMFeaturePipeline:
         self,
         feature_store: FeatureStore,
         computation_engine: ComputationEngine,
-        config: Optional[PipelineConfig] = None,
+        config: PipelineConfig | None = None,
     ):
         self.store = feature_store
         self.engine = computation_engine
@@ -75,17 +75,23 @@ class LLMFeaturePipeline:
             self.engine.register_computer(AccountBehaviorEmbeddingComputer())
             self.engine.register_computer(AlertEmbeddingComputer())
         if self.config.enable_scores:
-            self.engine.register_computer(FraudProbabilityComputer(
-                model=self.config.score_model,
-                prompt_version=self.config.prompt_version,
-            ))
-            self.engine.register_computer(ExplanationConfidenceComputer(
-                model=self.config.score_model,
-                prompt_version=self.config.prompt_version,
-            ))
-            self.engine.register_computer(UncertaintyEstimatorComputer(
-                model=self.config.score_model,
-            ))
+            self.engine.register_computer(
+                FraudProbabilityComputer(
+                    model=self.config.score_model,
+                    prompt_version=self.config.prompt_version,
+                )
+            )
+            self.engine.register_computer(
+                ExplanationConfidenceComputer(
+                    model=self.config.score_model,
+                    prompt_version=self.config.prompt_version,
+                )
+            )
+            self.engine.register_computer(
+                UncertaintyEstimatorComputer(
+                    model=self.config.score_model,
+                )
+            )
 
     @cached_feature(ttl_seconds=3600)
     def run_pipeline(
@@ -93,12 +99,16 @@ class LLMFeaturePipeline:
         data: pd.DataFrame,
         entity_col: str = "entity_id",
         timestamp_col: str = "timestamp",
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         """Run the full LLM feature pipeline on input data."""
         results = {}
 
         if self.config.enable_embeddings:
-            embedding_types = ["transaction_embeddings", "account_behavior_embeddings", "alert_embeddings"]
+            embedding_types = [
+                "transaction_embeddings",
+                "account_behavior_embeddings",
+                "alert_embeddings",
+            ]
             for emb_name in embedding_types:
                 computer = self.engine.get_computer(emb_name)
                 if computer:
@@ -136,30 +146,36 @@ class LLMFeaturePipeline:
 
         return results
 
-    def get_llm_feature_names(self) -> List[str]:
+    def get_llm_feature_names(self) -> list[str]:
         """List all available LLM feature names in the pipeline."""
         features = []
         if self.config.enable_embeddings:
-            features.extend([
-                "transaction_embeddings",
-                "account_behavior_embeddings",
-                "alert_embeddings",
-            ])
+            features.extend(
+                [
+                    "transaction_embeddings",
+                    "account_behavior_embeddings",
+                    "alert_embeddings",
+                ]
+            )
         if self.config.enable_scores:
-            features.extend([
-                "fraud_probability",
-                "explanation_confidence",
-                "uncertainty_estimates",
-            ])
+            features.extend(
+                [
+                    "fraud_probability",
+                    "explanation_confidence",
+                    "uncertainty_estimates",
+                ]
+            )
         if self.config.enable_meta:
-            features.extend([
-                "prompt_version",
-                "model_used",
-                "latency_attribution",
-            ])
+            features.extend(
+                [
+                    "prompt_version",
+                    "model_used",
+                    "latency_attribution",
+                ]
+            )
         return features
 
-    def get_pipeline_summary(self) -> Dict[str, Any]:
+    def get_pipeline_summary(self) -> dict[str, Any]:
         """Return a summary of the pipeline configuration and state."""
         return {
             "config": {

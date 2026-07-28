@@ -4,12 +4,13 @@ The function was added in `0b31e91` without unit-test coverage. These
 tests pin its core contracts so a regression doesn't silently disable
 structured logging across services.
 """
+
 from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterator
 from io import StringIO
-from typing import Iterator
 
 import pytest
 

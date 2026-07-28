@@ -1,6 +1,7 @@
 """Tests for CLI formatters."""
 
 import json
+
 from astroml.cli_llm.formatters import output_result
 
 

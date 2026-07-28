@@ -6,7 +6,6 @@ including logic errors, edge cases, and potential bugs.
 """
 
 import re
-from typing import List
 
 from astroml.llm.code_review.checks.security import BaseCheck
 from astroml.llm.code_review.suggestions import (
@@ -36,44 +35,44 @@ class CorrectnessCheck(BaseCheck):
         """Initialize correctness issue patterns."""
         return {
             "none_comparison": {
-                "pattern": r'==\s*None|!=\s*None',
+                "pattern": r"==\s*None|!=\s*None",
                 "severity": SuggestionSeverity.MEDIUM,
                 "message": "Use 'is None' or 'is not None' instead of == or !=",
                 "suggested_fix": "Use 'is None' or 'is not None' for None comparisons",
             },
             "mutable_default_arg": {
-                "pattern": r'def\s+\w+\([^)]*=\s*\[|\{',
+                "pattern": r"def\s+\w+\([^)]*=\s*\[|\{",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Mutable default argument detected",
                 "suggested_fix": "Use None as default and initialize inside function",
             },
             "except_bare": {
-                "pattern": r'except\s*:',
+                "pattern": r"except\s*:",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Bare except clause catches all exceptions",
                 "suggested_fix": "Specify the exception type to catch",
             },
             "return_in_finally": {
-                "pattern": r'finally:\s*return',
+                "pattern": r"finally:\s*return",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Return in finally block suppresses exceptions",
                 "suggested_fix": "Move return outside finally block",
             },
             "unused_variable": {
-                "pattern": r'_\s*=',
+                "pattern": r"_\s*=",
                 "severity": SuggestionSeverity.LOW,
                 "message": "Variable assigned but not used",
                 "suggested_fix": "Remove unused variable or use proper naming",
             },
             "comparison_literal": {
-                "pattern": r'(True|False)\s*==\s*\w+|\w+\s*==\s*(True|False)',
+                "pattern": r"(True|False)\s*==\s*\w+|\w+\s*==\s*(True|False)",
                 "severity": SuggestionSeverity.LOW,
                 "message": "Comparison with boolean literal is redundant",
                 "suggested_fix": "Use the boolean directly or 'if not x'",
             },
         }
 
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform correctness checks on the given content.
 

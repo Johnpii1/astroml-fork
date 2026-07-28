@@ -6,12 +6,12 @@ for various fine-tuning targets and trainer types.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
-import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pandas as pd
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DatasetConfig:
     """Configuration for fine-tuning dataset preparation."""
+
     name: str
     task_type: str
     min_examples: int = 500
@@ -38,7 +39,7 @@ class DataQualityValidator:
     def __init__(self, config: DatasetConfig):
         self.config = config
 
-    def validate(self, data: pd.DataFrame) -> List[str]:
+    def validate(self, data: pd.DataFrame) -> list[str]:
         """Validate data quality and return list of issues found."""
         issues = []
 
@@ -82,17 +83,17 @@ class FineTuneDataset:
 
     def __init__(self, config: DatasetConfig):
         self.config = config
-        self.train: List[Dict[str, str]] = []
-        self.val: List[Dict[str, str]] = []
-        self.test: List[Dict[str, str]] = []
+        self.train: list[dict[str, str]] = []
+        self.val: list[dict[str, str]] = []
+        self.test: list[dict[str, str]] = []
         self._version: str = ""
-        self._metadata: Dict[str, Any] = {}
+        self._metadata: dict[str, Any] = {}
 
     def load_from_dataframe(
         self,
         data: pd.DataFrame,
         text_column: str = "text",
-        label_column: Optional[str] = None,
+        label_column: str | None = None,
     ) -> None:
         """Load dataset from a pandas DataFrame."""
         records = []
@@ -125,7 +126,7 @@ class FineTuneDataset:
             "loaded_at": datetime.utcnow().isoformat(),
         }
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate dataset quality."""
         validator = DataQualityValidator(self.config)
         data = pd.DataFrame(self._raw_records)
@@ -153,40 +154,46 @@ class FineTuneDataset:
             test_size=val_ratio_adj,
             random_state=self.config.seed,
         )
-        self._metadata.update({
-            "train_count": len(self.train),
-            "val_count": len(self.val),
-            "test_count": len(self.test),
-            "split_seed": self.config.seed,
-        })
+        self._metadata.update(
+            {
+                "train_count": len(self.train),
+                "val_count": len(self.val),
+                "test_count": len(self.test),
+                "split_seed": self.config.seed,
+            }
+        )
 
-    def format_for_openai(self, records: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    def format_for_openai(self, records: list[dict[str, str]]) -> list[dict[str, Any]]:
         """Format records for OpenAI fine-tuning API."""
         formatted = []
         for record in records:
-            formatted.append({
-                "messages": [
-                    {"role": "user", "content": record["input"]},
-                    {"role": "assistant", "content": record["output"]},
-                ]
-            })
+            formatted.append(
+                {
+                    "messages": [
+                        {"role": "user", "content": record["input"]},
+                        {"role": "assistant", "content": record["output"]},
+                    ]
+                }
+            )
         return formatted
 
     def format_for_lora(
         self,
-        records: List[Dict[str, str]],
-    ) -> List[Dict[str, str]]:
+        records: list[dict[str, str]],
+    ) -> list[dict[str, str]]:
         """Format records for LoRA/QLoRA fine-tuning."""
         formatted = []
         for record in records:
-            formatted.append({
-                "input": record["input"],
-                "output": record["output"],
-                "text": self.config.format_template.format(
-                    input=record["input"],
-                    output=record["output"],
-                ),
-            })
+            formatted.append(
+                {
+                    "input": record["input"],
+                    "output": record["output"],
+                    "text": self.config.format_template.format(
+                        input=record["input"],
+                        output=record["output"],
+                    ),
+                }
+            )
         return formatted
 
     def save(self, path: str) -> None:
@@ -216,6 +223,6 @@ class FineTuneDataset:
         """Get dataset version hash."""
         return self._version
 
-    def _compute_version(self, records: List[Dict[str, str]]) -> str:
+    def _compute_version(self, records: list[dict[str, str]]) -> str:
         content = json.dumps(records, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()[:12]

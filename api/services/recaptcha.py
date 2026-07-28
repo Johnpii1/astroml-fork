@@ -4,6 +4,7 @@ Verification is skipped when no secret is configured, so the contact form works
 in development/test without a reCAPTCHA key and only enforces spam protection in
 environments where ``contact_recaptcha_secret`` is set.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,9 +28,7 @@ async def verify_recaptcha(token: str | None) -> bool:
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                VERIFY_URL, data={"secret": secret, "response": token}
-            )
+            resp = await client.post(VERIFY_URL, data={"secret": secret, "response": token})
         data = resp.json()
     except Exception as exc:  # network/transport error — fail closed
         logger.warning("reCAPTCHA verification request failed: %s", exc)

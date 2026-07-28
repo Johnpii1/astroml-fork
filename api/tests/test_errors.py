@@ -4,6 +4,7 @@ Integration tests for the frontend error logging endpoint — issue #292.
 Covers: happy path, empty message rejection, missing optional fields,
 oversized fields, and that the endpoint never returns 5xx.
 """
+
 from __future__ import annotations
 
 import pytest

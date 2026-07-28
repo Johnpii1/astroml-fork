@@ -7,7 +7,7 @@ type signatures and type annotations.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set, get_type_hints
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +17,10 @@ class TypeBasedStrategy:
 
     BUILTIN_TYPES = {int, float, str, bool, bytes, list, dict, tuple, set}
 
-    def __init__(self, type_hints: Dict[str, str]):
+    def __init__(self, type_hints: dict[str, str]):
         self.type_hints = type_hints
 
-    def suggest_hypothesis_strategies(self) -> Dict[str, str]:
+    def suggest_hypothesis_strategies(self) -> dict[str, str]:
         """Suggest hypothesis strategies for each parameter."""
         strategies = {}
         for name, hint in self.type_hints.items():
@@ -29,14 +29,14 @@ class TypeBasedStrategy:
                 strategies[name] = strategy
         return strategies
 
-    def identify_boundary_values(self) -> Dict[str, List[Any]]:
+    def identify_boundary_values(self) -> dict[str, list[Any]]:
         """Identify boundary values for each parameter type."""
         boundaries = {}
         for name, hint in self.type_hints.items():
             boundaries[name] = self._get_boundaries(hint)
         return boundaries
 
-    def _type_to_strategy(self, hint: str) -> Optional[str]:
+    def _type_to_strategy(self, hint: str) -> str | None:
         mapping = {
             "int": "st.integers()",
             "float": "st.floats()",
@@ -55,7 +55,7 @@ class TypeBasedStrategy:
                 return strategy
         return "st.integers()"
 
-    def _get_boundaries(self, hint: str) -> List[Any]:
+    def _get_boundaries(self, hint: str) -> list[Any]:
         boundaries_map = {
             "int": [0, 1, -1, 2**31 - 1, -(2**31), 2**63 - 1],
             "float": [0.0, 1.0, -1.0, float("inf"), float("-inf"), float("nan")],

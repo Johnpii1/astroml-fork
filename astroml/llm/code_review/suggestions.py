@@ -7,7 +7,6 @@ including categories, severity levels, and the suggestion format.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, List
 
 
 class SuggestionCategory(Enum):
@@ -51,9 +50,9 @@ class Suggestion:
     message: str
     file_path: str
     line_number: int
-    suggested_fix: Optional[str] = None
-    context: Optional[str] = None
-    rule_id: Optional[str] = None
+    suggested_fix: str | None = None
+    context: str | None = None
+    rule_id: str | None = None
 
     def format_markdown(self) -> str:
         """
@@ -95,7 +94,7 @@ class SuggestionGroup:
     """
 
     category: SuggestionCategory
-    suggestions: List[Suggestion] = field(default_factory=list)
+    suggestions: list[Suggestion] = field(default_factory=list)
 
     def add_suggestion(self, suggestion: Suggestion) -> None:
         """Add a suggestion to this group."""

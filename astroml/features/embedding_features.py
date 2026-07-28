@@ -7,13 +7,11 @@ transaction descriptions, account behavior, and alert descriptions.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from astroml.features.feature_engine import BaseFeatureComputer, FeatureDependencyType
-from astroml.features.feature_store import FeatureType
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +39,7 @@ class TransactionEmbeddingComputer(BaseFeatureComputer):
         self.validate_input(data, entity_col, timestamp_col)
         try:
             from astroml.llm.features.compute import compute_embeddings
+
             texts = data.get("description", data.get("memo", data.get("text", "")))
             embeddings = compute_embeddings(
                 texts=texts.tolist() if isinstance(texts, pd.Series) else texts,
@@ -82,6 +81,7 @@ class AccountBehaviorEmbeddingComputer(BaseFeatureComputer):
         self.validate_input(data, entity_col, timestamp_col)
         try:
             from astroml.llm.features.compute import compute_embeddings
+
             summaries = data.get("behavior_summary", data.get("profile", ""))
             embeddings = compute_embeddings(
                 texts=summaries.tolist() if isinstance(summaries, pd.Series) else summaries,
@@ -123,6 +123,7 @@ class AlertEmbeddingComputer(BaseFeatureComputer):
         self.validate_input(data, entity_col, timestamp_col)
         try:
             from astroml.llm.features.compute import compute_embeddings
+
             alerts = data.get("alert_description", data.get("description", ""))
             embeddings = compute_embeddings(
                 texts=alerts.tolist() if isinstance(alerts, pd.Series) else alerts,

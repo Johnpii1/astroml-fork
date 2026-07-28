@@ -8,12 +8,12 @@ and a deterministic seed. No external Postgres / Stellar RPC is needed.
 The test is `@pytest.mark.e2e` so the CPU CI matrix (#186) picks it up
 under its default `not gpu` selector.
 """
+
 from __future__ import annotations
 
 import pathlib
 import random
 from dataclasses import dataclass
-from typing import Dict, List
 
 import pytest
 
@@ -24,7 +24,7 @@ from astroml.ingestion.state import StateStore
 @dataclass
 class FakeLedgerPayload:
     ledger_id: int
-    transfers: List[Dict[str, object]]
+    transfers: list[dict[str, object]]
 
 
 def _seed(value: int = 42) -> None:
@@ -47,9 +47,9 @@ def _synthetic_ledger(ledger_id: int) -> FakeLedgerPayload:
     return FakeLedgerPayload(ledger_id=ledger_id, transfers=transfers)
 
 
-def _build_graph(records: List[FakeLedgerPayload]) -> Dict[str, Dict[str, int]]:
+def _build_graph(records: list[FakeLedgerPayload]) -> dict[str, dict[str, int]]:
     """Aggregate sender→receiver edge weights across the ingested ledgers."""
-    edges: Dict[str, Dict[str, int]] = {}
+    edges: dict[str, dict[str, int]] = {}
     for record in records:
         for t in record.transfers:
             edges.setdefault(str(t["from"]), {}).setdefault(str(t["to"]), 0)
@@ -57,9 +57,9 @@ def _build_graph(records: List[FakeLedgerPayload]) -> Dict[str, Dict[str, int]]:
     return edges
 
 
-def _node_features(edges: Dict[str, Dict[str, int]]) -> Dict[str, Dict[str, int]]:
+def _node_features(edges: dict[str, dict[str, int]]) -> dict[str, dict[str, int]]:
     """Compute per-account out/in degree + total send/receive."""
-    nodes: Dict[str, Dict[str, int]] = {}
+    nodes: dict[str, dict[str, int]] = {}
     for src, dsts in edges.items():
         for dst, amt in dsts.items():
             nodes.setdefault(src, {"out_degree": 0, "in_degree": 0, "sent": 0, "received": 0})
@@ -83,7 +83,7 @@ def test_pipeline_ingest_graph_features(tmp_path: pathlib.Path) -> None:
     store = StateStore(path=str(state_path))
     service = IngestionService(state_store=store)
 
-    captured: List[FakeLedgerPayload] = []
+    captured: list[FakeLedgerPayload] = []
 
     def fetch_fn(ledger_id: int) -> FakeLedgerPayload:
         return _synthetic_ledger(ledger_id)

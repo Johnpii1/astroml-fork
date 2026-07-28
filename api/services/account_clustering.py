@@ -1,6 +1,8 @@
+from typing import Any, Dict, List
+
 import hdbscan
 import numpy as np
-from typing import List, Dict, Any
+
 
 class AccountClustering:
     def __init__(self, embedding_model=None, llm_client=None):
@@ -22,7 +24,7 @@ class AccountClustering:
         """
         if not self.llm_client:
             return "LLM client not configured for characterization"
-        
+
         prompt = f"Analyze these account behaviors and provide a concise 1-sentence label/characterization for this cluster:\n{cluster_data}"
         response = self.llm_client.generate(prompt)
         return response.get("text", "Unknown Cluster Type")
@@ -34,10 +36,10 @@ class AccountClustering:
         if cluster_id not in self.history:
             self.history[cluster_id] = []
         self.history[cluster_id].append(new_data)
-        
+
     def get_cluster_summary(self, cluster_id: int) -> Dict[str, Any]:
         return {
             "cluster_id": cluster_id,
             "evolution_history": self.history.get(cluster_id, []),
-            "status": "active"
+            "status": "active",
         }

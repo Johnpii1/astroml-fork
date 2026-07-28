@@ -6,7 +6,6 @@ including missing tests, weak assertions, and test coverage.
 """
 
 import re
-from typing import List
 
 from astroml.llm.code_review.checks.security import BaseCheck
 from astroml.llm.code_review.suggestions import (
@@ -35,38 +34,38 @@ class TestingCheck(BaseCheck):
         """Initialize testing issue patterns."""
         return {
             "assert_without_message": {
-                "pattern": r'assert\s+\w+',
+                "pattern": r"assert\s+\w+",
                 "severity": SuggestionSeverity.LOW,
                 "message": "Assert without message makes debugging harder",
                 "suggested_fix": "Add a message to assert for better debugging",
             },
             "pass_in_test": {
-                "pattern": r'def\s+test_\w+.*:\s*pass',
+                "pattern": r"def\s+test_\w+.*:\s*pass",
                 "severity": SuggestionSeverity.MEDIUM,
                 "message": "Test function with only 'pass' statement",
                 "suggested_fix": "Implement the test or remove the function",
             },
             "print_in_test": {
-                "pattern": r'print\s*\(',
+                "pattern": r"print\s*\(",
                 "severity": SuggestionSeverity.LOW,
                 "message": "Print statement in test function",
                 "suggested_fix": "Use assertions instead of print statements",
             },
             "no_assertions": {
-                "pattern": r'def\s+test_\w+.*:(?!.*assert)',
+                "pattern": r"def\s+test_\w+.*:(?!.*assert)",
                 "severity": SuggestionSeverity.MEDIUM,
                 "message": "Test function may lack assertions",
                 "suggested_fix": "Add assertions to verify expected behavior",
             },
             "mock_unused": {
-                "pattern": r'@patch.*\ndef\s+test_\w+',
+                "pattern": r"@patch.*\ndef\s+test_\w+",
                 "severity": SuggestionSeverity.LOW,
                 "message": "Mock decorator used but may not be utilized",
                 "suggested_fix": "Ensure mock is properly used in the test",
             },
         }
 
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform testing checks on the given content.
 

@@ -7,8 +7,8 @@ including AST parsing and pattern matching for common issues.
 
 import ast
 import re
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any
 
 from astroml.llm.code_review.suggestions import (
     Suggestion,
@@ -39,7 +39,7 @@ class PythonAnalyzer:
         self.security_patterns = self._init_security_patterns()
         self.performance_patterns = self._init_performance_patterns()
 
-    def _init_security_patterns(self) -> Dict[str, Dict[str, Any]]:
+    def _init_security_patterns(self) -> dict[str, dict[str, Any]]:
         """Initialize security vulnerability patterns."""
         return {
             "sql_injection": {
@@ -52,13 +52,13 @@ class PythonAnalyzer:
                 "suggested_fix": "Use parameterized queries with ? or %s placeholders",
             },
             "eval_usage": {
-                "pattern": re.compile(r'\beval\s*\(', re.IGNORECASE),
+                "pattern": re.compile(r"\beval\s*\(", re.IGNORECASE),
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Use of eval() is dangerous",
                 "suggested_fix": "Replace with safer alternatives like ast.literal_eval",
             },
             "exec_usage": {
-                "pattern": re.compile(r'\bexec\s*\(', re.IGNORECASE),
+                "pattern": re.compile(r"\bexec\s*\(", re.IGNORECASE),
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Use of exec() is dangerous",
                 "suggested_fix": "Remove exec() or use safer alternatives",
@@ -83,7 +83,7 @@ class PythonAnalyzer:
             },
         }
 
-    def _init_performance_patterns(self) -> Dict[str, Dict[str, Any]]:
+    def _init_performance_patterns(self) -> dict[str, dict[str, Any]]:
         """Initialize performance issue patterns."""
         return {
             "string_concatenation": {
@@ -93,16 +93,14 @@ class PythonAnalyzer:
                 "suggested_fix": "Use list comprehension and join() for better performance",
             },
             "global_import": {
-                "pattern": re.compile(r'^import\s+.*\s*$', re.MULTILINE),
+                "pattern": re.compile(r"^import\s+.*\s*$", re.MULTILINE),
                 "severity": SuggestionSeverity.LOW,
                 "message": "Consider moving imports to module level",
                 "suggested_fix": "Move imports to top of file for better performance",
             },
         }
 
-    def analyze_diff(
-        self, diff_content: str, file_path: str
-    ) -> List[Suggestion]:
+    def analyze_diff(self, diff_content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze a git diff for Python code issues.
 
@@ -123,9 +121,7 @@ class PythonAnalyzer:
 
         return suggestions
 
-    def analyze_code(
-        self, content: str, file_path: str
-    ) -> List[Suggestion]:
+    def analyze_code(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze Python code content for issues.
 
@@ -153,9 +149,7 @@ class PythonAnalyzer:
 
         return suggestions
 
-    def _extract_added_lines(
-        self, diff_content: str
-    ) -> List[tuple]:
+    def _extract_added_lines(self, diff_content: str) -> list[tuple]:
         """
         Extract added lines from a git diff.
 
@@ -171,7 +165,7 @@ class PythonAnalyzer:
         for line in diff_content.split("\n"):
             if line.startswith("@@"):
                 # Extract line number from hunk header
-                match = re.search(r'\+(\d+)', line)
+                match = re.search(r"\+(\d+)", line)
                 if match:
                     current_line_num = int(match.group(1))
             elif line.startswith("+") and not line.startswith("+++"):
@@ -184,7 +178,7 @@ class PythonAnalyzer:
 
     def _analyze_line(
         self, line_content: str, file_path: str, line_number: int
-    ) -> List[Suggestion]:
+    ) -> list[Suggestion]:
         """
         Analyze a single line of code.
 
@@ -230,7 +224,7 @@ class PythonAnalyzer:
 
         return suggestions
 
-    def _analyze_ast(self, content: str, file_path: str) -> List[Suggestion]:
+    def _analyze_ast(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze Python code using AST.
 
@@ -247,7 +241,7 @@ class PythonAnalyzer:
         class ComplexityVisitor(ast.NodeVisitor):
             """AST visitor to check complexity issues."""
 
-            def __init__(self, suggestions: List[Suggestion], file_path: str):
+            def __init__(self, suggestions: list[Suggestion], file_path: str):
                 self.suggestions = suggestions
                 self.file_path = file_path
 

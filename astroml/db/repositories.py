@@ -1,13 +1,19 @@
 """Repository pattern for database access (issue #571)."""
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Optional, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from astroml.db.models import Account, Asset, GraphEdge, Ledger, Operation, ProcessedLedger, Transaction
+from astroml.db.models import (
+    Account,
+    Ledger,
+    ProcessedLedger,
+    Transaction,
+)
 
 
 class LedgerRepository:
@@ -15,10 +21,15 @@ class LedgerRepository:
         self._session = session
 
     def get_by_range(self, start: int, end: int) -> Sequence[Ledger]:
-        stmt = select(Ledger).where(Ledger.sequence >= start).where(Ledger.sequence <= end).order_by(Ledger.sequence)
+        stmt = (
+            select(Ledger)
+            .where(Ledger.sequence >= start)
+            .where(Ledger.sequence <= end)
+            .order_by(Ledger.sequence)
+        )
         return self._session.execute(stmt).scalars().all()
 
-    def get_by_sequence(self, sequence: int) -> Optional[Ledger]:
+    def get_by_sequence(self, sequence: int) -> Ledger | None:
         stmt = select(Ledger).where(Ledger.sequence == sequence)
         return self._session.execute(stmt).scalar_one_or_none()
 
@@ -27,12 +38,13 @@ class LedgerRepository:
         self._session.flush()
         return ledger
 
-    def get_latest_sequence(self) -> Optional[int]:
+    def get_latest_sequence(self) -> int | None:
         stmt = select(Ledger.sequence).order_by(Ledger.sequence.desc()).limit(1)
         return self._session.execute(stmt).scalar_one_or_none()
 
     def count(self) -> int:
         from sqlalchemy import func
+
         return self._session.execute(select(func.count()).select_from(Ledger)).scalar_one()
 
     def delete(self, ledger: Ledger) -> None:
@@ -43,16 +55,26 @@ class TransactionRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get_by_hash(self, hash: str) -> Optional[Transaction]:
+    def get_by_hash(self, hash: str) -> Transaction | None:
         stmt = select(Transaction).where(Transaction.hash == hash)
         return self._session.execute(stmt).scalar_one_or_none()
 
     def get_by_ledger_range(self, start: int, end: int) -> Sequence[Transaction]:
-        stmt = select(Transaction).where(Transaction.ledger_sequence >= start).where(Transaction.ledger_sequence <= end).order_by(Transaction.created_at)
+        stmt = (
+            select(Transaction)
+            .where(Transaction.ledger_sequence >= start)
+            .where(Transaction.ledger_sequence <= end)
+            .order_by(Transaction.created_at)
+        )
         return self._session.execute(stmt).scalars().all()
 
     def get_by_account(self, account_id: str, limit: int = 100) -> Sequence[Transaction]:
-        stmt = select(Transaction).where(Transaction.source_account == account_id).order_by(Transaction.created_at.desc()).limit(limit)
+        stmt = (
+            select(Transaction)
+            .where(Transaction.source_account == account_id)
+            .order_by(Transaction.created_at.desc())
+            .limit(limit)
+        )
         return self._session.execute(stmt).scalars().all()
 
     def save(self, transaction: Transaction) -> Transaction:
@@ -62,14 +84,19 @@ class TransactionRepository:
 
     def count_by_ledger(self, ledger_sequence: int) -> int:
         from sqlalchemy import func
-        return self._session.execute(select(func.count()).select_from(Transaction).where(Transaction.ledger_sequence == ledger_sequence)).scalar_one()
+
+        return self._session.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .where(Transaction.ledger_sequence == ledger_sequence)
+        ).scalar_one()
 
 
 class AccountRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get_by_account_id(self, account_id: str) -> Optional[Account]:
+    def get_by_account_id(self, account_id: str) -> Account | None:
         stmt = select(Account).where(Account.account_id == account_id)
         return self._session.execute(stmt).scalar_one_or_none()
 
@@ -100,7 +127,7 @@ class ProcessedLedgerRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def get_by_sequence(self, sequence: int) -> Optional[ProcessedLedger]:
+    def get_by_sequence(self, sequence: int) -> ProcessedLedger | None:
         stmt = select(ProcessedLedger).where(ProcessedLedger.ledger_sequence == sequence)
         return self._session.execute(stmt).scalar_one_or_none()
 
@@ -113,5 +140,9 @@ class ProcessedLedgerRepository:
         return self.get_by_sequence(sequence) is not None
 
     def get_by_status(self, status: str) -> Sequence[ProcessedLedger]:
-        stmt = select(ProcessedLedger).where(ProcessedLedger.status == status).order_by(ProcessedLedger.ledger_sequence)
+        stmt = (
+            select(ProcessedLedger)
+            .where(ProcessedLedger.status == status)
+            .order_by(ProcessedLedger.ledger_sequence)
+        )
         return self._session.execute(stmt).scalars().all()

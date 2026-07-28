@@ -30,6 +30,7 @@ class TestBatchProcessor:
     def test_process_range_empty(self):
         proc = BatchProcessor(self.provider, self.checkpoint, FixedSizeStrategy(10))
         import asyncio
+
         results = asyncio.run(proc.process_range([], mock_process_fn))
         assert results == []
 
@@ -37,6 +38,7 @@ class TestBatchProcessor:
         proc = BatchProcessor(self.provider, self.checkpoint, FixedSizeStrategy(10))
         items = [{"id": 1}]
         import asyncio
+
         results = asyncio.run(proc.process_range(items, mock_process_fn))
         assert len(results) == 1
         assert results[0]["status"] == "completed"
@@ -46,6 +48,7 @@ class TestBatchProcessor:
         proc = BatchProcessor(self.provider, self.checkpoint, FixedSizeStrategy(2))
         items = [{"id": i} for i in range(5)]
         import asyncio
+
         results = asyncio.run(proc.process_range(items, mock_process_fn))
         assert len(results) == 5
         assert all(r["status"] == "completed" for r in results)
@@ -54,6 +57,7 @@ class TestBatchProcessor:
         proc = BatchProcessor(self.provider, self.checkpoint, FixedSizeStrategy(5))
         items = [{"id": i} for i in range(3)]
         import asyncio
+
         results = asyncio.run(proc.process_range(items, failing_process_fn))
         assert len(results) == 3
         assert all(r["status"] == "failed" for r in results)

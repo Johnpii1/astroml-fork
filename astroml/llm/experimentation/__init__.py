@@ -7,8 +7,8 @@ Provides statistical experimentation platform for systematic prompt and model co
 from .ab_test import ABTest, ABTestConfig, TrafficAllocation
 from .analyzer import StatisticalAnalyzer, StatisticalTest
 from .assigner import TrafficAssigner
-from .reporter import ExperimentReporter
 from .guardrails import SafetyGuardrails
+from .reporter import ExperimentReporter
 
 __all__ = [
     "ABTest",

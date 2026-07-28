@@ -9,22 +9,24 @@ GET  /api/v1/models/{id}/metrics  — Metrics history for a model version
 POST /api/v1/models/compare      — Compare multiple model versions
 GET  /api/v1/models/{id}/lineage  — Get lineage for a model version
 """
+
 from __future__ import annotations
 
 import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, List, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from api.database import get_sync_db
-from pydantic import BaseModel
 from api.models.orm import ModelRegistry
 from api.schemas.model_registry import (
+    DeploymentEnvironment,
     ModelComparisonIn,
     ModelComparisonOut,
     ModelListResponse,
@@ -34,7 +36,6 @@ from api.schemas.model_registry import (
     ModelSearchIn,
     ModelTagsUpdateIn,
     ModelVersionTransitionIn,
-    DeploymentEnvironment,
 )
 from api.services.scorer import invalidate_scorer_cache
 
@@ -139,7 +140,7 @@ def create_model(body: ModelRegistryIn, db: Session = Depends(get_sync_db)):
         parent = db.scalar(select(ModelRegistry).where(ModelRegistry.id == body.parent_id))
         if parent is None:
             raise HTTPException(status_code=404, detail="Parent model not found")
-    
+
     version = body.version or f"{body.name}_v{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     name_safe = Path(body.name).name
     dest_dir = MODEL_STORE_PATH / name_safe / version
@@ -183,9 +184,7 @@ def get_model(model_id: int, db: Session = Depends(get_sync_db)):
 
 
 @router.put("/{model_id}", response_model=ModelRegistryOut)
-def update_model(
-    model_id: int, body: ModelRegistryUpdateIn, db: Session = Depends(get_sync_db)
-):
+def update_model(model_id: int, body: ModelRegistryUpdateIn, db: Session = Depends(get_sync_db)):
     """Update a model."""
     entry = db.scalar(select(ModelRegistry).where(ModelRegistry.id == model_id))
     if entry is None:
@@ -212,10 +211,10 @@ def delete_model(model_id: int, db: Session = Depends(get_sync_db)):
 
 
 # Version endpoints
-@router.post("/{model_id}/versions", response_model=ModelRegistryOut, status_code=status.HTTP_201_CREATED)
-def create_model_version(
-    model_id: int, body: ModelRegistryIn, db: Session = Depends(get_sync_db)
-):
+@router.post(
+    "/{model_id}/versions", response_model=ModelRegistryOut, status_code=status.HTTP_201_CREATED
+)
+def create_model_version(model_id: int, body: ModelRegistryIn, db: Session = Depends(get_sync_db)):
     """Create a new version for an existing model (uses the same name as the model)."""
     parent_model = db.scalar(select(ModelRegistry).where(ModelRegistry.id == model_id))
     if parent_model is None:
@@ -301,9 +300,7 @@ def get_version_details(
 @router.post("/compare", response_model=ModelComparisonOut)
 def compare_models(body: ModelComparisonIn, db: Session = Depends(get_sync_db)):
     """Compare multiple models by their IDs."""
-    models = db.scalars(
-        select(ModelRegistry).where(ModelRegistry.id.in_(body.model_ids))
-    ).all()
+    models = db.scalars(select(ModelRegistry).where(ModelRegistry.id.in_(body.model_ids))).all()
 
     if len(models) != len(body.model_ids):
         found_ids = {m.id for m in models}
@@ -377,52 +374,54 @@ def compare_versions(body: CompareVersionsIn, db: Session = Depends(get_sync_db)
     """Compare multiple model versions and generate a report with metrics deltas."""
     if len(body.version_ids) < 2:
         raise HTTPException(status_code=400, detail="At least 2 version IDs are required")
-        
+
     # Fetch all versions
-    versions = db.scalars(
-        select(ModelRegistry).where(ModelRegistry.id.in_(body.version_ids))
-    ).all()
-    
+    versions = db.scalars(select(ModelRegistry).where(ModelRegistry.id.in_(body.version_ids))).all()
+
     # Validate all versions exist
     found_ids = {v.id for v in versions}
     missing_ids = [vid for vid in body.version_ids if vid not in found_ids]
     if missing_ids:
         raise HTTPException(status_code=404, detail=f"Model versions not found: {missing_ids}")
-    
+
     # Keep versions in the order requested
     ordered_versions = []
     for vid in body.version_ids:
         ordered_versions.append(next(v for v in versions if v.id == vid))
-    
+
     # Collect all unique metrics
     all_metrics = set()
     for v in ordered_versions:
         if v.metrics:
             all_metrics.update(v.metrics.keys())
-    
+
     metric_deltas: List[MetricDelta] = []
     first_version = ordered_versions[0]
-    
+
     for metric in sorted(all_metrics):
         values: Dict[int, Optional[float]] = {}
         numeric_values: List[tuple[int, float]] = []
-        
+
         for v in ordered_versions:
             val = v.metrics.get(metric) if v.metrics else None
             values[v.id] = val
             if isinstance(val, (int, float)):
                 numeric_values.append((v.id, val))
-        
+
         # Calculate delta from first version
         delta = None
-        if numeric_values and first_version.id in values and isinstance(values[first_version.id], (int, float)):
+        if (
+            numeric_values
+            and first_version.id in values
+            and isinstance(values[first_version.id], (int, float))
+        ):
             first_val = values[first_version.id]
             # Find last numeric value to calculate delta? Or use latest?
             # Let's use the last value in the ordered list
             last_numeric = next((val for (vid, val) in reversed(numeric_values)), None)
             if last_numeric is not None:
                 delta = last_numeric - first_val
-        
+
         # Find best and worst (higher is better assumption)
         best = None
         worst = None
@@ -430,15 +429,17 @@ def compare_versions(body: CompareVersionsIn, db: Session = Depends(get_sync_db)
             numeric_values.sort(key=lambda x: x[1], reverse=True)
             best = numeric_values[0][0]
             worst = numeric_values[-1][0]
-        
-        metric_deltas.append(MetricDelta(
-            metric=metric,
-            values=values,
-            delta=delta,
-            best=best,
-            worst=worst,
-        ))
-    
+
+        metric_deltas.append(
+            MetricDelta(
+                metric=metric,
+                values=values,
+                delta=delta,
+                best=best,
+                worst=worst,
+            )
+        )
+
     return CompareVersionsOut(
         versions=ordered_versions,
         metric_deltas=metric_deltas,
@@ -450,24 +451,26 @@ def get_lineage(model_id: int, db: Session = Depends(get_sync_db)):
     """Get the parent chain (lineage) for a model version."""
     chain: List[LineageNode] = []
     current_id: Optional[int] = model_id
-    
+
     while current_id is not None:
         entry = db.scalar(select(ModelRegistry).where(ModelRegistry.id == current_id))
         if entry is None:
             if not chain:  # if first entry is not found
                 raise HTTPException(status_code=404, detail="Model not found")
             break
-        
-        chain.append(LineageNode(
-            id=entry.id,
-            name=entry.name,
-            version=entry.version,
-            metrics=entry.metrics,
-            created_at=entry.created_at,
-        ))
-        
+
+        chain.append(
+            LineageNode(
+                id=entry.id,
+                name=entry.name,
+                version=entry.version,
+                metrics=entry.metrics,
+                created_at=entry.created_at,
+            )
+        )
+
         current_id = entry.parent_id
-    
+
     return LineageOut(chain=chain)
 
 
@@ -484,7 +487,7 @@ def rollback_model_version(
         target_version = registry.get_model_version_by_id(version_id)
         if not target_version:
             raise HTTPException(status_code=404, detail="Model version not found")
-        
+
         # Rollback
         try:
             new_version, old_version = registry.rollback_to_version(
@@ -513,13 +516,13 @@ def create_ab_test(
     control_version = body.get("control_version")
     treatment_version = body.get("treatment_version")
     traffic_split = body.get("traffic_split", 0.5)
-    
+
     if not control_version or not treatment_version:
         raise HTTPException(
             status_code=400,
             detail="control_version and treatment_version are required",
         )
-    
+
     with ModelRegistry(db) as registry:
         try:
             ab_config = registry.create_ab_test(
@@ -556,19 +559,19 @@ def deploy_model_version(
     environment = body.get("environment", "staging")
     deployed_by = body.get("deployed_by")
     notes = body.get("notes")
-    
+
     if not version_id:
         raise HTTPException(status_code=400, detail="version_id is required")
-    
+
     try:
         env = DeploymentEnvironment(environment.lower())
     except ValueError:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid environment: {environment}. "
-                   f"Must be one of: {[e.value for e in DeploymentEnvironment]}",
+            f"Must be one of: {[e.value for e in DeploymentEnvironment]}",
         )
-    
+
     with ModelRegistry(db) as registry:
         version = registry.track_deployment(
             version_id,
@@ -578,7 +581,7 @@ def deploy_model_version(
         )
         if not version:
             raise HTTPException(status_code=404, detail="Model version not found")
-        
+
         return {
             "status": "success",
             "message": f"Deployed version {version.version} to {environment}",
@@ -616,7 +619,7 @@ def compare_model_versions(
             status_code=400,
             detail="At least 2 version IDs are required for comparison",
         )
-    
+
     with ModelRegistry(db) as registry:
         comparison = registry.compare_versions(ids)
         return comparison

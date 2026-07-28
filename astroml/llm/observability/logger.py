@@ -4,6 +4,7 @@ Resolves #456: Structured log emission with user context, prompt/response
 previews (redacted), error details, and sampling strategies.
 100% sampling for errors, 10% for successful requests.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,7 @@ from typing import Any
 # Try structlog for production-grade structured logging
 try:
     import structlog
+
     _STRUCTLOG_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _STRUCTLOG_AVAILABLE = False
@@ -23,9 +25,7 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 # Fields that must be redacted before logging
-_REDACT_FIELDS = frozenset(
-    ["prompt", "content", "response", "text", "query", "message"]
-)
+_REDACT_FIELDS = frozenset(["prompt", "content", "response", "text", "query", "message"])
 _PREVIEW_LENGTH = 120  # characters — safe preview without leaking full prompts
 
 

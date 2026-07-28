@@ -7,32 +7,42 @@ Provides endpoints for:
 - Offline message handling
 - Chat transcripts
 """
+
 from __future__ import annotations
 
 import json
-import uuid
 import logging
-from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, BackgroundTasks
+import uuid
+from typing import Any, Dict, List, Optional
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel, Field
 
 from astroml.chat import chat_service
 from astroml.chat.models import (
-    ChatSession,
-    ChatMessage,
     Agent,
     AgentStatus,
+    ChatMessage,
+    ChatSession,
     ChatStatus,
     MessageRole,
     OfflineMessage,
 )
-from astroml.chat.slack import SlackIntegration, SlackConfig
+from astroml.chat.slack import SlackConfig, SlackIntegration
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
 # ─── Request/Response Schemas ─────────────────────────────────────────────
+
 
 class CreateSessionRequest(BaseModel):
     """Request schema for creating a chat session."""
@@ -85,11 +95,14 @@ class OfflineMessageRequest(BaseModel):
 
 # ─── WebSocket Chat Endpoint ─────────────────────────────────────────────
 
+
 class ConnectionManager:
     """Manager for WebSocket connections."""
 
     def __init__(self):
-        self.active_connections: Dict[str, Dict[str, WebSocket]] = {}  # session_id -> {connection_id: websocket}
+        self.active_connections: Dict[str, Dict[str, WebSocket]] = (
+            {}
+        )  # session_id -> {connection_id: websocket}
 
     async def connect(self, websocket: WebSocket, session_id: str, connection_id: str):
         """Connect a WebSocket to a session."""
@@ -157,11 +170,14 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
 
             elif message_type == "typing":
                 # Broadcast typing indicator
-                await manager.broadcast_to_session(session_id, {
-                    "type": "typing",
-                    "sender_id": data.get("sender_id"),
-                    "is_typing": data.get("is_typing", False),
-                })
+                await manager.broadcast_to_session(
+                    session_id,
+                    {
+                        "type": "typing",
+                        "sender_id": data.get("sender_id"),
+                        "is_typing": data.get("is_typing", False),
+                    },
+                )
 
     except WebSocketDisconnect:
         manager.disconnect(session_id, connection_id)
@@ -171,6 +187,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
 
 
 # ─── REST API Endpoints ─────────────────────────────────────────────────
+
 
 @router.post("/sessions", response_model=Dict[str, Any])
 async def create_session(request: CreateSessionRequest):

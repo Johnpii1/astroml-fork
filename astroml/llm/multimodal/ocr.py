@@ -5,13 +5,13 @@ Supports PDF, images, and scanned documents with >95% accuracy target.
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict
 from enum import Enum
 from pathlib import Path
 
 
 class OCREngine(str, Enum):
     """Supported OCR engines."""
+
     TESSERACT = "tesseract"
     GOOGLE_VISION = "google_vision"
     AZURE_FORMS = "azure_forms"
@@ -20,9 +20,10 @@ class OCREngine(str, Enum):
 @dataclass
 class OCRConfig:
     """Configuration for OCR processing."""
+
     engine: OCREngine = OCREngine.TESSERACT
     target_accuracy: float = 0.95
-    languages: List[str] = None
+    languages: list[str] = None
     preprocess: bool = True
     use_cache: bool = True
 
@@ -34,7 +35,7 @@ class OCRConfig:
 class OCRResult:
     """Result from OCR processing."""
 
-    def __init__(self, text: str, confidence: float, layout: Optional[Dict] = None):
+    def __init__(self, text: str, confidence: float, layout: dict | None = None):
         """
         Initialize OCR result.
 
@@ -63,7 +64,7 @@ class OCRProcessor:
     Targets >95% text extraction accuracy for common document types.
     """
 
-    def __init__(self, config: Optional[OCRConfig] = None):
+    def __init__(self, config: OCRConfig | None = None):
         """Initialize OCR processor."""
         self.config = config or OCRConfig()
         self._cache = {}
@@ -97,7 +98,7 @@ class OCRProcessor:
 
         return result
 
-    def extract_from_pdf(self, pdf_path: str, page: Optional[int] = None) -> OCRResult:
+    def extract_from_pdf(self, pdf_path: str, page: int | None = None) -> OCRResult:
         """
         Extract text from PDF document.
 
@@ -196,7 +197,7 @@ class OCRProcessor:
 
         return result
 
-    def batch_extract(self, file_paths: List[str]) -> List[OCRResult]:
+    def batch_extract(self, file_paths: list[str]) -> list[OCRResult]:
         """
         Extract text from multiple files.
 

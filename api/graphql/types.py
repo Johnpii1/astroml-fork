@@ -1,4 +1,5 @@
 """GraphQL type definitions for AstroML."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -297,6 +298,7 @@ class Subscription:
     async def transaction_created(self) -> Transaction:
         """Subscribe to new transactions."""
         from api.graphql.subscriptions import transaction_created_subscription
+
         async for transaction in transaction_created_subscription():
             yield transaction
 
@@ -304,6 +306,7 @@ class Subscription:
     async def fraud_alert_created(self) -> FraudAlert:
         """Subscribe to new fraud alerts."""
         from api.graphql.subscriptions import fraud_alert_subscription
+
         async for alert in fraud_alert_subscription():
             yield alert
 
@@ -311,5 +314,6 @@ class Subscription:
     async def loyalty_points_updated(self) -> LoyaltyPoints:
         """Subscribe to loyalty points updates."""
         from api.graphql.subscriptions import loyalty_points_subscription
+
         async for points in loyalty_points_subscription():
             yield points

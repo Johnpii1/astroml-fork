@@ -1,9 +1,9 @@
 """RAG (Retrieval Augmented Generation) pipeline orchestrator."""
 
-from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
+from typing import Any
 
-from .retriever import Retriever, RetrievedDocument
+from .retriever import RetrievedDocument, Retriever
 
 
 class RAGPipeline:
@@ -13,7 +13,7 @@ class RAGPipeline:
         self,
         retriever: Retriever,
         llm_provider: Any,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         include_citations: bool = True,
         detect_hallucinations: bool = True,
     ):
@@ -31,11 +31,11 @@ class RAGPipeline:
         self.system_prompt = system_prompt or self._default_system_prompt()
         self.include_citations = include_citations
         self.detect_hallucinations = detect_hallucinations
-        self.query_history: List[Dict[str, Any]] = []
+        self.query_history: list[dict[str, Any]] = []
 
     def query(
-        self, query: str, metadata_filter: Optional[Dict] = None, stream: bool = False
-    ) -> Tuple[str, List[RetrievedDocument], Dict[str, Any]]:
+        self, query: str, metadata_filter: dict | None = None, stream: bool = False
+    ) -> tuple[str, list[RetrievedDocument], dict[str, Any]]:
         """Execute RAG query.
 
         Args:
@@ -47,6 +47,7 @@ class RAGPipeline:
             Tuple of (response, retrieved_docs, metadata)
         """
         import time
+
         start_time = time.time()
 
         retrieved = self.retriever.retrieve(query, metadata_filter)
@@ -80,7 +81,7 @@ class RAGPipeline:
 
         return response, retrieved, metadata
 
-    def _build_context(self, query: str, retrieved: List[RetrievedDocument]) -> str:
+    def _build_context(self, query: str, retrieved: list[RetrievedDocument]) -> str:
         """Build context from retrieved documents."""
         context_parts = [f"User Query: {query}\n"]
 
@@ -88,9 +89,7 @@ class RAGPipeline:
             context_parts.append("Retrieved Context:")
             for i, doc in enumerate(retrieved, 1):
                 relevance = doc.relevance_score or 0.0
-                context_parts.append(
-                    f"\n[Document {i} - Relevance: {relevance:.2f}]"
-                )
+                context_parts.append(f"\n[Document {i} - Relevance: {relevance:.2f}]")
                 context_parts.append(f"Source: {doc.source}")
                 context_parts.append(f"Content: {doc.text}\n")
         else:
@@ -98,7 +97,7 @@ class RAGPipeline:
 
         return "\n".join(context_parts)
 
-    def _add_citations(self, response: str, retrieved: List[RetrievedDocument]) -> str:
+    def _add_citations(self, response: str, retrieved: list[RetrievedDocument]) -> str:
         """Add citations to response."""
         citation_section = "\n\n--- Citations ---\n"
 
@@ -107,9 +106,7 @@ class RAGPipeline:
 
         return response + citation_section
 
-    def _detect_hallucinations(
-        self, response: str, retrieved: List[RetrievedDocument]
-    ) -> float:
+    def _detect_hallucinations(self, response: str, retrieved: list[RetrievedDocument]) -> float:
         """Detect hallucinations in response.
 
         Returns:
@@ -128,7 +125,7 @@ class RAGPipeline:
 
         return min(1.0, hallucination_ratio)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get pipeline statistics."""
         if not self.query_history:
             return {"queries": 0}

@@ -1,12 +1,12 @@
 """Backup verification utilities for issue #304."""
+
 from __future__ import annotations
 
 import gzip
-import tarfile
 import hashlib
 import logging
+import tarfile
 from pathlib import Path
-from typing import Optional
 
 from .service import BackupConfig
 

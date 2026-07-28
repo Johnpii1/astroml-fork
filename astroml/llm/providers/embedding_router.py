@@ -32,15 +32,15 @@ Usage example
     print(len(vector))        # == router.output_dim
     print(router.active_provider.name)   # whichever provider succeeded
 """
+
 from __future__ import annotations
 
 import logging
 import time
-from typing import List, Optional, Tuple
 
 import numpy as np
 
-from .embedding_base import EmbeddingProvider, EmbeddingError
+from .embedding_base import EmbeddingError, EmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 _FALLBACK_BUDGET_S = 0.5
 
 
-def _normalise(vec: List[float], target_dim: int) -> List[float]:
+def _normalise(vec: list[float], target_dim: int) -> list[float]:
     """Pad or truncate *vec* to *target_dim* and return unit-normalised list."""
     arr = np.array(vec, dtype=np.float32)
     current = arr.shape[0]
@@ -84,21 +84,19 @@ class EmbeddingRouter(EmbeddingProvider):
 
     def __init__(
         self,
-        providers: List[EmbeddingProvider],
-        target_dim: Optional[int] = None,
+        providers: list[EmbeddingProvider],
+        target_dim: int | None = None,
     ) -> None:
         if not providers:
             raise ValueError("EmbeddingRouter requires at least one provider")
         self.providers = providers
-        self._active: Optional[EmbeddingProvider] = None
+        self._active: EmbeddingProvider | None = None
 
         # Determine target_dim from the highest-priority fixed-dim provider.
         if target_dim is not None:
-            self._target_dim: Optional[int] = target_dim
+            self._target_dim: int | None = target_dim
         else:
-            self._target_dim = next(
-                (p.output_dim for p in providers if p.output_dim > 0), None
-            )
+            self._target_dim = next((p.output_dim for p in providers if p.output_dim > 0), None)
 
         self.output_dim = self._target_dim or 0
 
@@ -107,13 +105,13 @@ class EmbeddingRouter(EmbeddingProvider):
     # ------------------------------------------------------------------
 
     @property
-    def active_provider(self) -> Optional[EmbeddingProvider]:
+    def active_provider(self) -> EmbeddingProvider | None:
         """The last provider that successfully produced an embedding."""
         return self._active
 
     def _try_embed(
         self, provider: EmbeddingProvider, text: str, remaining_s: float
-    ) -> Tuple[Optional[List[float]], float]:
+    ) -> tuple[list[float] | None, float]:
         """Attempt a single embed call; return (result, elapsed_s) or (None, elapsed_s)."""
         t0 = time.monotonic()
         try:
@@ -132,7 +130,7 @@ class EmbeddingRouter(EmbeddingProvider):
             )
             return None, elapsed
 
-    def _normalise_vec(self, vec: List[float]) -> List[float]:
+    def _normalise_vec(self, vec: list[float]) -> list[float]:
         """Apply dimension normalisation if a target_dim is configured."""
         if self._target_dim is not None and len(vec) != self._target_dim:
             return _normalise(vec, self._target_dim)
@@ -142,7 +140,7 @@ class EmbeddingRouter(EmbeddingProvider):
     # EmbeddingProvider interface
     # ------------------------------------------------------------------
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         """Embed *text* using the first available provider, with fallback.
 
         Falls back to the next provider on failure.  Total time across all
@@ -159,7 +157,7 @@ class EmbeddingRouter(EmbeddingProvider):
             If all providers fail or the fallback budget is exhausted.
         """
         deadline = time.monotonic() + _FALLBACK_BUDGET_S
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for provider in self.providers:
             remaining = deadline - time.monotonic()
@@ -184,10 +182,10 @@ class EmbeddingRouter(EmbeddingProvider):
             f"All embedding providers failed within {_FALLBACK_BUDGET_S * 1000:.0f} ms budget"
         )
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed a batch of texts using the first available provider, with fallback."""
         deadline = time.monotonic() + _FALLBACK_BUDGET_S
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
 
         for provider in self.providers:
             remaining = deadline - time.monotonic()
@@ -220,7 +218,7 @@ class EmbeddingRouter(EmbeddingProvider):
             f"All embedding providers failed within {_FALLBACK_BUDGET_S * 1000:.0f} ms budget"
         )
 
-    def provider_status(self) -> List[dict]:
+    def provider_status(self) -> list[dict]:
         """Return availability status for every configured provider."""
         return [
             {
@@ -237,7 +235,8 @@ class EmbeddingRouter(EmbeddingProvider):
 # Convenience factory
 # ---------------------------------------------------------------------------
 
-def build_default_router(target_dim: Optional[int] = None) -> EmbeddingRouter:
+
+def build_default_router(target_dim: int | None = None) -> EmbeddingRouter:
     """Build the standard provider chain from environment variables.
 
     Priority order: OpenAI → Cohere → HuggingFace → Local
@@ -254,12 +253,12 @@ def build_default_router(target_dim: Optional[int] = None) -> EmbeddingRouter:
         first fixed-dim provider's dimension (OpenAI → 1536 if available,
         Cohere → 1024, HuggingFace → 384, else dynamic).
     """
-    from .embedding_openai import OpenAIEmbeddingProvider
     from .embedding_cohere import CohereEmbeddingProvider
     from .embedding_huggingface import HuggingFaceEmbeddingProvider
     from .embedding_local import LocalEmbeddingProvider
+    from .embedding_openai import OpenAIEmbeddingProvider
 
-    providers: List[EmbeddingProvider] = [
+    providers: list[EmbeddingProvider] = [
         OpenAIEmbeddingProvider(),
         CohereEmbeddingProvider(),
         HuggingFaceEmbeddingProvider(),

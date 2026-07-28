@@ -114,15 +114,11 @@ class TestEvaluatePrSize:
         assert verdict.reasons == ()
 
     def test_boundary_values_are_allowed(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(additions=1000, deletions=0, changed_files=10)
-        )
+        verdict = evaluate_pr_size(_stats(additions=1000, deletions=0, changed_files=10))
         assert verdict.exceeded is False
 
     def test_line_limit_breach_reported(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(additions=900, deletions=200, changed_files=4)
-        )
+        verdict = evaluate_pr_size(_stats(additions=900, deletions=200, changed_files=4))
 
         assert verdict.exceeded is True
         assert verdict.should_comment is True
@@ -137,23 +133,17 @@ class TestEvaluatePrSize:
         assert "10-file limit" in verdict.reasons[0]
 
     def test_both_limits_breached(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(additions=2000, deletions=500, changed_files=40)
-        )
+        verdict = evaluate_pr_size(_stats(additions=2000, deletions=500, changed_files=40))
         assert len(verdict.reasons) == 2
 
     def test_large_refactor_label_raises_file_ceiling(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(changed_files=40, labels=(LARGE_REFACTOR_LABEL,))
-        )
+        verdict = evaluate_pr_size(_stats(changed_files=40, labels=(LARGE_REFACTOR_LABEL,)))
 
         assert verdict.large_refactor is True
         assert verdict.exceeded is False
 
     def test_large_refactor_label_still_capped(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(changed_files=60, labels=(LARGE_REFACTOR_LABEL,))
-        )
+        verdict = evaluate_pr_size(_stats(changed_files=60, labels=(LARGE_REFACTOR_LABEL,)))
 
         assert verdict.exceeded is True
         assert "50-file limit for `refactor:large`" in verdict.reasons[0]
@@ -183,9 +173,7 @@ class TestEvaluatePrSize:
 
 class TestRenderComment:
     def test_comment_contains_marker_and_metrics(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(additions=900, deletions=300, changed_files=22)
-        )
+        verdict = evaluate_pr_size(_stats(additions=900, deletions=300, changed_files=22))
         body = render_comment(verdict)
 
         assert body.startswith(COMMENT_MARKER)
@@ -196,18 +184,14 @@ class TestRenderComment:
         assert "`[large PR]`" in body
 
     def test_comment_lists_every_breached_limit(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(additions=2000, deletions=0, changed_files=40)
-        )
+        verdict = evaluate_pr_size(_stats(additions=2000, deletions=0, changed_files=40))
         body = render_comment(verdict)
 
         for reason in verdict.reasons:
             assert f"- {reason}" in body
 
     def test_comment_shows_raised_ceiling_for_large_refactor(self) -> None:
-        verdict = evaluate_pr_size(
-            _stats(changed_files=80, labels=(LARGE_REFACTOR_LABEL,))
-        )
+        verdict = evaluate_pr_size(_stats(changed_files=80, labels=(LARGE_REFACTOR_LABEL,)))
         assert "| Files changed | 80 | 50 |" in render_comment(verdict)
 
 
@@ -215,9 +199,7 @@ class TestMain:
     @staticmethod
     def _write_event(tmp_path: Path, pull_request: dict[str, Any]) -> str:
         event_path = tmp_path / "event.json"
-        event_path.write_text(
-            json.dumps({"pull_request": pull_request}), encoding="utf-8"
-        )
+        event_path.write_text(json.dumps({"pull_request": pull_request}), encoding="utf-8")
         return str(event_path)
 
     def test_main_writes_outputs_for_oversized_pr(
@@ -273,9 +255,7 @@ class TestMain:
 
         assert main([]) == 0
 
-    def test_main_errors_without_event_path(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_main_errors_without_event_path(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
         assert main([]) == 1
 

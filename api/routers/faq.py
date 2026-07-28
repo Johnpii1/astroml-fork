@@ -6,26 +6,27 @@ Provides endpoints for:
 - Submitting feedback
 - Suggesting new FAQs
 """
+
 from __future__ import annotations
 
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.database import get_db
 from api.models.orm import FAQ, FAQFeedback, FAQSuggestion
 from api.schemas import (
-    FAQOut,
-    FAQIn,
-    FAQUpdateIn,
-    FAQListResponse,
     FAQFeedbackIn,
     FAQFeedbackOut,
+    FAQIn,
+    FAQListResponse,
+    FAQOut,
     FAQSuggestionIn,
-    FAQSuggestionOut,
     FAQSuggestionListResponse,
+    FAQSuggestionOut,
+    FAQUpdateIn,
 )
 
 router = APIRouter(prefix="/faq", tags=["faq"])
@@ -60,10 +61,7 @@ async def list_faqs(
 
     # Get distinct categories
     categories_query = (
-        select(FAQ.category)
-        .where(FAQ.is_published == True)
-        .distinct()
-        .order_by(FAQ.category)
+        select(FAQ.category).where(FAQ.is_published == True).distinct().order_by(FAQ.category)
     )
     categories_result = await db.execute(categories_query)
     categories = [row[0] for row in categories_result.fetchall()]
@@ -99,9 +97,7 @@ async def create_faq(faq_in: FAQIn, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{faq_id}", response_model=FAQOut)
-async def update_faq(
-    faq_id: int, faq_in: FAQUpdateIn, db: AsyncSession = Depends(get_db)
-):
+async def update_faq(faq_id: int, faq_in: FAQUpdateIn, db: AsyncSession = Depends(get_db)):
     """Update an existing FAQ (admin)."""
     query = select(FAQ).where(FAQ.id == faq_id)
     result = await db.execute(query)
@@ -184,9 +180,7 @@ async def get_feedback_stats(faq_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/suggestions", response_model=FAQSuggestionOut, status_code=201)
-async def submit_suggestion(
-    suggestion_in: FAQSuggestionIn, db: AsyncSession = Depends(get_db)
-):
+async def submit_suggestion(suggestion_in: FAQSuggestionIn, db: AsyncSession = Depends(get_db)):
     """Submit a new FAQ suggestion."""
     suggestion = FAQSuggestion(**suggestion_in.model_dump())
     db.add(suggestion)

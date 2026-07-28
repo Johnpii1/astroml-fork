@@ -1,7 +1,6 @@
 """Batching strategies for backfill processing."""
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class BatchingStrategy(ABC):
@@ -50,7 +49,13 @@ class FixedSizeStrategy(BatchingStrategy):
 class AdaptiveStrategy(BatchingStrategy):
     """Start at max size, shrink on errors, grow on success."""
 
-    def __init__(self, min_size: int = 10, max_size: int = 100, shrink_factor: float = 0.5, grow_factor: float = 1.1):
+    def __init__(
+        self,
+        min_size: int = 10,
+        max_size: int = 100,
+        shrink_factor: float = 0.5,
+        grow_factor: float = 1.1,
+    ):
         self._min = min_size
         self._max = max_size
         self._shrink = shrink_factor

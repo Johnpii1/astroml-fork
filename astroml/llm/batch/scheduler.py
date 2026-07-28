@@ -4,7 +4,7 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class BackfillScheduler:
         self,
         job_type: str,
         total_items: int,
-        config: Optional[dict] = None,
+        config: dict | None = None,
     ) -> dict[str, Any]:
         """Create a new backfill job record."""
         job_id = uuid.uuid4().hex[:16]
@@ -41,23 +41,23 @@ class BackfillScheduler:
         self._jobs[job_id] = job
         return job
 
-    def get_job(self, job_id: str) -> Optional[dict[str, Any]]:
+    def get_job(self, job_id: str) -> dict[str, Any] | None:
         return self._jobs.get(job_id)
 
     def list_jobs(self) -> list[dict[str, Any]]:
         return list(self._jobs.values())
 
-    def update_job(self, job_id: str, updates: dict[str, Any]) -> Optional[dict[str, Any]]:
+    def update_job(self, job_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
         job = self._jobs.get(job_id)
         if job is None:
             return None
         job.update(updates)
         return job
 
-    def pause_job(self, job_id: str) -> Optional[dict[str, Any]]:
+    def pause_job(self, job_id: str) -> dict[str, Any] | None:
         return self.update_job(job_id, {"status": "paused"})
 
-    def resume_job(self, job_id: str) -> Optional[dict[str, Any]]:
+    def resume_job(self, job_id: str) -> dict[str, Any] | None:
         return self.update_job(job_id, {"status": "running"})
 
 

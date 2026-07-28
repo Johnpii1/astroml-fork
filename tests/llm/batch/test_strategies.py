@@ -1,6 +1,6 @@
 """Tests for batching strategies."""
 
-from astroml.llm.batch.strategies import FixedSizeStrategy, AdaptiveStrategy
+from astroml.llm.batch.strategies import AdaptiveStrategy, FixedSizeStrategy
 
 
 class TestFixedSizeStrategy:

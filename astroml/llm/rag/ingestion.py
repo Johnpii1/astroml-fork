@@ -1,8 +1,8 @@
 """Document ingestion for RAG system."""
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 import time
+from pathlib import Path
+from typing import Any
 
 
 class DocumentIngestor:
@@ -19,7 +19,7 @@ class DocumentIngestor:
         self.retriever = retriever
         self.ingested_count = 0
 
-    def ingest_directory(self, directory: str, pattern: str = "*.md") -> Dict[str, Any]:
+    def ingest_directory(self, directory: str, pattern: str = "*.md") -> dict[str, Any]:
         """Ingest all documents from directory.
 
         Args:
@@ -38,7 +38,7 @@ class DocumentIngestor:
 
         for file_path in path.glob(pattern):
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     content = f.read()
 
                 chunks = self.embeddings.chunk_text(content)
@@ -46,11 +46,13 @@ class DocumentIngestor:
                 for chunk in chunks:
                     documents.append(chunk)
                     sources.append(str(file_path))
-                    metadata.append({
-                        "file": file_path.name,
-                        "type": "markdown",
-                        "ingestion_time": time.time(),
-                    })
+                    metadata.append(
+                        {
+                            "file": file_path.name,
+                            "type": "markdown",
+                            "ingestion_time": time.time(),
+                        }
+                    )
 
             except Exception as e:
                 print(f"Error reading {file_path}: {e}")
@@ -69,7 +71,7 @@ class DocumentIngestor:
             "total_ingested": self.ingested_count,
         }
 
-    def ingest_text_file(self, file_path: str, source_name: Optional[str] = None) -> Dict[str, Any]:
+    def ingest_text_file(self, file_path: str, source_name: str | None = None) -> dict[str, Any]:
         """Ingest single text file.
 
         Args:
@@ -82,7 +84,7 @@ class DocumentIngestor:
         start_time = time.time()
         path = Path(file_path)
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
 
         chunks = self.embeddings.chunk_text(content)
@@ -110,8 +112,8 @@ class DocumentIngestor:
         }
 
     def ingest_texts(
-        self, texts: List[str], sources: List[str], metadata: Optional[List[Dict]] = None
-    ) -> Dict[str, Any]:
+        self, texts: list[str], sources: list[str], metadata: list[dict] | None = None
+    ) -> dict[str, Any]:
         """Ingest list of texts.
 
         Args:
@@ -153,7 +155,7 @@ class DocumentIngestor:
             "total_ingested": self.ingested_count,
         }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get ingestion statistics."""
         return {
             "total_ingested": self.ingested_count,

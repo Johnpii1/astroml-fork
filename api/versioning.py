@@ -1,4 +1,5 @@
 """API versioning middleware and utilities (issue #572)."""
+
 from __future__ import annotations
 
 from typing import Callable
@@ -33,7 +34,6 @@ class VersionMiddleware(BaseHTTPMiddleware):
 def get_api_prefix(version: str = DEFAULT_VERSION) -> str:
     if version not in SUPPORTED_VERSIONS:
         raise ValueError(
-            f"Unsupported API version '{version}'. "
-            f"Supported versions: {SUPPORTED_VERSIONS}"
+            f"Unsupported API version '{version}'. " f"Supported versions: {SUPPORTED_VERSIONS}"
         )
     return f"/api/{version}"
