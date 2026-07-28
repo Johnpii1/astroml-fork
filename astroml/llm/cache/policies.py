@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 class EvictionPolicy:
     def __init__(self, max_size: int = 100, strategy: str = "LRU"):

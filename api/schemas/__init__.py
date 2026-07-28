@@ -1,4 +1,7 @@
-"""Pydantic schemas shared across all API routers."""
+"""Pydantic schemas shared across all API routers.
+
+See ADR-005 (docs/adr/005-pydantic-data-validation.md) for Pydantic schema validation architecture.
+"""
 from __future__ import annotations
 
 import re

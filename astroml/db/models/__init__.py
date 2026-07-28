@@ -12,7 +12,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-
 class Base(DeclarativeBase):
     pass
 
@@ -244,7 +243,7 @@ class ModelVersion(Base):
     updated_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now(), onupdate=func.now())
     deployed_at: Mapped[Optional[datetime]] = mapped_column()
     model: Mapped[DbModel] = relationship(back_populates="versions")
-    __table_args__ = (UniqueConstraint("model_id", "version", name="uq_model_versions_model_version"), Index("ix_model_versions_model_id", "model_id"), Index("ix_model_versions_status", "status"), Index("ix_model_versions_created_at", "created_at"), CheckConstraint("status IN ('training', 'trained', 'deployed', 'archived', 'failed')", name="ck_model_versions_status"))
+    __table_args__ = (UniqueConstraint("model_id", "version", name="uq_model_versions_model_version"), Index("ix_model_versions_model_id", "model_id"), Index("ix_model_versions_status", "status"), Index("ix_model_versions_created_at", "created_at"), CheckConstraint("status IN ('training', 'trained', 'deployed', 'archived', 'failed')", name="ck_models_status"))
 
 
 class Experiment(Base):
@@ -289,3 +288,8 @@ class ProcessedLedger(Base):
     num_operations: Mapped[Optional[int]] = mapped_column(Integer)
     num_transactions: Mapped[Optional[int]] = mapped_column(Integer)
     __table_args__ = (Index("ix_processed_ledgers_ledger_sequence", "ledger_sequence"), Index("ix_processed_ledgers_status", "status"), Index("ix_processed_ledgers_source", "source"))
+
+
+# Backward-compatible alias: code that imports `Model` from astroml.db.schema
+# still works after the rename to DbModel (issue #571).
+Model = DbModel

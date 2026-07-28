@@ -1,5 +1,7 @@
 """Feature Store implementation for AstroML.
 
+See ADR-002 (docs/adr/002-sqlite-feature-store-metadata.md) for feature store metadata architecture.
+
 This module provides a comprehensive feature store that centralizes feature computation,
 storage, versioning, and retrieval for machine learning workflows. It integrates with
 existing feature modules while adding enterprise-grade feature management capabilities.

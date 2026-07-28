@@ -1,5 +1,7 @@
 """SQLAlchemy ORM models for the API backend (issue #251).
 
+See ADR-001 (docs/adr/001-postgresql-ledger-storage.md) for database design choices.
+
 Extends the existing ``astroml.db.schema.Base`` so all tables are created
 by a single ``alembic upgrade head``.
 
@@ -230,7 +232,13 @@ class User(Base):
 
 
 class ApiKey(Base):
-    """Machine-to-machine API key."""
+    """Machine-to-machine API key.
+
+    Rotation support (issue #534):
+    - ``created_at``        – when the key was originally issued
+    - ``overlap_key_hash``  – hash of the *previous* key still valid during overlap
+    - ``overlap_expires_at``– when the previous (rotated-out) key stops being accepted
+    """
 
     __tablename__ = "api_keys"
 
@@ -244,10 +252,19 @@ class ApiKey(Base):
     expires_at: Mapped[Optional[datetime]] = mapped_column()
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    # Rotation overlap: the old key_hash is kept valid until overlap_expires_at
+    overlap_key_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
+    overlap_expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+
+    @property
+    def api_key_created_at(self) -> datetime:
+        """Alias for created_at for API key rotation specs (#534)."""
+        return self.created_at
 
     __table_args__ = (
         Index("ix_api_keys_user_id", "user_id"),
         Index("ix_api_keys_key_hash", "key_hash"),
+        Index("ix_api_keys_overlap_key_hash", "overlap_key_hash"),
     )
 
 

@@ -1,4 +1,7 @@
-"""Configuration management for benchmarking."""
+"""Configuration management for benchmarking.
+
+See ADR-004 (docs/adr/004-hydra-config-management.md) for Hydra configuration strategy.
+"""
 
 from __future__ import annotations
 

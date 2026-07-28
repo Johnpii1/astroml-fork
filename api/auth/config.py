@@ -8,7 +8,8 @@ SECRET_KEY = os.environ.get("JWT_SECRET_KEY") or os.environ.get(
 )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = int(os.environ.get("ACCESS_TOKEN_EXPIRE_HOURS", "24"))
-API_KEY_EXPIRE_DAYS = int(os.environ.get("API_KEY_EXPIRE_DAYS", "365"))
+API_KEY_EXPIRE_DAYS = int(os.environ.get("API_KEY_EXPIRE_DAYS", "90"))
+API_KEY_ROTATION_OVERLAP_DAYS = int(os.environ.get("API_KEY_ROTATION_OVERLAP_DAYS", "30"))
 
 AUTH_ENABLED = os.environ.get("AUTH_ENABLED", "true").lower() in ("1", "true", "yes")
 
