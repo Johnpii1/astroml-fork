@@ -22,21 +22,12 @@ import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Union,
-    Callable,
-    Protocol,
-    runtime_checkable,
-)
+from typing import Any, Callable, Dict, List, Optional, Protocol, Union, runtime_checkable
 from enum import Enum
 from pathlib import Path
-import sqlite3
 from contextlib import contextmanager
 import concurrent.futures
+import sqlite3
 
 import pandas as pd
 from cachetools import TTLCache
@@ -238,6 +229,16 @@ class FeatureComputer(Protocol):
         ...
 
 
+def _safe_json_loads(value: Optional[str], default: Any) -> Any:
+    """Deserialize a JSON-encoded string safely."""
+    if not value:
+        return default
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class FeatureStorage:
     """Storage backend for feature values and metadata."""
     
@@ -332,6 +333,29 @@ class FeatureStorage:
                 ),
             )
     
+    @staticmethod
+    def _row_to_dict(row: tuple[Any, ...], columns: List[str]) -> Dict[str, Any]:
+        """Map a SQLite row to a dictionary using column names."""
+        data = dict(zip(columns, row))
+        data["parameters"] = _safe_json_loads(data["parameters"], default={})
+        data["tags"] = _safe_json_loads(data["tags"], default=[])
+        data["metadata"] = _safe_json_loads(data["metadata"], default={})
+        return data
+
+    @staticmethod
+    def _deserialize_feature_definition(row: tuple[Any, ...]) -> FeatureDefinition:
+        """Deserialize a feature definition row into a dataclass."""
+        columns = [
+            "feature_id", "name", "version", "description", "feature_type",
+            "parameters", "tags", "owner", "status", "created_at",
+            "updated_at", "metadata",
+        ]
+        data = FeatureStorage._row_to_dict(row, columns)
+        data.pop("feature_id", None)
+        data["created_at"] = datetime.fromisoformat(data["created_at"])
+        data["updated_at"] = datetime.fromisoformat(data["updated_at"])
+        return FeatureDefinition.from_dict(data)
+    
     def get_feature_definition(self, feature_id: str) -> Optional[FeatureDefinition]:
         """Retrieve feature definition by ID.
         
@@ -349,17 +373,7 @@ class FeatureStorage:
             row = cursor.fetchone()
             
             if row:
-                columns = [
-                    "feature_id", "name", "version", "description", "feature_type",
-                    "parameters", "tags", "owner", "status", "created_at", 
-                    "updated_at", "metadata"
-                ]
-                data = dict(zip(columns, row))
-                data["parameters"] = json.loads(data["parameters"])
-                data["tags"] = json.loads(data["tags"])
-                data["metadata"] = json.loads(data["metadata"])
-                return FeatureDefinition.from_dict(data)
-            
+                return FeatureStorage._deserialize_feature_definition(row)
             return None
     
     def list_feature_definitions(
@@ -379,7 +393,7 @@ class FeatureStorage:
             List of feature definitions
         """
         query = "SELECT * FROM feature_definitions WHERE 1=1"
-        params = []
+        params: List[Any] = []
         
         if status:
             query += " AND status = ?"
@@ -393,17 +407,14 @@ class FeatureStorage:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
             
-            features = []
+            features: List[FeatureDefinition] = []
+            columns = [
+                "feature_id", "name", "version", "description", "feature_type",
+                "parameters", "tags", "owner", "status", "created_at", 
+                "updated_at", "metadata"
+            ]
             for row in rows:
-                columns = [
-                    "feature_id", "name", "version", "description", "feature_type",
-                    "parameters", "tags", "owner", "status", "created_at", 
-                    "updated_at", "metadata"
-                ]
-                data = dict(zip(columns, row))
-                data["parameters"] = json.loads(data["parameters"])
-                data["tags"] = json.loads(data["tags"])
-                data["metadata"] = json.loads(data["metadata"])
+                data = FeatureStorage._row_to_dict(row, columns)
                 
                 # Filter by tags if specified
                 if tags:
@@ -1299,7 +1310,7 @@ class FeatureStore:
         Returns:
             DataFrame with features indexed by entity
         """
-        feature_data = {}
+        feature_data: Dict[str, Any] = {}
 
         if parallel and self._enable_parallel and len(feature_names) > 1:
             # Fetch features in parallel
