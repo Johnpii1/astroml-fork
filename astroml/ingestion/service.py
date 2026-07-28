@@ -4,7 +4,7 @@ This module provides the core ingestion service for processing Stellar ledger da
 with idempotency guarantees and state management.
 
 Key components:
-- IngestionService: Main service for ledger ingestion
+- IngestionService: Main service for ledger ingestion (implements Ingestor ABC)
 - IngestionResult: Summary of ingestion results
 - LedgerOutcome: Per-ledger processing outcome
 
@@ -17,8 +17,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Literal
+from datetime import datetime
+from typing import Any, Dict, Literal, Optional
 
+from astroml.core.abstracts import Ingestor, IngestionResult as BaseIngestionResult
 from astroml.utils.validators import validate_positive_int, validate_range
 
 from .state import StateStore
@@ -27,18 +29,28 @@ logger = logging.getLogger("astroml.ingestion.service")
 
 
 @dataclass
-class IngestionResult:
+class IngestionResult(BaseIngestionResult):
     """Summary of ingestion results.
 
     Attributes:
         attempted: List of ledger IDs that were attempted
         processed: List of ledger IDs that were successfully processed
         skipped: List of ledger IDs that were skipped (already processed)
+        start_time: When ingestion started
+        end_time: When ingestion completed
+        errors: List of errors encountered
     """
 
     attempted: List[int]
     processed: List[int]
     skipped: List[int]
+    start_time: datetime
+    end_time: datetime
+    errors: List[str] = None
+
+    def __post_init__(self):
+        if self.errors is None:
+            self.errors = []
 
 
 @dataclass(frozen=True)
@@ -53,8 +65,12 @@ class LedgerOutcome:
     status: Literal["processed", "skipped"]
 
 
-class IngestionService:
-    """Service for ingesting Stellar ledger data with idempotency guarantees."""
+class IngestionService(Ingestor):
+    """Service for ingesting Stellar ledger data with idempotency guarantees.
+
+    Implements the Ingestor abstract base class for dependency injection
+    and implementation swapping (issue #573).
+    """
 
     def __init__(self, state_store: Optional[StateStore] = None) -> None:
         """Initialize the ingestion service.
@@ -91,25 +107,43 @@ class IngestionService:
         :class:`IngestionResult`, which is O(N) memory in the size of the range. It's kept
         as-is (rather than changed to return a smaller summary) to avoid breaking existing
         callers that rely on the full id lists.
+
+        Returns:
+            IngestionResult with timestamps and error tracking (issue #573)
         """
+        start_time = datetime.utcnow()
         attempted: list[int] = []
         processed: list[int] = []
         skipped: list[int] = []
+        errors: list[str] = []
 
-        for ledger_id, outcome in self.ingest_stream(
-            start_ledger=start_ledger,
-            end_ledger=end_ledger,
-            fetch_fn=fetch_fn,
-            process_fn=process_fn,
-            batch_size=batch_size,
-        ):
-            attempted.append(ledger_id)
-            if outcome.status == "processed":
-                processed.append(ledger_id)
-            else:
-                skipped.append(ledger_id)
+        try:
+            for ledger_id, outcome in self.ingest_stream(
+                start_ledger=start_ledger,
+                end_ledger=end_ledger,
+                fetch_fn=fetch_fn,
+                process_fn=process_fn,
+                batch_size=batch_size,
+            ):
+                attempted.append(ledger_id)
+                if outcome.status == "processed":
+                    processed.append(ledger_id)
+                else:
+                    skipped.append(ledger_id)
+        except Exception as e:
+            errors.append(str(e))
+            logger.error(f"Ingestion error: {e}")
 
-        return IngestionResult(attempted=attempted, processed=processed, skipped=skipped)
+        end_time = datetime.utcnow()
+
+        return IngestionResult(
+            attempted=attempted,
+            processed=processed,
+            skipped=skipped,
+            start_time=start_time,
+            end_time=end_time,
+            errors=errors,
+        )
 
     @validate_positive_int("batch_size")
     @validate_range("batch_size", start=1)
@@ -218,3 +252,17 @@ class IngestionService:
         finally:
             if pending_flush:
                 self.state.save(state)
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get current status of the ingestor (issue #573).
+
+        Returns:
+            Dictionary with status information including last processed ledger,
+            processed ledger count, and state store status.
+        """
+        state = self.state.load()
+        return {
+            "last_processed_ledger": state.last_processed_ledger,
+            "processed_ledger_count": len(state.processed_ledgers),
+            "state_store_path": str(self.state.state_file) if hasattr(self.state, "state_file") else "memory",
+        }

@@ -2,6 +2,8 @@
 
 This module provides the core computation engine that orchestrates feature
 calculation using existing feature modules and manages the computation pipeline.
+
+Implements the FeatureComputer ABC for dependency injection (issue #573).
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from typing import (
 import pandas as pd
 
 from ..cache import cached_feature
+from ..core.abstracts import FeatureComputer as CoreFeatureComputer, ComputationResult
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +128,38 @@ class FeatureComputer(Protocol):
         """
         ...
 
+    def get_feature_schema(self) -> dict[str, Any]:
+        """Get the schema of features produced by this computer (issue #573).
 
-class BaseFeatureComputer(ABC):
-    """Base class for feature computers with common functionality."""
+        Returns:
+            Dictionary mapping feature names to their types/descriptions
+        """
+        return {
+            self.name: {
+                "type": "float64",
+                "description": f"Feature computed by {self.name}",
+            }
+        }
+
+    def validate_input(self, data: Any) -> bool:
+        """Validate input data before computation (issue #573).
+
+        Args:
+            data: Input data to validate
+
+        Returns:
+            True if data is valid for computation
+        """
+        if not isinstance(data, pd.DataFrame):
+            return False
+        return not data.empty
+
+
+class BaseFeatureComputer(CoreFeatureComputer):
+    """Base class for feature computers with common functionality.
+
+    Implements the core FeatureComputer ABC for dependency injection (issue #573).
+    """
 
     def __init__(self, name: str):
         """Initialize feature computer.
@@ -202,6 +234,19 @@ class BaseFeatureComputer(ABC):
             DataFrame with computed features
         """
         pass
+
+    def get_feature_schema(self) -> dict[str, Any]:
+        """Get the schema of features produced by this computer (issue #573).
+
+        Returns:
+            Dictionary mapping feature names to their types/descriptions
+        """
+        return {
+            self.name: {
+                "type": "float64",
+                "description": f"Feature computed by {self.name}",
+            }
+        }
 
     def validate_input(
         self,
