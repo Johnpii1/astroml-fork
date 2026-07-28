@@ -1,12 +1,17 @@
-import pytest
-import torch
-import numpy as np
 from datetime import datetime
 
+import numpy as np
+import pytest
+import torch
+
 from astroml.models.temporal import (
-    TemporalGCN, TemporalGraphSAGE, TemporalGAT,
-    TemporalGraphTransformer, TemporalEncoding,
-    TemporalAttention, TemporalModelFactory
+    TemporalAttention,
+    TemporalEncoding,
+    TemporalGAT,
+    TemporalGCN,
+    TemporalGraphSAGE,
+    TemporalGraphTransformer,
+    TemporalModelFactory,
 )
 
 

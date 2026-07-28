@@ -1,8 +1,9 @@
 """LLM Provider health checks."""
+
 import asyncio
 import os
 import time
-from typing import Any, Dict
+from typing import Any
 
 import aiohttp
 
@@ -33,9 +34,7 @@ def _get_api_key(provider_name: str) -> str:
     return os.getenv(env_key, "")
 
 
-async def check_provider_health(
-    provider_name: str, timeout: float = 5.0
-) -> Dict[str, Any]:
+async def check_provider_health(provider_name: str, timeout: float = 5.0) -> dict[str, Any]:
     start = time.perf_counter()
     if provider_name not in PROVIDER_ENDPOINTS:
         latency_ms = (time.perf_counter() - start) * 1000
@@ -59,21 +58,23 @@ async def check_provider_health(
     config = PROVIDER_ENDPOINTS[provider_name]
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.request(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.request(
                 method=config["method"],
                 url=config["url"],
                 headers=config["headers"](api_key),
                 timeout=aiohttp.ClientTimeout(total=timeout),
-            ) as response:
-                latency_ms = (time.perf_counter() - start) * 1000
-                healthy = 200 <= response.status < 300
-                return {
-                    "provider": provider_name,
-                    "status": "healthy" if healthy else "unhealthy",
-                    "latency_ms": round(latency_ms, 2),
-                    "http_status": response.status,
-                }
+            ) as response,
+        ):
+            latency_ms = (time.perf_counter() - start) * 1000
+            healthy = 200 <= response.status < 300
+            return {
+                "provider": provider_name,
+                "status": "healthy" if healthy else "unhealthy",
+                "latency_ms": round(latency_ms, 2),
+                "http_status": response.status,
+            }
     except Exception as e:
         latency_ms = (time.perf_counter() - start) * 1000
         return {
@@ -84,7 +85,7 @@ async def check_provider_health(
         }
 
 
-async def check_all_providers() -> Dict[str, Any]:
+async def check_all_providers() -> dict[str, Any]:
     providers = list(PROVIDER_ENDPOINTS.keys())
     results = await asyncio.gather(
         *(check_provider_health(p) for p in providers),
@@ -103,9 +104,7 @@ async def check_all_providers() -> Dict[str, Any]:
         else:
             provider_statuses[result["provider"]] = result
 
-    all_healthy = all(
-        r.get("status") == "healthy" for r in provider_statuses.values()
-    )
+    all_healthy = all(r.get("status") == "healthy" for r in provider_statuses.values())
     return {
         "overall_status": "healthy" if all_healthy else "degraded",
         "providers": provider_statuses,

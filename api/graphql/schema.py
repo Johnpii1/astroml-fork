@@ -1,4 +1,5 @@
 """GraphQL schema definition."""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -6,49 +7,50 @@ from typing import List, Optional
 import strawberry
 from strawberry import ID
 from strawberry.tools import merge_types
+from strawberry.types import Info
 
 from api.database import _sync_session_factory
-from api.models.orm import (
-    ApiAccount,
-    ApiTransaction,
-    FraudAlert,
-    LoyaltyPoints,
-    PointsTransaction,
-    ModelRegistry,
-    User,
-    ApiKey,
-    Mentor,
-    Mentee,
-    Mentorship,
-    Notification,
-    FAQ,
-    AuditLog,
-)
+from api.graphql.context import GraphQLContext, get_graphql_context
+from api.graphql.types import FAQ as GFAQ
 from api.graphql.types import (
     Account,
-    Transaction,
-    FraudAlert,
-    LoyaltyPoints as GLoyaltyPoints,
-    PointsTransaction as GPointsTransaction,
-    ModelRegistry as GModelRegistry,
-    User as GUser,
-    ApiKey as GApiKey,
-    Mentor as GMentor,
-    Mentee as GMentee,
-    Mentorship as GMentorship,
-    Notification as GNotification,
-    FAQ as GFAQ,
-    AuditLog as GAuditLog,
     AccountConnection,
-    TransactionConnection,
-    FraudAlertConnection,
-    PageInfo,
-    MutationResult,
     CreateAccountInput,
     CreateFraudAlertInput,
+    FraudAlert,
+    FraudAlertConnection,
+    MutationResult,
+    PageInfo,
+    Transaction,
+    TransactionConnection,
     UpdateLoyaltyPointsInput,
 )
-from api.graphql.context import get_graphql_context, GraphQLContext
+from api.graphql.types import ApiKey as GApiKey
+from api.graphql.types import AuditLog as GAuditLog
+from api.graphql.types import LoyaltyPoints as GLoyaltyPoints
+from api.graphql.types import Mentee as GMentee
+from api.graphql.types import Mentor as GMentor
+from api.graphql.types import Mentorship as GMentorship
+from api.graphql.types import ModelRegistry as GModelRegistry
+from api.graphql.types import Notification as GNotification
+from api.graphql.types import PointsTransaction as GPointsTransaction
+from api.graphql.types import User as GUser
+from api.models.orm import (
+    FAQ,
+    ApiAccount,
+    ApiKey,
+    ApiTransaction,
+    AuditLog,
+    FraudAlert,
+    LoyaltyPoints,
+    Mentee,
+    Mentor,
+    Mentorship,
+    ModelRegistry,
+    Notification,
+    PointsTransaction,
+    User,
+)
 
 
 # Query resolvers
@@ -57,9 +59,9 @@ class Query:
     """GraphQL queries."""
 
     @strawberry.field
-    def account(self, id: ID, context: GraphQLContext) -> Optional[Account]:
+    def account(self, id: ID, info: Info) -> Optional[Account]:
         """Get an account by ID."""
-        account = context.session.query(ApiAccount).filter_by(id=int(id)).first()
+        account = info.context.session.query(ApiAccount).filter_by(id=int(id)).first()
         if not account:
             return None
         return Account(
@@ -73,9 +75,9 @@ class Query:
         )
 
     @strawberry.field
-    def account_by_public_key(self, public_key: str, context: GraphQLContext) -> Optional[Account]:
+    def account_by_public_key(self, public_key: str, info: Info) -> Optional[Account]:
         """Get an account by public key."""
-        account = context.session.query(ApiAccount).filter_by(public_key=public_key).first()
+        account = info.context.session.query(ApiAccount).filter_by(public_key=public_key).first()
         if not account:
             return None
         return Account(
@@ -91,12 +93,12 @@ class Query:
     @strawberry.field
     def accounts(
         self,
+        info: Info,
         limit: int = 20,
         offset: int = 0,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> AccountConnection:
         """Get paginated accounts."""
-        query = context.session.query(ApiAccount)
+        query = info.context.session.query(ApiAccount)
         total = query.count()
         accounts = query.offset(offset).limit(limit).all()
 
@@ -121,9 +123,9 @@ class Query:
         )
 
     @strawberry.field
-    def transaction(self, hash: str, context: GraphQLContext) -> Optional[Transaction]:
+    def transaction(self, hash: str, info: Info) -> Optional[Transaction]:
         """Get a transaction by hash."""
-        tx = context.session.query(ApiTransaction).filter_by(hash=hash).first()
+        tx = info.context.session.query(ApiTransaction).filter_by(hash=hash).first()
         if not tx:
             return None
         return Transaction(
@@ -144,13 +146,13 @@ class Query:
     @strawberry.field
     def transactions(
         self,
+        info: Info,
         source_account: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> TransactionConnection:
         """Get paginated transactions."""
-        query = context.session.query(ApiTransaction)
+        query = info.context.session.query(ApiTransaction)
         if source_account:
             query = query.filter_by(source_account=source_account)
         total = query.count()
@@ -184,14 +186,14 @@ class Query:
     @strawberry.field
     def fraud_alerts(
         self,
+        info: Info,
         account_id: Optional[str] = None,
         resolved: Optional[bool] = None,
         limit: int = 20,
         offset: int = 0,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> FraudAlertConnection:
         """Get paginated fraud alerts."""
-        query = context.session.query(FraudAlert)
+        query = info.context.session.query(FraudAlert)
         if account_id:
             query = query.filter_by(account_id=account_id)
         if resolved is not None:
@@ -221,9 +223,9 @@ class Query:
         )
 
     @strawberry.field
-    def loyalty_points(self, account_id: str, context: GraphQLContext) -> Optional[GLoyaltyPoints]:
+    def loyalty_points(self, account_id: str, info: Info) -> Optional[GLoyaltyPoints]:
         """Get loyalty points for an account."""
-        lp = context.session.query(LoyaltyPoints).filter_by(account_id=account_id).first()
+        lp = info.context.session.query(LoyaltyPoints).filter_by(account_id=account_id).first()
         if not lp:
             return None
         return GLoyaltyPoints(
@@ -238,14 +240,14 @@ class Query:
     @strawberry.field
     def loyalty_points_transactions(
         self,
+        info: Info,
         account_id: str,
         limit: int = 20,
         offset: int = 0,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> List[GPointsTransaction]:
         """Get loyalty points transactions for an account."""
         txs = (
-            context.session.query(PointsTransaction)
+            info.context.session.query(PointsTransaction)
             .filter_by(account_id=account_id)
             .order_by(PointsTransaction.created_at.desc())
             .offset(offset)
@@ -268,14 +270,14 @@ class Query:
     @strawberry.field
     def model_versions(
         self,
+        info: Info,
         name: Optional[str] = None,
         status: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> List[GModelRegistry]:
         """Get model versions."""
-        query = context.session.query(ModelRegistry)
+        query = info.context.session.query(ModelRegistry)
         if name:
             query = query.filter_by(name=name)
         if status:
@@ -300,9 +302,9 @@ class Query:
         ]
 
     @strawberry.field
-    def user(self, id: ID, context: GraphQLContext) -> Optional[GUser]:
+    def user(self, id: ID, info: Info) -> Optional[GUser]:
         """Get a user by ID."""
-        user = context.session.query(User).filter_by(id=int(id)).first()
+        user = info.context.session.query(User).filter_by(id=int(id)).first()
         if not user:
             return None
         return GUser(
@@ -314,11 +316,13 @@ class Query:
         )
 
     @strawberry.field
-    def me(self, context: GraphQLContext) -> Optional[GUser]:
+    def me(self, info: Info) -> Optional[GUser]:
         """Get the current authenticated user."""
-        if not context.user:
+        if not info.context.user:
             return None
-        user = context.session.query(User).filter_by(id=context.user.get("user_id")).first()
+        user = (
+            info.context.session.query(User).filter_by(id=info.context.user.get("user_id")).first()
+        )
         if not user:
             return None
         return GUser(
@@ -332,18 +336,22 @@ class Query:
     @strawberry.field
     def notifications(
         self,
+        info: Info,
         is_read: Optional[bool] = None,
         limit: int = 20,
         offset: int = 0,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> List[GNotification]:
         """Get notifications for the current user."""
-        if not context.user:
+        if not info.context.user:
             return []
-        query = context.session.query(Notification).filter_by(user_id=context.user.get("user_id"))
+        query = info.context.session.query(Notification).filter_by(
+            user_id=info.context.user.get("user_id")
+        )
         if is_read is not None:
             query = query.filter_by(is_read=is_read)
-        notifications = query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
+        notifications = (
+            query.order_by(Notification.created_at.desc()).offset(offset).limit(limit).all()
+        )
 
         return [
             GNotification(
@@ -363,12 +371,12 @@ class Query:
     @strawberry.field
     def faqs(
         self,
+        info: Info,
         category: Optional[str] = None,
         is_published: bool = True,
-        context: GraphQLContext = strawberry.UNSET,
     ) -> List[GFAQ]:
         """Get FAQs."""
-        query = context.session.query(FAQ).filter_by(is_published=is_published)
+        query = info.context.session.query(FAQ).filter_by(is_published=is_published)
         if category:
             query = query.filter_by(category=category)
         faqs = query.order_by(FAQ.order.asc()).all()
@@ -394,9 +402,11 @@ class Mutation:
     """GraphQL mutations."""
 
     @strawberry.mutation
-    def create_account(self, input: CreateAccountInput, context: GraphQLContext) -> MutationResult:
+    def create_account(self, input: CreateAccountInput, info: Info) -> MutationResult:
         """Create a new account."""
-        existing = context.session.query(ApiAccount).filter_by(public_key=input.public_key).first()
+        existing = (
+            info.context.session.query(ApiAccount).filter_by(public_key=input.public_key).first()
+        )
         if existing:
             return MutationResult(success=False, message="Account already exists")
 
@@ -406,8 +416,8 @@ class Mutation:
             first_seen=datetime.now(),
             last_active=datetime.now(),
         )
-        context.session.add(account)
-        context.session.commit()
+        info.context.session.add(account)
+        info.context.session.commit()
 
         return MutationResult(success=True, message="Account created", id=str(account.id))
 
@@ -415,7 +425,7 @@ class Mutation:
     def create_fraud_alert(
         self,
         input: CreateFraudAlertInput,
-        context: GraphQLContext,
+        info: Info,
     ) -> MutationResult:
         """Create a new fraud alert."""
         alert = FraudAlert(
@@ -425,20 +435,20 @@ class Mutation:
             risk_level=FraudAlert.risk_level_for_score(input.risk_score),
             description=input.description,
         )
-        context.session.add(alert)
-        context.session.commit()
+        info.context.session.add(alert)
+        info.context.session.commit()
 
         return MutationResult(success=True, message="Fraud alert created", id=str(alert.id))
 
     @strawberry.mutation
-    def resolve_fraud_alert(self, id: ID, context: GraphQLContext) -> MutationResult:
+    def resolve_fraud_alert(self, id: ID, info: Info) -> MutationResult:
         """Resolve a fraud alert."""
-        alert = context.session.query(FraudAlert).filter_by(id=int(id)).first()
+        alert = info.context.session.query(FraudAlert).filter_by(id=int(id)).first()
         if not alert:
             return MutationResult(success=False, message="Fraud alert not found")
 
         alert.resolved = True
-        context.session.commit()
+        info.context.session.commit()
 
         return MutationResult(success=True, message="Fraud alert resolved", id=str(alert.id))
 
@@ -446,13 +456,15 @@ class Mutation:
     def update_loyalty_points(
         self,
         input: UpdateLoyaltyPointsInput,
-        context: GraphQLContext,
+        info: Info,
     ) -> MutationResult:
         """Update loyalty points for an account."""
-        lp = context.session.query(LoyaltyPoints).filter_by(account_id=input.account_id).first()
+        lp = (
+            info.context.session.query(LoyaltyPoints).filter_by(account_id=input.account_id).first()
+        )
         if not lp:
             lp = LoyaltyPoints(account_id=input.account_id, balance=0)
-            context.session.add(lp)
+            info.context.session.add(lp)
 
         lp.balance += input.points
         if lp.balance < 0:
@@ -466,34 +478,36 @@ class Mutation:
             source=input.source,
             note=input.note,
         )
-        context.session.add(tx)
-        context.session.commit()
+        info.context.session.add(tx)
+        info.context.session.commit()
 
         return MutationResult(success=True, message="Loyalty points updated", id=str(lp.id))
 
     @strawberry.mutation
-    def mark_notification_read(self, id: ID, context: GraphQLContext) -> MutationResult:
+    def mark_notification_read(self, id: ID, info: Info) -> MutationResult:
         """Mark a notification as read."""
-        notification = context.session.query(Notification).filter_by(id=int(id)).first()
+        notification = info.context.session.query(Notification).filter_by(id=int(id)).first()
         if not notification:
             return MutationResult(success=False, message="Notification not found")
 
         notification.is_read = True
-        context.session.commit()
+        info.context.session.commit()
 
-        return MutationResult(success=True, message="Notification marked as read", id=str(notification.id))
+        return MutationResult(
+            success=True, message="Notification marked as read", id=str(notification.id)
+        )
 
     @strawberry.mutation
-    def mark_all_notifications_read(self, context: GraphQLContext) -> MutationResult:
+    def mark_all_notifications_read(self, info: Info) -> MutationResult:
         """Mark all notifications as read for the current user."""
-        if not context.user:
+        if not info.context.user:
             return MutationResult(success=False, message="Not authenticated")
 
-        context.session.query(Notification).filter_by(
-            user_id=context.user.get("user_id"),
+        info.context.session.query(Notification).filter_by(
+            user_id=info.context.user.get("user_id"),
             is_read=False,
         ).update({"is_read": True})
-        context.session.commit()
+        info.context.session.commit()
 
         return MutationResult(success=True, message="All notifications marked as read")
 
@@ -507,6 +521,7 @@ class Subscription:
     async def transaction_created(self) -> Transaction:
         """Subscribe to new transactions."""
         import asyncio
+
         from api.graphql.subscriptions import transaction_queue
 
         while True:
@@ -535,6 +550,7 @@ class Subscription:
     async def fraud_alert_created(self) -> FraudAlert:
         """Subscribe to new fraud alerts."""
         import asyncio
+
         from api.graphql.subscriptions import fraud_alert_queue
 
         while True:
@@ -559,6 +575,7 @@ class Subscription:
     async def loyalty_points_updated(self) -> GLoyaltyPoints:
         """Subscribe to loyalty points updates."""
         import asyncio
+
         from api.graphql.subscriptions import loyalty_points_queue
 
         while True:

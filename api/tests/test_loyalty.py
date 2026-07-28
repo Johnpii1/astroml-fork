@@ -4,6 +4,7 @@ Integration tests — loyalty points (issue #244).
 Covers: ORM model creation, tier logic, points transactions,
 balance queries, and history pagination.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -45,9 +46,7 @@ class TestLoyaltyPointsModel:
 
     def test_query_by_account(self, db_session, seeded_loyalty):
         result = db_session.execute(
-            select(LoyaltyPoints).where(
-                LoyaltyPoints.account_id == seeded_loyalty.account_id
-            )
+            select(LoyaltyPoints).where(LoyaltyPoints.account_id == seeded_loyalty.account_id)
         ).scalar_one()
         assert result.balance == 2500
 
@@ -80,7 +79,8 @@ class TestPointsTransactionModel:
 
     def test_history_ordering(self, db_session):
         account = "GCKFBEIYV2U22IO2BJ4KVJOIP7XPWQGQFKKWXR6DOSJBV5SG3B3ORJF"
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
         base = datetime(2024, 1, 1, tzinfo=timezone.utc)
         for i, pts in enumerate([50, 100, -30]):
             pt = PointsTransaction(
@@ -92,11 +92,15 @@ class TestPointsTransactionModel:
             db_session.add(pt)
         db_session.flush()
 
-        rows = db_session.execute(
-            select(PointsTransaction)
-            .where(PointsTransaction.account_id == account)
-            .order_by(PointsTransaction.id)
-        ).scalars().all()
+        rows = (
+            db_session.execute(
+                select(PointsTransaction)
+                .where(PointsTransaction.account_id == account)
+                .order_by(PointsTransaction.id)
+            )
+            .scalars()
+            .all()
+        )
         assert len(rows) == 3
         assert rows[0].points == 50
         assert rows[2].points == -30
@@ -104,16 +108,22 @@ class TestPointsTransactionModel:
     def test_net_balance_calculation(self, db_session):
         account = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPGZWXNBFNKKZ4YH67FQJG2FZT"
         for pts in [200, 50, -75]:
-            db_session.add(PointsTransaction(
-                account_id=account,
-                type="earn" if pts > 0 else "redeem",
-                points=pts,
-            ))
+            db_session.add(
+                PointsTransaction(
+                    account_id=account,
+                    type="earn" if pts > 0 else "redeem",
+                    points=pts,
+                )
+            )
         db_session.flush()
 
-        rows = db_session.execute(
-            select(PointsTransaction).where(PointsTransaction.account_id == account)
-        ).scalars().all()
+        rows = (
+            db_session.execute(
+                select(PointsTransaction).where(PointsTransaction.account_id == account)
+            )
+            .scalars()
+            .all()
+        )
         net = sum(r.points for r in rows)
         assert net == 175
 
@@ -123,12 +133,16 @@ class TestPointsTransactionModel:
             db_session.add(PointsTransaction(account_id=account, type=t, points=pts))
         db_session.flush()
 
-        earns = db_session.execute(
-            select(PointsTransaction).where(
-                PointsTransaction.account_id == account,
-                PointsTransaction.type == "earn",
+        earns = (
+            db_session.execute(
+                select(PointsTransaction).where(
+                    PointsTransaction.account_id == account,
+                    PointsTransaction.type == "earn",
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert len(earns) == 1
 
 
@@ -150,14 +164,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from api.app import app
-from api.loyalty_models import LoyaltyBase, LoyaltyAccount, PointsLedger
 import api.routers.loyalty as _loyalty_module
-
+from api.app import app
+from api.loyalty_models import LoyaltyAccount, LoyaltyBase, PointsLedger
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_engine(tmp_path):
     db_file = tmp_path / "loyalty_test.db"
@@ -219,6 +233,7 @@ def _seed_ledger_row(
 # Summary endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestLoyaltySummary:
     ACCOUNT = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN"
 
@@ -277,6 +292,7 @@ class TestLoyaltySummary:
 # History endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestLoyaltyHistory:
     ACCOUNT = "GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPGZWXNBFNKKZ4YH67FQJG2FZT"
 
@@ -332,6 +348,7 @@ class TestLoyaltyHistory:
 # ---------------------------------------------------------------------------
 # Redeem endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestLoyaltyRedeem:
     ACCOUNT = "GCKFBEIYV2U22IO2BJ4KVJOIP7XPWQGQFKKWXR6DOSJBV5SG3B3ORJF"
@@ -423,6 +440,7 @@ class TestLoyaltyRedeem:
 # ---------------------------------------------------------------------------
 # Tiers endpoint (smoke test)
 # ---------------------------------------------------------------------------
+
 
 class TestLoyaltyTiers:
     def test_tiers_list_returns_four_tiers(self, loyalty_client):

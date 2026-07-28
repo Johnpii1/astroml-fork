@@ -6,6 +6,7 @@ Provides:
   - ``get_sync_db`` for sync endpoints / scripts
   - Connection pool health checks and metrics (issue #297)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,14 +22,16 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+import api.models.orm  # noqa: F401  registers api models on Base.metadata
+
 # Import all models so Base.metadata is fully populated before create_all.
 from astroml.db.schema import Base  # noqa: F401
-import api.models.orm  # noqa: F401  registers api models on Base.metadata
 
 
 @dataclass
 class PoolConfig:
     """Database connection pool configuration."""
+
     min_size: int = 5
     max_size: int = 20
     max_overflow: int = 10
@@ -42,6 +45,7 @@ class PoolConfig:
 @dataclass
 class HealthCheckConfig:
     """Health check configuration."""
+
     interval: int = 60
     timeout: int = 5
     log_enabled: bool = True
@@ -120,24 +124,25 @@ def _load_pool_config() -> PoolConfig:
     """Load pool configuration from database config."""
     try:
         from astroml.db.session import load_database_config
+
         config = load_database_config()
-        
+
         # Try to get pool config from the loaded config
-        pool_config = getattr(config, 'pool', None)
+        pool_config = getattr(config, "pool", None)
         if pool_config:
             return PoolConfig(
-                min_size=getattr(pool_config, 'min_size', 5),
-                max_size=getattr(pool_config, 'max_size', 20),
-                max_overflow=getattr(pool_config, 'max_overflow', 10),
-                pool_timeout=getattr(pool_config, 'pool_timeout', 30),
-                pool_recycle=getattr(pool_config, 'pool_recycle', 1800),
-                pool_pre_ping=getattr(pool_config, 'pool_pre_ping', True),
-                max_retries=getattr(pool_config, 'max_retries', 3),
-                retry_delay=getattr(pool_config, 'retry_delay', 1.0),
+                min_size=getattr(pool_config, "min_size", 5),
+                max_size=getattr(pool_config, "max_size", 20),
+                max_overflow=getattr(pool_config, "max_overflow", 10),
+                pool_timeout=getattr(pool_config, "pool_timeout", 30),
+                pool_recycle=getattr(pool_config, "pool_recycle", 1800),
+                pool_pre_ping=getattr(pool_config, "pool_pre_ping", True),
+                max_retries=getattr(pool_config, "max_retries", 3),
+                retry_delay=getattr(pool_config, "retry_delay", 1.0),
             )
     except Exception:
         pass
-    
+
     # Fallback to environment variables
     return PoolConfig(
         min_size=int(os.environ.get("DB_POOL_MIN_SIZE", "5")),
@@ -155,18 +160,19 @@ def _load_health_check_config() -> HealthCheckConfig:
     """Load health check configuration."""
     try:
         from astroml.db.session import load_database_config
+
         config = load_database_config()
-        
-        health_check = getattr(config, 'health_check', None)
+
+        health_check = getattr(config, "health_check", None)
         if health_check:
             return HealthCheckConfig(
-                interval=getattr(health_check, 'interval', 60),
-                timeout=getattr(health_check, 'timeout', 5),
-                log_enabled=getattr(health_check, 'log_enabled', True),
+                interval=getattr(health_check, "interval", 60),
+                timeout=getattr(health_check, "timeout", 5),
+                log_enabled=getattr(health_check, "log_enabled", True),
             )
     except Exception:
         pass
-    
+
     return HealthCheckConfig(
         interval=int(os.environ.get("DB_HEALTH_CHECK_INTERVAL", "60")),
         timeout=int(os.environ.get("DB_HEALTH_CHECK_TIMEOUT", "5")),
@@ -181,36 +187,46 @@ _pool_metrics = PoolMetrics()
 @lru_cache(maxsize=1)
 def _async_engine():
     pool_config = _load_pool_config()
-    health_config = _load_health_check_config()
-    
-    return create_async_engine(
-        _async_url(),
-        pool_pre_ping=pool_config.pool_pre_ping,
-        pool_size=pool_config.max_size,
-        max_overflow=pool_config.max_overflow,
-        pool_timeout=pool_config.pool_timeout,
-        pool_recycle=pool_config.pool_recycle,
-        pool_use_lifo=True,  # LIFO reduces connection churn
-        echo=False,
-        echo_pool=False,
-    )
+    url = _async_url()
+    is_sqlite = "sqlite" in url
+
+    kwargs: dict = {"echo": False, "echo_pool": False}
+    if not is_sqlite:
+        kwargs.update(
+            pool_pre_ping=pool_config.pool_pre_ping,
+            pool_size=pool_config.max_size,
+            max_overflow=pool_config.max_overflow,
+            pool_timeout=pool_config.pool_timeout,
+            pool_recycle=pool_config.pool_recycle,
+            pool_use_lifo=True,
+        )
+
+    return create_async_engine(url, **kwargs)
 
 
 @lru_cache(maxsize=1)
 def _sync_engine():
     pool_config = _load_pool_config()
-    
-    return create_engine(
-        _sync_url(),
-        pool_pre_ping=pool_config.pool_pre_ping,
-        pool_size=pool_config.max_size,
-        max_overflow=pool_config.max_overflow,
-        pool_timeout=pool_config.pool_timeout,
-        pool_recycle=pool_config.pool_recycle,
-        pool_use_lifo=True,
-        echo=False,
-        echo_pool=False,
-    )
+    url = _sync_url()
+    is_sqlite = "sqlite" in url
+
+    kwargs: dict = {"echo": False, "echo_pool": False}
+    if not is_sqlite:
+        kwargs.update(
+            pool_pre_ping=pool_config.pool_pre_ping,
+            pool_size=pool_config.max_size,
+            max_overflow=pool_config.max_overflow,
+            pool_timeout=pool_config.pool_timeout,
+            pool_recycle=pool_config.pool_recycle,
+            pool_use_lifo=True,
+        )
+
+    return create_engine(url, **kwargs)
+
+
+def get_async_engine():
+    """Return the shared async engine (used by health probes, issue #550)."""
+    return _async_engine()
 
 
 def reset_engines() -> None:
@@ -246,22 +262,24 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency — yields an async DB session."""
     factory = _async_session_factory()
     start_time = time.time()
-    
+
     try:
         async with factory() as session:
             acquire_time = time.time() - start_time
             _pool_metrics.record_acquire_time(acquire_time)
-            
+
             # Record pool usage statistics
             pool = session.get_bind().pool
-            if hasattr(pool, 'size'):
-                _pool_metrics.record_pool_usage({
-                    "size": pool.size(),
-                    "checkedin": pool.checkedin(),
-                    "overflow": pool.overflow(),
-                    "total": pool.total(),
-                })
-            
+            if hasattr(pool, "size"):
+                _pool_metrics.record_pool_usage(
+                    {
+                        "size": pool.size(),
+                        "checkedin": pool.checkedin(),
+                        "overflow": pool.overflow(),
+                        "total": pool.total(),
+                    }
+                )
+
             yield session
     except Exception as e:
         _pool_metrics.record_connection_error()
@@ -278,12 +296,14 @@ def get_sync_db() -> Generator[Session, None, None]:
 
 
 @asynccontextmanager
-async def get_db_with_retry(max_retries: int = 3, retry_delay: float = 1.0) -> AsyncGenerator[AsyncSession, None]:
+async def get_db_with_retry(
+    max_retries: int = 3, retry_delay: float = 1.0
+) -> AsyncGenerator[AsyncSession, None]:
     """Get a database session with retry logic for connection failures."""
     pool_config = _load_pool_config()
     max_retries = max_retries or pool_config.max_retries
     retry_delay = retry_delay or pool_config.retry_delay
-    
+
     last_error = None
     for attempt in range(max_retries):
         try:
@@ -295,6 +315,7 @@ async def get_db_with_retry(max_retries: int = 3, retry_delay: float = 1.0) -> A
             if attempt < max_retries - 1:
                 # Log the error and retry
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning(
                     f"Database connection attempt {attempt + 1}/{max_retries} failed: {e}. "
@@ -302,7 +323,7 @@ async def get_db_with_retry(max_retries: int = 3, retry_delay: float = 1.0) -> A
                 )
                 await asyncio.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
-    
+
     # All retries failed
     raise last_error or Exception("Failed to connect to database after retries")
 
@@ -310,14 +331,15 @@ async def get_db_with_retry(max_retries: int = 3, retry_delay: float = 1.0) -> A
 async def check_database_connection() -> Dict[str, Any]:
     """
     Check database connection health and return status details.
-    
+
     Returns:
         Dict with status, latency, pool stats, and error counts.
     """
     import logging
+
     logger = logging.getLogger(__name__)
     health_config = _load_health_check_config()
-    
+
     result = {
         "status": "healthy",
         "latency_ms": 0.0,
@@ -325,7 +347,7 @@ async def check_database_connection() -> Dict[str, Any]:
         "metrics": {},
         "error": None,
     }
-    
+
     try:
         start_time = time.time()
         async with get_async_session_factory()() as session:
@@ -333,10 +355,10 @@ async def check_database_connection() -> Dict[str, Any]:
             await session.execute(text("SELECT 1"))
             latency_ms = (time.time() - start_time) * 1000
             result["latency_ms"] = round(latency_ms, 2)
-            
+
             # Get pool statistics
             pool = session.get_bind().pool
-            if hasattr(pool, 'size'):
+            if hasattr(pool, "size"):
                 result["pool_stats"] = {
                     "size": pool.size(),
                     "checkedin": pool.checkedin(),
@@ -344,24 +366,24 @@ async def check_database_connection() -> Dict[str, Any]:
                     "total": pool.total(),
                     "max_size": pool.size() + pool.overflow(),
                 }
-            
+
             # Get metrics
             result["metrics"] = {
                 "avg_acquire_time_ms": round(_pool_metrics.get_average_acquire_time() * 1000, 2),
                 "connection_errors": _pool_metrics.get_error_counts()["connection_errors"],
                 "health_check_failures": _pool_metrics.get_error_counts()["health_check_failures"],
             }
-            
+
             if health_config.log_enabled:
                 logger.info(f"Database health check passed (latency: {result['latency_ms']}ms)")
-                
+
     except Exception as e:
         result["status"] = "unhealthy"
         result["error"] = str(e)
         _pool_metrics.record_health_check_failure()
         if health_config.log_enabled:
             logger.error(f"Database health check failed: {e}")
-    
+
     return result
 
 
@@ -378,7 +400,7 @@ async def get_db_status() -> Dict[str, Any]:
     """Get database status including health and metrics."""
     health = await check_database_connection()
     metrics = get_pool_metrics()
-    
+
     return {
         **health,
         "metrics": metrics,

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import random
-from astroml.features.graph.snapshot import Edge, window_snapshot, snapshot_last_n_days
+
+from astroml.features.graph.snapshot import Edge, snapshot_last_n_days, window_snapshot
 
 
 def make_edges(n: int, start_ts: int = 1, step: int = 60):

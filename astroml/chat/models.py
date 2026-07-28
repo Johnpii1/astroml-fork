@@ -1,10 +1,10 @@
 """Chat models for issue #306."""
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional, List
-from enum import Enum
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 
 
 class MessageRole(Enum):
@@ -41,8 +41,8 @@ class ChatMessage:
     session_id: str
     role: MessageRole
     content: str
-    sender_id: Optional[str] = None
-    sender_name: Optional[str] = None
+    sender_id: str | None = None
+    sender_name: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
     is_read: bool = False
 
@@ -66,13 +66,13 @@ class ChatSession:
     id: str
     user_id: str
     user_name: str
-    user_email: Optional[str] = None
+    user_email: str | None = None
     status: ChatStatus = ChatStatus.WAITING
-    assigned_agent_id: Optional[str] = None
-    assigned_agent_name: Optional[str] = None
+    assigned_agent_id: str | None = None
+    assigned_agent_name: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    closed_at: Optional[datetime] = None
-    messages: List[ChatMessage] = field(default_factory=list)
+    closed_at: datetime | None = None
+    messages: list[ChatMessage] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -101,7 +101,7 @@ class Agent:
     status: AgentStatus = AgentStatus.OFFLINE
     max_concurrent_chats: int = 5
     current_chats: int = 0
-    slack_user_id: Optional[str] = None
+    slack_user_id: str | None = None
 
     def to_dict(self) -> dict:
         return {

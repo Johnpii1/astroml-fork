@@ -1,9 +1,9 @@
 """Golden dataset generation and management for model evaluation."""
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -41,7 +41,7 @@ class GoldenDatasetGenerator:
     and quality assessment capabilities.
     """
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize the golden dataset generator.
 
         Args:
@@ -63,7 +63,7 @@ class GoldenDatasetGenerator:
             self._session.close()
             self._session = None
 
-    def __enter__(self) -> "GoldenDatasetGenerator":
+    def __enter__(self) -> GoldenDatasetGenerator:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -79,9 +79,9 @@ class GoldenDatasetGenerator:
         dataset_type: str,
         task_type: str,
         version: str = "1.0.0",
-        description: Optional[str] = None,
-        source: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        description: str | None = None,
+        source: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> GoldenDataset:
         """Create a new golden dataset.
 
@@ -134,7 +134,7 @@ class GoldenDatasetGenerator:
         )
         return dataset
 
-    def get_dataset(self, dataset_id: int) -> Optional[GoldenDataset]:
+    def get_dataset(self, dataset_id: int) -> GoldenDataset | None:
         """Get a dataset by ID.
 
         Args:
@@ -145,9 +145,7 @@ class GoldenDatasetGenerator:
         """
         return self.session.get(GoldenDataset, dataset_id)
 
-    def get_dataset_by_name_version(
-        self, name: str, version: str
-    ) -> Optional[GoldenDataset]:
+    def get_dataset_by_name_version(self, name: str, version: str) -> GoldenDataset | None:
         """Get a dataset by name and version.
 
         Args:
@@ -164,10 +162,10 @@ class GoldenDatasetGenerator:
 
     def list_datasets(
         self,
-        dataset_type: Optional[str] = None,
-        task_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> List[GoldenDataset]:
+        dataset_type: str | None = None,
+        task_type: str | None = None,
+        status: str | None = None,
+    ) -> list[GoldenDataset]:
         """List datasets with optional filters.
 
         Args:
@@ -191,11 +189,11 @@ class GoldenDatasetGenerator:
     def update_dataset(
         self,
         dataset_id: int,
-        description: Optional[str] = None,
-        source: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        quality_score: Optional[float] = None,
-    ) -> Optional[GoldenDataset]:
+        description: str | None = None,
+        source: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        quality_score: float | None = None,
+    ) -> GoldenDataset | None:
         """Update a dataset.
 
         Args:
@@ -253,7 +251,7 @@ class GoldenDatasetGenerator:
     # Dataset lifecycle management
     # ------------------------------------------------------------------
 
-    def submit_for_review(self, dataset_id: int) -> Optional[GoldenDataset]:
+    def submit_for_review(self, dataset_id: int) -> GoldenDataset | None:
         """Submit a dataset for review.
 
         Args:
@@ -277,7 +275,7 @@ class GoldenDatasetGenerator:
         logger.info("Submitted dataset for review: %s (id=%d)", dataset.name, dataset_id)
         return dataset
 
-    def approve_dataset(self, dataset_id: int) -> Optional[GoldenDataset]:
+    def approve_dataset(self, dataset_id: int) -> GoldenDataset | None:
         """Approve a dataset.
 
         Args:
@@ -301,7 +299,7 @@ class GoldenDatasetGenerator:
         logger.info("Approved dataset: %s (id=%d)", dataset.name, dataset_id)
         return dataset
 
-    def reject_dataset(self, dataset_id: int) -> Optional[GoldenDataset]:
+    def reject_dataset(self, dataset_id: int) -> GoldenDataset | None:
         """Reject a dataset (return to draft).
 
         Args:
@@ -325,7 +323,7 @@ class GoldenDatasetGenerator:
         logger.info("Rejected dataset (returned to draft): %s (id=%d)", dataset.name, dataset_id)
         return dataset
 
-    def archive_dataset(self, dataset_id: int) -> Optional[GoldenDataset]:
+    def archive_dataset(self, dataset_id: int) -> GoldenDataset | None:
         """Archive a dataset.
 
         Args:
@@ -380,11 +378,11 @@ class GoldenDatasetGenerator:
     def add_entry(
         self,
         dataset_id: int,
-        input_data: Dict[str, Any],
-        output_data: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-        difficulty: Optional[float] = None,
-        confidence: Optional[float] = None,
+        input_data: dict[str, Any],
+        output_data: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+        difficulty: float | None = None,
+        confidence: float | None = None,
     ) -> GoldenDatasetEntry:
         """Add an entry to a dataset.
 
@@ -438,8 +436,8 @@ class GoldenDatasetGenerator:
     def add_entries_batch(
         self,
         dataset_id: int,
-        entries: List[Dict[str, Any]],
-    ) -> List[GoldenDatasetEntry]:
+        entries: list[dict[str, Any]],
+    ) -> list[GoldenDatasetEntry]:
         """Add multiple entries to a dataset in a single transaction.
 
         Args:
@@ -484,7 +482,7 @@ class GoldenDatasetGenerator:
         )
         return created_entries
 
-    def get_entry(self, entry_id: int) -> Optional[GoldenDatasetEntry]:
+    def get_entry(self, entry_id: int) -> GoldenDatasetEntry | None:
         """Get an entry by ID.
 
         Args:
@@ -498,10 +496,10 @@ class GoldenDatasetGenerator:
     def list_entries(
         self,
         dataset_id: int,
-        min_difficulty: Optional[float] = None,
-        max_difficulty: Optional[float] = None,
-        min_confidence: Optional[float] = None,
-    ) -> List[GoldenDatasetEntry]:
+        min_difficulty: float | None = None,
+        max_difficulty: float | None = None,
+        min_confidence: float | None = None,
+    ) -> list[GoldenDatasetEntry]:
         """List entries for a dataset with optional filters.
 
         Args:
@@ -513,9 +511,7 @@ class GoldenDatasetGenerator:
         Returns:
             List of GoldenDatasetEntry instances
         """
-        stmt = select(GoldenDatasetEntry).where(
-            GoldenDatasetEntry.dataset_id == dataset_id
-        )
+        stmt = select(GoldenDatasetEntry).where(GoldenDatasetEntry.dataset_id == dataset_id)
         if min_difficulty is not None:
             stmt = stmt.where(GoldenDatasetEntry.difficulty >= min_difficulty)
         if max_difficulty is not None:
@@ -555,7 +551,7 @@ class GoldenDatasetGenerator:
     # Dataset validation and quality metrics
     # ------------------------------------------------------------------
 
-    def validate_dataset(self, dataset_id: int) -> Dict[str, Any]:
+    def validate_dataset(self, dataset_id: int) -> dict[str, Any]:
         """Validate a dataset and return quality metrics.
 
         Args:
@@ -635,7 +631,7 @@ class GoldenDatasetGenerator:
 
         return validation_results
 
-    def _calculate_quality_score(self, validation_results: Dict[str, Any]) -> float:
+    def _calculate_quality_score(self, validation_results: dict[str, Any]) -> float:
         """Calculate overall quality score from validation results.
 
         Args:
@@ -656,11 +652,11 @@ class GoldenDatasetGenerator:
 
         if "difficulty" in quality_metrics:
             diff_coverage = quality_metrics["difficulty"]["count"] / total_entries
-            score *= (0.5 + 0.5 * diff_coverage)  # Min 0.5 if full coverage
+            score *= 0.5 + 0.5 * diff_coverage  # Min 0.5 if full coverage
 
         if "confidence" in quality_metrics:
             conf_coverage = quality_metrics["confidence"]["count"] / total_entries
-            score *= (0.5 + 0.5 * conf_coverage)  # Min 0.5 if full coverage
+            score *= 0.5 + 0.5 * conf_coverage  # Min 0.5 if full coverage
 
         # Penalize for issues
         num_issues = len(validation_results["issues"])
@@ -672,7 +668,7 @@ class GoldenDatasetGenerator:
     # Dataset export/import
     # ------------------------------------------------------------------
 
-    def export_dataset(self, dataset_id: int) -> Dict[str, Any]:
+    def export_dataset(self, dataset_id: int) -> dict[str, Any]:
         """Export a dataset with all entries.
 
         Args:
@@ -710,14 +706,16 @@ class GoldenDatasetGenerator:
             ],
         }
 
-        logger.info("Exported dataset: %s (id=%d, entries=%d)", dataset.name, dataset_id, len(entries))
+        logger.info(
+            "Exported dataset: %s (id=%d, entries=%d)", dataset.name, dataset_id, len(entries)
+        )
         return export_data
 
     def import_dataset(
         self,
-        export_data: Dict[str, Any],
-        new_name: Optional[str] = None,
-        new_version: Optional[str] = None,
+        export_data: dict[str, Any],
+        new_name: str | None = None,
+        new_version: str | None = None,
     ) -> GoldenDataset:
         """Import a dataset from exported data.
 

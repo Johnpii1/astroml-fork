@@ -4,6 +4,7 @@ Regression coverage for #150 and #180 — the top-level help must surface
 examples, the `--config` and `--env` flags, and the documented environment
 variables, so new contributors can discover them from `--help` alone.
 """
+
 from __future__ import annotations
 
 import io
@@ -83,9 +84,7 @@ def test_config_flag_passes_path_to_loader(monkeypatch: pytest.MonkeyPatch) -> N
     fake_db.password = ""
     fake_db.to_url.return_value = "postgresql://u@h:5432/n"
     custom = pathlib.Path("custom/db.yaml")
-    with mock.patch(
-        "astroml.cli.load_database_config", return_value=fake_db
-    ) as load_mock:
+    with mock.patch("astroml.cli.load_database_config", return_value=fake_db) as load_mock:
         with redirect_stdout(io.StringIO()):
             cli.main(["--config", str(custom), "config", "--print-db"])
     load_mock.assert_called_once_with(custom)
@@ -101,9 +100,9 @@ def test_help_lists_all_subcommands() -> None:
 def test_help_mentions_readme_usage_link() -> None:
     """--help epilog must include a link to the README usage section (#150)."""
     output = _capture_help()
-    assert "README" in output or "github.com" in output, (
-        "--help should reference the README or project URL for further guidance"
-    )
+    assert (
+        "README" in output or "github.com" in output
+    ), "--help should reference the README or project URL for further guidance"
 
 
 def test_quickstart_subcommand_help_mentions_key_flags() -> None:

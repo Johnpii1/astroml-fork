@@ -1,4 +1,6 @@
 version: 2
+enable-beta-ecosystems: true
+open-pull-requests-limit: 10
 updates:
   # Python dependencies
   - package-ecosystem: "pip"

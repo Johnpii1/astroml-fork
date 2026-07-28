@@ -1,4 +1,5 @@
 """Tests for `load_database_config`'s validation + schema suggestions (#151)."""
+
 from __future__ import annotations
 
 import pathlib

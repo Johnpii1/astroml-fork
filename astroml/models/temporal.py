@@ -1,10 +1,10 @@
+import math
+from typing import List, Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from typing import Optional, List, Tuple
-from torch_geometric.nn import GCNConv, GATConv, SAGEConv
-from torch_geometric.nn import MessagePassing
+from torch_geometric.nn import GATConv, GCNConv, MessagePassing, SAGEConv
 from torch_geometric.utils import add_self_loops, degree
 
 

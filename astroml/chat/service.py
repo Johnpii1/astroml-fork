@@ -1,20 +1,20 @@
 """Chat service for real-time messaging (issue #306)."""
+
 from __future__ import annotations
 
-import uuid
 import logging
-from datetime import datetime
-from typing import Dict, List, Optional
+import uuid
 from collections import defaultdict
+from datetime import datetime
 
 from .models import (
+    Agent,
+    AgentStatus,
     ChatMessage,
     ChatSession,
     ChatStatus,
-    Agent,
-    AgentStatus,
-    OfflineMessage,
     MessageRole,
+    OfflineMessage,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,16 +25,18 @@ class ChatService:
 
     def __init__(self):
         """Initialize chat service."""
-        self.sessions: Dict[str, ChatSession] = {}
-        self.agents: Dict[str, Agent] = {}
-        self.offline_messages: List[OfflineMessage] = []
-        self.active_connections: Dict[str, set] = defaultdict(set)  # session_id -> websocket connections
+        self.sessions: dict[str, ChatSession] = {}
+        self.agents: dict[str, Agent] = {}
+        self.offline_messages: list[OfflineMessage] = []
+        self.active_connections: dict[str, set] = defaultdict(
+            set
+        )  # session_id -> websocket connections
 
     def create_session(
         self,
         user_id: str,
         user_name: str,
-        user_email: Optional[str] = None,
+        user_email: str | None = None,
     ) -> ChatSession:
         """Create a new chat session.
 
@@ -59,7 +61,7 @@ class ChatService:
         logger.info(f"Created chat session: {session_id} for user {user_name}")
         return session
 
-    def get_session(self, session_id: str) -> Optional[ChatSession]:
+    def get_session(self, session_id: str) -> ChatSession | None:
         """Get a chat session by ID.
 
         Args:
@@ -75,9 +77,9 @@ class ChatService:
         session_id: str,
         role: MessageRole,
         content: str,
-        sender_id: Optional[str] = None,
-        sender_name: Optional[str] = None,
-    ) -> Optional[ChatMessage]:
+        sender_id: str | None = None,
+        sender_name: str | None = None,
+    ) -> ChatMessage | None:
         """Add a message to a chat session.
 
         Args:
@@ -196,7 +198,7 @@ class ChatService:
         agent_id: str,
         name: str,
         email: str,
-        slack_user_id: Optional[str] = None,
+        slack_user_id: str | None = None,
         max_concurrent_chats: int = 5,
     ) -> Agent:
         """Register a support agent.
@@ -242,18 +244,17 @@ class ChatService:
         logger.info(f"Agent {agent_id} status set to {status.value}")
         return True
 
-    def get_waiting_sessions(self) -> List[ChatSession]:
+    def get_waiting_sessions(self) -> list[ChatSession]:
         """Get all sessions waiting for an agent.
 
         Returns:
             List of waiting sessions.
         """
         return [
-            session for session in self.sessions.values()
-            if session.status == ChatStatus.WAITING
+            session for session in self.sessions.values() if session.status == ChatStatus.WAITING
         ]
 
-    def get_agent_sessions(self, agent_id: str) -> List[ChatSession]:
+    def get_agent_sessions(self, agent_id: str) -> list[ChatSession]:
         """Get all sessions assigned to an agent.
 
         Args:
@@ -263,20 +264,18 @@ class ChatService:
             List of assigned sessions.
         """
         return [
-            session for session in self.sessions.values()
+            session
+            for session in self.sessions.values()
             if session.assigned_agent_id == agent_id and session.status == ChatStatus.ACTIVE
         ]
 
-    def get_online_agents(self) -> List[Agent]:
+    def get_online_agents(self) -> list[Agent]:
         """Get all online agents.
 
         Returns:
             List of online agents.
         """
-        return [
-            agent for agent in self.agents.values()
-            if agent.status == AgentStatus.ONLINE
-        ]
+        return [agent for agent in self.agents.values() if agent.status == AgentStatus.ONLINE]
 
     def create_offline_message(
         self,
@@ -305,7 +304,7 @@ class ChatService:
         logger.info(f"Created offline message from {user_name}")
         return offline_msg
 
-    def get_offline_messages(self) -> List[OfflineMessage]:
+    def get_offline_messages(self) -> list[OfflineMessage]:
         """Get all offline messages.
 
         Returns:

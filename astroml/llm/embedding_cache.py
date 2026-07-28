@@ -25,6 +25,7 @@ Redis key layout
 ``emb:index``                — JSON list of {"hash": ..., "vector": [...]} for similarity scan
 ``emb:stats``                — JSON: {"hits": int, "misses": int, "sets": int, "invalidations": int}
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,7 +36,7 @@ import os
 import time
 from collections import Counter
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -51,6 +52,7 @@ except ImportError:
 # Lightweight text → vector encoder
 # ---------------------------------------------------------------------------
 
+
 class _TFIDFEncoder:
     """Minimal bag-of-words TF-IDF encoder backed by a fixed vocabulary.
 
@@ -61,18 +63,19 @@ class _TFIDFEncoder:
 
     def __init__(self, max_vocab: int = 4096):
         self._max_vocab = max_vocab
-        self._vocab: Dict[str, int] = {}   # token → column index
-        self._df: Dict[str, int] = {}      # token → document frequency
+        self._vocab: dict[str, int] = {}  # token → column index
+        self._df: dict[str, int] = {}  # token → document frequency
         self._n_docs: int = 0
 
     # ------------------------------------------------------------------
 
-    def _tokenise(self, text: str) -> List[str]:
+    def _tokenise(self, text: str) -> list[str]:
         """Lowercase + split on non-alphanumeric boundaries."""
         import re
+
         return re.findall(r"[a-z0-9]+", text.lower())
 
-    def _ensure_token(self, token: str) -> Optional[int]:
+    def _ensure_token(self, token: str) -> int | None:
         """Return column index for *token*, growing vocab if space allows."""
         if token in self._vocab:
             return self._vocab[token]
@@ -115,13 +118,14 @@ class _TFIDFEncoder:
             vec /= norm
         return vec
 
-    def encode_batch(self, texts: List[str]) -> List[np.ndarray]:
+    def encode_batch(self, texts: list[str]) -> list[np.ndarray]:
         return [self.encode(t) for t in texts]
 
 
 # ---------------------------------------------------------------------------
 # Cache statistics
 # ---------------------------------------------------------------------------
+
 
 class EmbeddingCacheStats:
     """Mutable hit/miss counters with derived hit-rate property."""
@@ -139,7 +143,7 @@ class EmbeddingCacheStats:
         total = self.hits + self.misses
         return self.hits / total if total > 0 else 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "hits": self.hits,
             "misses": self.misses,
@@ -148,7 +152,7 @@ class EmbeddingCacheStats:
             "hit_rate": round(self.hit_rate, 4),
         }
 
-    def from_dict(self, d: Dict[str, Any]) -> None:
+    def from_dict(self, d: dict[str, Any]) -> None:
         self.hits = int(d.get("hits", 0))
         self.misses = int(d.get("misses", 0))
         self.sets = int(d.get("sets", 0))
@@ -158,6 +162,7 @@ class EmbeddingCacheStats:
 # ---------------------------------------------------------------------------
 # Main cache class
 # ---------------------------------------------------------------------------
+
 
 class EmbeddingCache:
     """Redis-backed semantic embedding cache with cosine similarity matching.
@@ -186,7 +191,7 @@ class EmbeddingCache:
         similarity_threshold: float = 0.92,
         ttl: int = 3600,
         max_index_size: int = 1024,
-        redis_url: Optional[str] = None,
+        redis_url: str | None = None,
     ) -> None:
         self.similarity_threshold = similarity_threshold
         self.ttl = ttl
@@ -196,11 +201,11 @@ class EmbeddingCache:
         self._stats = EmbeddingCacheStats()
 
         # In-process fallback stores.
-        self._fallback: Dict[str, Dict[str, Any]] = {}
-        self._fallback_index: List[Dict[str, Any]] = []
+        self._fallback: dict[str, dict[str, Any]] = {}
+        self._fallback_index: list[dict[str, Any]] = []
 
         # Redis connection — same pattern as SemanticCache / ConversationMemory.
-        self._redis: Optional[Any] = None
+        self._redis: Any | None = None
         if _redis_module is not None:
             url = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0")
             try:
@@ -210,9 +215,7 @@ class EmbeddingCache:
                 # Restore persisted stats if available.
                 self._load_stats()
             except Exception:
-                logger.warning(
-                    "EmbeddingCache: Redis unavailable — using in-memory fallback."
-                )
+                logger.warning("EmbeddingCache: Redis unavailable — using in-memory fallback.")
                 self._redis = None
 
     # ------------------------------------------------------------------
@@ -251,7 +254,7 @@ class EmbeddingCache:
 
     # ---------- index read/write ----------
 
-    def _read_index(self) -> List[Dict[str, Any]]:
+    def _read_index(self) -> list[dict[str, Any]]:
         """Return the similarity index (list of {hash, vector} dicts)."""
         if self._redis_ok():
             try:
@@ -267,12 +270,9 @@ class EmbeddingCache:
                 pass
         return list(self._fallback_index)
 
-    def _write_index(self, index: List[Dict[str, Any]]) -> None:
+    def _write_index(self, index: list[dict[str, Any]]) -> None:
         """Persist the similarity index, serialising numpy vectors to lists."""
-        serialisable = [
-            {"hash": e["hash"], "vector": e["vector"].tolist()}
-            for e in index
-        ]
+        serialisable = [{"hash": e["hash"], "vector": e["vector"].tolist()} for e in index]
         if self._redis_ok():
             try:
                 self._redis.setex(self._INDEX_KEY, self.ttl * 2, json.dumps(serialisable))
@@ -280,13 +280,11 @@ class EmbeddingCache:
             except Exception:
                 pass
         # Fallback — keep numpy arrays in memory directly.
-        self._fallback_index = [
-            {"hash": e["hash"], "vector": e["vector"]} for e in index
-        ]
+        self._fallback_index = [{"hash": e["hash"], "vector": e["vector"]} for e in index]
 
     # ---------- entry read/write ----------
 
-    def _read_entry(self, text_hash: str) -> Optional[Dict[str, Any]]:
+    def _read_entry(self, text_hash: str) -> dict[str, Any] | None:
         key = self._entry_key(text_hash)
         if self._redis_ok():
             try:
@@ -298,7 +296,7 @@ class EmbeddingCache:
                 pass
         return self._fallback.get(text_hash)
 
-    def _write_entry(self, text_hash: str, entry: Dict[str, Any]) -> None:
+    def _write_entry(self, text_hash: str, entry: dict[str, Any]) -> None:
         key = self._entry_key(text_hash)
         payload = json.dumps(entry)
         if self._redis_ok():
@@ -344,10 +342,10 @@ class EmbeddingCache:
         return dot / (norm_a * norm_b)
 
     def _find_similar(
-        self, query_vec: np.ndarray, index: List[Dict[str, Any]]
-    ) -> Optional[Tuple[str, float]]:
+        self, query_vec: np.ndarray, index: list[dict[str, Any]]
+    ) -> tuple[str, float] | None:
         """Return ``(text_hash, similarity)`` for the best match above threshold, or None."""
-        best_hash: Optional[str] = None
+        best_hash: str | None = None
         best_sim: float = self.similarity_threshold  # must beat this to count
 
         for entry in index:
@@ -365,8 +363,8 @@ class EmbeddingCache:
     def get(
         self,
         text: str,
-        precomputed_vector: Optional[np.ndarray] = None,
-    ) -> Optional[Any]:
+        precomputed_vector: np.ndarray | None = None,
+    ) -> Any | None:
         """Look up a cached result for *text*.
 
         Parameters
@@ -398,9 +396,7 @@ class EmbeddingCache:
 
         # Semantic similarity scan.
         query_vec = (
-            precomputed_vector
-            if precomputed_vector is not None
-            else self._encoder.encode(text)
+            precomputed_vector if precomputed_vector is not None else self._encoder.encode(text)
         )
         index = self._read_index()
         match = self._find_similar(query_vec, index)
@@ -412,9 +408,7 @@ class EmbeddingCache:
             if matched_entry is not None:
                 self._stats.hits += 1
                 self._save_stats()
-                logger.debug(
-                    "EmbeddingCache semantic hit (sim=%.4f) in %.2f ms", sim, elapsed_ms
-                )
+                logger.debug("EmbeddingCache semantic hit (sim=%.4f) in %.2f ms", sim, elapsed_ms)
                 return matched_entry.get("result")
 
         self._stats.misses += 1
@@ -426,7 +420,7 @@ class EmbeddingCache:
         self,
         text: str,
         result: Any,
-        precomputed_vector: Optional[np.ndarray] = None,
+        precomputed_vector: np.ndarray | None = None,
     ) -> None:
         """Cache *result* for *text*.
 
@@ -443,9 +437,7 @@ class EmbeddingCache:
         text_hash = self._text_hash(text)
 
         vector = (
-            precomputed_vector
-            if precomputed_vector is not None
-            else self._encoder.encode(text)
+            precomputed_vector if precomputed_vector is not None else self._encoder.encode(text)
         )
 
         entry = {
@@ -462,7 +454,7 @@ class EmbeddingCache:
 
         # Evict oldest entries if index is full.
         if len(index) >= self.max_index_size:
-            index = index[-(self.max_index_size - 1):]
+            index = index[-(self.max_index_size - 1) :]
 
         index.append({"hash": text_hash, "vector": vector})
         self._write_index(index)
@@ -517,11 +509,11 @@ class EmbeddingCache:
         logger.info("EmbeddingCache: invalidated %d entries", count)
         return count
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return current hit/miss/set/invalidation counts and hit rate."""
         return self._stats.to_dict()
 
-    def warmup(self, texts: List[str], results: List[Any]) -> int:
+    def warmup(self, texts: list[str], results: list[Any]) -> int:
         """Pre-populate the cache from a list of (text, result) pairs.
 
         Useful for seeding the cache with known-good entries so the hit rate

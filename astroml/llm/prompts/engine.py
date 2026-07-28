@@ -1,9 +1,9 @@
 """Template rendering engine for prompt templates."""
 
-from typing import Any, Dict, Optional
-import json
-from jinja2 import Environment, Template, TemplateError, UndefinedError
-from pydantic import BaseModel, ValidationError
+from typing import Any
+
+from jinja2 import Environment, TemplateError, UndefinedError
+from pydantic import BaseModel
 
 
 class TemplateVariable(BaseModel):
@@ -12,8 +12,8 @@ class TemplateVariable(BaseModel):
     name: str
     type: str = "str"
     required: bool = True
-    default: Optional[Any] = None
-    description: Optional[str] = None
+    default: Any | None = None
+    description: str | None = None
 
 
 class PromptTemplate(BaseModel):
@@ -23,8 +23,8 @@ class PromptTemplate(BaseModel):
     version: str
     variables: list[TemplateVariable]
     template: str
-    variants: Dict[str, str] = {}
-    ab_test: Optional[Dict[str, float]] = None
+    variants: dict[str, str] = {}
+    ab_test: dict[str, float] | None = None
 
 
 class TemplateEngine:
@@ -36,8 +36,8 @@ class TemplateEngine:
         self._cache = {}
 
     def validate_variables(
-        self, template_def: PromptTemplate, variables: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, template_def: PromptTemplate, variables: dict[str, Any]
+    ) -> dict[str, Any]:
         """Validate and type-convert variables against template definition."""
         validated = {}
 
@@ -67,8 +67,8 @@ class TemplateEngine:
     def render(
         self,
         template_def: PromptTemplate,
-        variables: Dict[str, Any],
-        variant: Optional[str] = None,
+        variables: dict[str, Any],
+        variant: str | None = None,
     ) -> str:
         """Render template with variables.
 
@@ -104,7 +104,7 @@ class TemplateEngine:
         except UndefinedError as e:
             raise ValueError(f"Undefined variable in template: {e}")
 
-    def render_string(self, template_string: str, variables: Dict[str, Any]) -> str:
+    def render_string(self, template_string: str, variables: dict[str, Any]) -> str:
         """Render a raw template string."""
         try:
             template = self.env.from_string(template_string)
@@ -116,6 +116,6 @@ class TemplateEngine:
         """Clear template cache."""
         self._cache.clear()
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return {"size": len(self._cache), "cached_templates": list(self._cache.keys())}

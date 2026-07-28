@@ -1,4 +1,5 @@
 """Translation service for multi-language LLM output support (Issue 1)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -117,7 +118,9 @@ class TranslationCache:
         self._stats.misses += 1
         return None
 
-    def set(self, source_text: str, target_lang: str, translation: str, source_lang: str = "auto") -> None:
+    def set(
+        self, source_text: str, target_lang: str, translation: str, source_lang: str = "auto"
+    ) -> None:
         key = self._make_key(source_text, target_lang, source_lang)
         expiry = time.time() + self.ttl
 
@@ -244,7 +247,9 @@ class TranslationService:
         source_lang: str = "auto",
         context: Optional[str] = None,
     ) -> str:
-        target_info = SUPPORTED_LANGUAGES.get(target_lang, {"name": target_lang, "native": target_lang})
+        target_info = SUPPORTED_LANGUAGES.get(
+            target_lang, {"name": target_lang, "native": target_lang}
+        )
         target_name = target_info["name"]
         target_native = target_info["native"]
 
@@ -267,7 +272,9 @@ Return ONLY the translated text, no explanations or metadata."""
         use_cache: bool = True,
     ) -> Dict[str, Any]:
         if target_lang not in SUPPORTED_LANGUAGES:
-            raise ValueError(f"Unsupported language: {target_lang}. Supported: {list(SUPPORTED_LANGUAGES.keys())}")
+            raise ValueError(
+                f"Unsupported language: {target_lang}. Supported: {list(SUPPORTED_LANGUAGES.keys())}"
+            )
 
         if use_cache:
             cached = self.cache.get(text, target_lang, source_lang)
@@ -319,8 +326,7 @@ Return ONLY the translated text, no explanations or metadata."""
     ) -> Dict[str, Any]:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
-            None,
-            lambda: self.translate(text, target_lang, source_lang, context, use_cache)
+            None, lambda: self.translate(text, target_lang, source_lang, context, use_cache)
         )
 
     async def translate_batch_async(
@@ -335,7 +341,9 @@ Return ONLY the translated text, no explanations or metadata."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
-            lambda: [self.translate(t, target_lang, source_lang, context, use_cache) for t in texts]
+            lambda: [
+                self.translate(t, target_lang, source_lang, context, use_cache) for t in texts
+            ],
         )
 
     def format_locale(
@@ -347,7 +355,7 @@ Return ONLY the translated text, no explanations or metadata."""
     ) -> str:
         """Format a single value according to locale and format type."""
         formatter = self.get_formatter(locale)
-        
+
         if format_type == "number":
             if isinstance(value, str):
                 try:
@@ -374,7 +382,8 @@ Return ONLY the translated text, no explanations or metadata."""
             if isinstance(value, str):
                 try:
                     from datetime import datetime
-                    value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+
+                    value = datetime.fromisoformat(value.replace("Z", "+00:00"))
                 except ValueError:
                     return value
             if isinstance(value, datetime):
@@ -384,7 +393,8 @@ Return ONLY the translated text, no explanations or metadata."""
             if isinstance(value, str):
                 try:
                     from datetime import datetime
-                    value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+
+                    value = datetime.fromisoformat(value.replace("Z", "+00:00"))
                 except ValueError:
                     return value
             if isinstance(value, datetime):
@@ -402,16 +412,15 @@ Return ONLY the translated text, no explanations or metadata."""
         # For a more sophisticated approach, we'd need to iterate through all language combinations
         # For now, let's clear entries that start with the text hash
         text_hash = hashlib.sha256(text.encode()).hexdigest()[:32]
-        
+
         with self.cache._lock:
             # Find and remove keys that match this text
             keys_to_delete = [
-                k for k in self.cache._memory_cache.keys() 
-                if k.startswith(f"trans:{text_hash}")
+                k for k in self.cache._memory_cache.keys() if k.startswith(f"trans:{text_hash}")
             ]
             for k in keys_to_delete:
                 del self.cache._memory_cache[k]
-        
+
         if self.cache._redis_client:
             try:
                 # Use SCAN to find matching keys
@@ -428,7 +437,7 @@ Return ONLY the translated text, no explanations or metadata."""
                 return deleted_count > 0
             except Exception:
                 return False
-        return len(keys_to_delete) > 0 if 'keys_to_delete' in locals() else False
+        return len(keys_to_delete) > 0 if "keys_to_delete" in locals() else False
 
     def invalidate_all_cache(self) -> int:
         return self.cache.clear()

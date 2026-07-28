@@ -1,4 +1,5 @@
 """Tests for the feedback collection endpoints — issue #308."""
+
 from __future__ import annotations
 
 import pytest
@@ -25,9 +26,7 @@ class TestFeedback:
         assert resp.status_code == 422
 
     def test_submit_rejects_non_image_screenshot(self, client):
-        resp = client.post(
-            "/api/v1/feedback", json={**VALID, "screenshot": "not-a-data-url"}
-        )
+        resp = client.post("/api/v1/feedback", json={**VALID, "screenshot": "not-a-data-url"})
         assert resp.status_code == 422
 
     def test_submit_accepts_image_data_url(self, client):
@@ -67,4 +66,6 @@ class TestFeedback:
         assert client.patch(f"/api/v1/feedback/{fid}", json={"status": "nope"}).status_code == 422
 
     def test_update_unknown_feedback_returns_404(self, client):
-        assert client.patch("/api/v1/feedback/999999", json={"status": "planned"}).status_code == 404
+        assert (
+            client.patch("/api/v1/feedback/999999", json={"status": "planned"}).status_code == 404
+        )

@@ -3,16 +3,17 @@
 Provides paginated account listing, single-account lookup, transaction
 history, fraud summary, and loyalty information.
 """
+
 from __future__ import annotations
 
+import os
+from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import AsyncGenerator, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-import os
 
 from astroml.api.models import FraudAlert
 from astroml.db.schema import Account, Transaction
@@ -26,9 +27,7 @@ _DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://astroml:astroml@localhost/astroml",
 )
 _engine = create_async_engine(_DATABASE_URL, pool_pre_ping=True)
-_session_factory: async_sessionmaker = async_sessionmaker(
-    _engine, expire_on_commit=False
-)
+_session_factory: async_sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -46,9 +45,9 @@ class AccountItem(BaseModel):
     """Summary representation of a single account."""
 
     account_id: str
-    balance_xlm: Optional[float]
-    sequence_number: Optional[int]
-    updated_at: Optional[datetime]
+    balance_xlm: float | None
+    sequence_number: int | None
+    updated_at: datetime | None
 
     model_config = {"from_attributes": True}
 
@@ -56,7 +55,7 @@ class AccountItem(BaseModel):
 class AccountListResponse(BaseModel):
     """Paginated list of accounts."""
 
-    items: List[AccountItem]
+    items: list[AccountItem]
     total: int
     page: int
     page_size: int
@@ -72,8 +71,8 @@ class TransactionItem(BaseModel):
     fee: int
     operation_count: int
     successful: bool
-    memo_type: Optional[str]
-    memo: Optional[str]
+    memo_type: str | None
+    memo: str | None
 
     model_config = {"from_attributes": True}
 
@@ -81,7 +80,7 @@ class TransactionItem(BaseModel):
 class TransactionListResponse(BaseModel):
     """Paginated list of transactions."""
 
-    items: List[TransactionItem]
+    items: list[TransactionItem]
     total: int
     page: int
     page_size: int
@@ -95,8 +94,8 @@ class FraudSummaryResponse(BaseModel):
     high: int
     medium: int
     low: int
-    latest_score: Optional[float]
-    latest_risk_level: Optional[str]
+    latest_score: float | None
+    latest_risk_level: str | None
 
 
 class LoyaltyResponse(BaseModel):
@@ -119,9 +118,13 @@ router = APIRouter()
 async def list_accounts(
     page: int = Query(default=1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    public_key: Optional[str] = Query(default=None, description="Filter by account public key"),
-    date_from: Optional[datetime] = Query(default=None, description="Filter accounts updated on or after this datetime (ISO 8601)"),
-    date_to: Optional[datetime] = Query(default=None, description="Filter accounts updated on or before this datetime (ISO 8601)"),
+    public_key: str | None = Query(default=None, description="Filter by account public key"),
+    date_from: datetime | None = Query(
+        default=None, description="Filter accounts updated on or after this datetime (ISO 8601)"
+    ),
+    date_to: datetime | None = Query(
+        default=None, description="Filter accounts updated on or before this datetime (ISO 8601)"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> AccountListResponse:
     """List accounts with optional filters and pagination."""
@@ -194,9 +197,7 @@ async def get_account_transactions(
     total: int = (await db.execute(count_stmt)).scalar_one()
 
     offset = (page - 1) * page_size
-    paged_stmt = (
-        base_stmt.order_by(Transaction.created_at.desc()).offset(offset).limit(page_size)
-    )
+    paged_stmt = base_stmt.order_by(Transaction.created_at.desc()).offset(offset).limit(page_size)
     rows = (await db.execute(paged_stmt)).scalars().all()
 
     items = [TransactionItem.model_validate(row) for row in rows]

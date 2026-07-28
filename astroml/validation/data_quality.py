@@ -4,20 +4,23 @@ This module provides additional validation functions for temporal consistency,
 referential integrity, business rules, and statistical validation beyond the
 basic corruption detection in the validator module.
 """
+
 from __future__ import annotations
 
 import logging
 import re
 import statistics
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class DataQualityError(Exception):
     """Raised when a data quality check fails."""
+
     pass
 
 
@@ -34,10 +37,10 @@ class ValidationResult:
     """
 
     is_valid: bool
-    error_type: Optional[str] = None
-    message: Optional[str] = None
-    field: Optional[str] = None
-    details: Dict[str, Any] = dc_field(default_factory=dict)
+    error_type: str | None = None
+    message: str | None = None
+    field: str | None = None
+    details: dict[str, Any] = dc_field(default_factory=dict)
 
 
 @dataclass
@@ -53,8 +56,8 @@ class DataQualityReport:
 
     total_records: int = 0
     valid_records: int = 0
-    validation_results: List[ValidationResult] = dc_field(default_factory=list)
-    summary: Dict[str, Any] = dc_field(default_factory=dict)
+    validation_results: list[ValidationResult] = dc_field(default_factory=list)
+    summary: dict[str, Any] = dc_field(default_factory=dict)
 
     @property
     def quality_score(self) -> float:
@@ -64,7 +67,7 @@ class DataQualityReport:
         return (self.valid_records / self.total_records) * 100
 
     @property
-    def error_types(self) -> Set[str]:
+    def error_types(self) -> set[str]:
         """Get set of unique error types found."""
         return {r.error_type for r in self.validation_results if not r.is_valid and r.error_type}
 
@@ -80,7 +83,7 @@ class TemporalValidator:
         """
         self.timestamp_field = timestamp_field
 
-    def validate_timestamp_ordering(self, transactions: List[Dict[str, Any]]) -> ValidationResult:
+    def validate_timestamp_ordering(self, transactions: list[dict[str, Any]]) -> ValidationResult:
         """Validate that timestamps are monotonically increasing within a batch.
 
         Args:
@@ -100,12 +103,12 @@ class TemporalValidator:
                         is_valid=False,
                         error_type="MISSING_TIMESTAMP",
                         message=f"Missing timestamp field: {self.timestamp_field}",
-                        field=self.timestamp_field
+                        field=self.timestamp_field,
                     )
-                
+
                 ts_str = tx[self.timestamp_field]
                 if isinstance(ts_str, str):
-                    ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                 elif isinstance(ts_str, datetime):
                     ts = ts_str
                 else:
@@ -113,22 +116,26 @@ class TemporalValidator:
                         is_valid=False,
                         error_type="INVALID_TIMESTAMP_FORMAT",
                         message=f"Invalid timestamp format: {type(ts_str)}",
-                        field=self.timestamp_field
+                        field=self.timestamp_field,
                     )
                 timestamps.append(ts)
 
             # Check if timestamps are monotonically increasing
-            is_ordered = all(timestamps[i] <= timestamps[i+1] for i in range(len(timestamps)-1))
-            
+            is_ordered = all(timestamps[i] <= timestamps[i + 1] for i in range(len(timestamps) - 1))
+
             if not is_ordered:
                 # Find the first out-of-order timestamp
-                for i in range(len(timestamps)-1):
-                    if timestamps[i] > timestamps[i+1]:
+                for i in range(len(timestamps) - 1):
+                    if timestamps[i] > timestamps[i + 1]:
                         return ValidationResult(
                             is_valid=False,
                             error_type="TIMESTAMP_ORDER_VIOLATION",
                             message=f"Timestamp order violation at index {i}: {timestamps[i]} > {timestamps[i+1]}",
-                            details={"index": i, "current": timestamps[i].isoformat(), "next": timestamps[i+1].isoformat()}
+                            details={
+                                "index": i,
+                                "current": timestamps[i].isoformat(),
+                                "next": timestamps[i + 1].isoformat(),
+                            },
                         )
 
             return ValidationResult(is_valid=True, message="Timestamps are properly ordered")
@@ -137,11 +144,12 @@ class TemporalValidator:
             return ValidationResult(
                 is_valid=False,
                 error_type="TIMESTAMP_VALIDATION_ERROR",
-                message=f"Error validating timestamps: {str(e)}"
+                message=f"Error validating timestamps: {str(e)}",
             )
 
-    def validate_future_timestamps(self, transactions: List[Dict[str, Any]], 
-                                  tolerance_minutes: int = 5) -> ValidationResult:
+    def validate_future_timestamps(
+        self, transactions: list[dict[str, Any]], tolerance_minutes: int = 5
+    ) -> ValidationResult:
         """Validate that no transactions have timestamps significantly in the future.
 
         Args:
@@ -165,25 +173,27 @@ class TemporalValidator:
 
                 ts_str = tx[self.timestamp_field]
                 if isinstance(ts_str, str):
-                    ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
                 elif isinstance(ts_str, datetime):
                     ts = ts_str
                 else:
                     continue
 
                 if ts > now + tolerance:
-                    future_txs.append({
-                        "id": tx.get("id", "unknown"),
-                        "timestamp": ts.isoformat(),
-                        "minutes_ahead": (ts - now).total_seconds() / 60
-                    })
+                    future_txs.append(
+                        {
+                            "id": tx.get("id", "unknown"),
+                            "timestamp": ts.isoformat(),
+                            "minutes_ahead": (ts - now).total_seconds() / 60,
+                        }
+                    )
 
             if future_txs:
                 return ValidationResult(
                     is_valid=False,
                     error_type="FUTURE_TIMESTAMP",
                     message=f"Found {len(future_txs)} transactions with future timestamps",
-                    details={"future_transactions": future_txs}
+                    details={"future_transactions": future_txs},
                 )
 
             return ValidationResult(is_valid=True, message="No future timestamps detected")
@@ -192,7 +202,7 @@ class TemporalValidator:
             return ValidationResult(
                 is_valid=False,
                 error_type="FUTURE_TIMESTAMP_ERROR",
-                message=f"Error checking future timestamps: {str(e)}"
+                message=f"Error checking future timestamps: {str(e)}",
             )
 
 
@@ -201,8 +211,8 @@ class ReferentialIntegrityValidator:
 
     def __init__(self):
         """Initialize referential integrity validator."""
-        self.account_pattern = re.compile(r'^G[A-Z0-9]{56}$')
-        self.asset_code_pattern = re.compile(r'^[A-Z0-9]{1,12}$')
+        self.account_pattern = re.compile(r"^G[A-Z0-9]{56}$")
+        self.asset_code_pattern = re.compile(r"^[A-Z0-9]{1,12}$")
 
     def validate_account_format(self, account: str) -> ValidationResult:
         """Validate Stellar account address format.
@@ -218,7 +228,7 @@ class ReferentialIntegrityValidator:
                 is_valid=False,
                 error_type="INVALID_ACCOUNT_TYPE",
                 message=f"Account must be string, got {type(account)}",
-                field="account"
+                field="account",
             )
 
         if self.account_pattern.match(account):
@@ -228,7 +238,7 @@ class ReferentialIntegrityValidator:
                 is_valid=False,
                 error_type="INVALID_ACCOUNT_FORMAT",
                 message=f"Invalid Stellar account format: {account}",
-                field="account"
+                field="account",
             )
 
     def validate_asset_format(self, asset_code: str) -> ValidationResult:
@@ -245,7 +255,7 @@ class ReferentialIntegrityValidator:
                 is_valid=False,
                 error_type="INVALID_ASSET_TYPE",
                 message=f"Asset code must be string, got {type(asset_code)}",
-                field="asset_code"
+                field="asset_code",
             )
 
         if self.asset_code_pattern.match(asset_code):
@@ -255,7 +265,7 @@ class ReferentialIntegrityValidator:
                 is_valid=False,
                 error_type="INVALID_ASSET_FORMAT",
                 message=f"Invalid asset code format: {asset_code}",
-                field="asset_code"
+                field="asset_code",
             )
 
     def validate_ledger_sequence(self, ledger_sequence: int) -> ValidationResult:
@@ -272,7 +282,7 @@ class ReferentialIntegrityValidator:
                 is_valid=False,
                 error_type="INVALID_LEDGER_SEQUENCE_TYPE",
                 message=f"Ledger sequence must be integer, got {type(ledger_sequence)}",
-                field="ledger_sequence"
+                field="ledger_sequence",
             )
 
         if ledger_sequence > 0:
@@ -282,7 +292,7 @@ class ReferentialIntegrityValidator:
                 is_valid=False,
                 error_type="INVALID_LEDGER_SEQUENCE",
                 message=f"Ledger sequence must be positive, got {ledger_sequence}",
-                field="ledger_sequence"
+                field="ledger_sequence",
             )
 
 
@@ -307,7 +317,7 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="INVALID_FEE_TYPE",
                 message=f"Fee must be numeric, got {type(fee)}",
-                field="fee"
+                field="fee",
             )
 
         if fee >= 0:
@@ -317,7 +327,7 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="NEGATIVE_FEE",
                 message=f"Fee cannot be negative: {fee}",
-                field="fee"
+                field="fee",
             )
 
     def validate_amount_non_negative(self, amount: float) -> ValidationResult:
@@ -334,7 +344,7 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="INVALID_AMOUNT_TYPE",
                 message=f"Amount must be numeric, got {type(amount)}",
-                field="amount"
+                field="amount",
             )
 
         if amount >= 0:
@@ -344,7 +354,7 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="NEGATIVE_AMOUNT",
                 message=f"Amount cannot be negative: {amount}",
-                field="amount"
+                field="amount",
             )
 
     def validate_operation_count(self, operation_count: int) -> ValidationResult:
@@ -361,7 +371,7 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="INVALID_OPERATION_COUNT_TYPE",
                 message=f"Operation count must be integer, got {type(operation_count)}",
-                field="operation_count"
+                field="operation_count",
             )
 
         if 1 <= operation_count <= self.max_operations_per_transaction:
@@ -371,7 +381,7 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="INVALID_OPERATION_COUNT",
                 message=f"Operation count must be between 1 and {self.max_operations_per_transaction}, got {operation_count}",
-                field="operation_count"
+                field="operation_count",
             )
 
     def validate_balance_format(self, balance: Any) -> ValidationResult:
@@ -391,16 +401,16 @@ class BusinessRulesValidator:
                 is_valid=False,
                 error_type="INVALID_BALANCE_TYPE",
                 message=f"Balance must be numeric, got {type(balance)}",
-                field="balance"
+                field="balance",
             )
 
         # Check for NaN or infinite values
-        if balance != balance or balance in [float('inf'), float('-inf')]:
+        if balance != balance or balance in [float("inf"), float("-inf")]:
             return ValidationResult(
                 is_valid=False,
                 error_type="INVALID_BALANCE_VALUE",
                 message=f"Balance cannot be NaN or infinite: {balance}",
-                field="balance"
+                field="balance",
             )
 
         return ValidationResult(is_valid=True, message="Balance format is valid")
@@ -409,7 +419,9 @@ class BusinessRulesValidator:
 class StatisticalValidator:
     """Validator for statistical data quality checks."""
 
-    def detect_amount_outliers(self, amounts: List[float], iqr_multiplier: float = 1.5) -> ValidationResult:
+    def detect_amount_outliers(
+        self, amounts: list[float], iqr_multiplier: float = 1.5
+    ) -> ValidationResult:
         """Detect statistical outliers in transaction amounts using IQR method.
 
         Args:
@@ -421,8 +433,7 @@ class StatisticalValidator:
         """
         if len(amounts) < 4:  # Need at least 4 values for meaningful quartiles
             return ValidationResult(
-                is_valid=True, 
-                message="Insufficient data for outlier detection"
+                is_valid=True, message="Insufficient data for outlier detection"
             )
 
         try:
@@ -448,25 +459,26 @@ class StatisticalValidator:
                         "upper_bound": upper_bound,
                         "q1": q1,
                         "q3": q3,
-                        "iqr": iqr
-                    }
+                        "iqr": iqr,
+                    },
                 )
             else:
                 return ValidationResult(
                     is_valid=True,
                     message="No amount outliers detected",
-                    details={"q1": q1, "q3": q3, "iqr": iqr}
+                    details={"q1": q1, "q3": q3, "iqr": iqr},
                 )
 
         except Exception as e:
             return ValidationResult(
                 is_valid=False,
                 error_type="OUTLIER_DETECTION_ERROR",
-                message=f"Error detecting outliers: {str(e)}"
+                message=f"Error detecting outliers: {str(e)}",
             )
 
-    def detect_timestamp_gaps(self, timestamps: List[datetime], 
-                           gap_threshold_minutes: int = 60) -> ValidationResult:
+    def detect_timestamp_gaps(
+        self, timestamps: list[datetime], gap_threshold_minutes: int = 60
+    ) -> ValidationResult:
         """Detect unusual gaps in timestamps.
 
         Args:
@@ -478,18 +490,17 @@ class StatisticalValidator:
         """
         if len(timestamps) < 2:
             return ValidationResult(
-                is_valid=True,
-                message="Insufficient timestamps for gap analysis"
+                is_valid=True, message="Insufficient timestamps for gap analysis"
             )
 
         try:
             # Sort timestamps
             sorted_timestamps = sorted(timestamps)
-            
+
             # Calculate gaps
             gaps = []
             for i in range(len(sorted_timestamps) - 1):
-                gap_seconds = (sorted_timestamps[i+1] - sorted_timestamps[i]).total_seconds()
+                gap_seconds = (sorted_timestamps[i + 1] - sorted_timestamps[i]).total_seconds()
                 gaps.append(gap_seconds)
 
             # Find unusual gaps
@@ -500,9 +511,10 @@ class StatisticalValidator:
                     "gap_seconds": gap,
                     "gap_minutes": gap / 60,
                     "start_time": sorted_timestamps[i].isoformat(),
-                    "end_time": sorted_timestamps[i+1].isoformat()
+                    "end_time": sorted_timestamps[i + 1].isoformat(),
                 }
-                for i, gap in enumerate(gaps) if gap > threshold_seconds
+                for i, gap in enumerate(gaps)
+                if gap > threshold_seconds
             ]
 
             if unusual_gaps:
@@ -510,24 +522,28 @@ class StatisticalValidator:
                     is_valid=False,
                     error_type="UNUSUAL_TIMESTAMP_GAPS",
                     message=f"Found {len(unusual_gaps)} unusual timestamp gaps",
-                    details={"unusual_gaps": unusual_gaps, "threshold_minutes": gap_threshold_minutes}
+                    details={
+                        "unusual_gaps": unusual_gaps,
+                        "threshold_minutes": gap_threshold_minutes,
+                    },
                 )
             else:
                 return ValidationResult(
                     is_valid=True,
                     message="No unusual timestamp gaps detected",
-                    details={"max_gap_minutes": max(gaps) / 60 if gaps else 0}
+                    details={"max_gap_minutes": max(gaps) / 60 if gaps else 0},
                 )
 
         except Exception as e:
             return ValidationResult(
                 is_valid=False,
                 error_type="GAP_DETECTION_ERROR",
-                message=f"Error detecting timestamp gaps: {str(e)}"
+                message=f"Error detecting timestamp gaps: {str(e)}",
             )
 
-    def detect_duplicate_patterns(self, transactions: List[Dict[str, Any]], 
-                                pattern_fields: List[str]) -> ValidationResult:
+    def detect_duplicate_patterns(
+        self, transactions: list[dict[str, Any]], pattern_fields: list[str]
+    ) -> ValidationResult:
         """Detect patterns that might indicate data duplication issues.
 
         Args:
@@ -539,8 +555,7 @@ class StatisticalValidator:
         """
         if not transactions or not pattern_fields:
             return ValidationResult(
-                is_valid=True,
-                message="No transactions or pattern fields specified"
+                is_valid=True, message="No transactions or pattern fields specified"
             )
 
         try:
@@ -554,7 +569,7 @@ class StatisticalValidator:
                         pattern_values.append(str(tx[field]))
                     else:
                         pattern_values.append("NULL")
-                
+
                 pattern_key = tuple(pattern_values)
                 pattern_counts[pattern_key] = pattern_counts.get(pattern_key, 0) + 1
 
@@ -572,21 +587,21 @@ class StatisticalValidator:
                         "repeated_patterns": dict(repeated_patterns),
                         "pattern_fields": pattern_fields,
                         "total_patterns": len(pattern_counts),
-                        "unique_patterns": len(pattern_counts) - len(repeated_patterns)
-                    }
+                        "unique_patterns": len(pattern_counts) - len(repeated_patterns),
+                    },
                 )
             else:
                 return ValidationResult(
                     is_valid=True,
                     message="No duplicate patterns detected",
-                    details={"total_patterns": len(pattern_counts)}
+                    details={"total_patterns": len(pattern_counts)},
                 )
 
         except Exception as e:
             return ValidationResult(
                 is_valid=False,
                 error_type="PATTERN_DETECTION_ERROR",
-                message=f"Error detecting duplicate patterns: {str(e)}"
+                message=f"Error detecting duplicate patterns: {str(e)}",
             )
 
 
@@ -600,7 +615,7 @@ class DataQualityValidator:
         self.business = BusinessRulesValidator()
         self.statistical = StatisticalValidator()
 
-    def validate_batch(self, transactions: List[Dict[str, Any]]) -> DataQualityReport:
+    def validate_batch(self, transactions: list[dict[str, Any]]) -> DataQualityReport:
         """Perform comprehensive data quality validation on a batch of transactions.
 
         Args:
@@ -658,19 +673,27 @@ class DataQualityValidator:
         # Statistical validations
         if transactions:
             # Amount outlier detection
-            amounts = [tx.get("amount", 0) for tx in transactions if isinstance(tx.get("amount"), (int, float))]
+            amounts = [
+                tx.get("amount", 0)
+                for tx in transactions
+                if isinstance(tx.get("amount"), (int, float))
+            ]
             if amounts:
                 outlier_result = self.statistical.detect_amount_outliers(amounts)
                 validation_results.append(outlier_result)
 
             # Duplicate pattern detection
-            pattern_result = self.statistical.detect_duplicate_patterns(transactions, ["amount", "source_account"])
+            pattern_result = self.statistical.detect_duplicate_patterns(
+                transactions, ["amount", "source_account"]
+            )
             validation_results.append(pattern_result)
 
         # Compile report
         report.validation_results = validation_results
-        report.valid_records = len(transactions)  # Simplified - should be based on actual validation failures
-        
+        report.valid_records = len(
+            transactions
+        )  # Simplified - should be based on actual validation failures
+
         # Generate summary
         error_counts = {}
         for result in validation_results:
@@ -680,7 +703,7 @@ class DataQualityValidator:
         report.summary = {
             "error_counts": error_counts,
             "total_errors": len([r for r in validation_results if not r.is_valid]),
-            "quality_score": report.quality_score
+            "quality_score": report.quality_score,
         }
 
         return report
@@ -688,7 +711,8 @@ class DataQualityValidator:
 
 # Convenience functions
 
-def validate_data_quality(transactions: List[Dict[str, Any]]) -> DataQualityReport:
+
+def validate_data_quality(transactions: list[dict[str, Any]]) -> DataQualityReport:
     """Convenience function for comprehensive data quality validation.
 
     Args:
@@ -701,7 +725,7 @@ def validate_data_quality(transactions: List[Dict[str, Any]]) -> DataQualityRepo
     return validator.validate_batch(transactions)
 
 
-def check_temporal_consistency(transactions: List[Dict[str, Any]]) -> List[ValidationResult]:
+def check_temporal_consistency(transactions: list[dict[str, Any]]) -> list[ValidationResult]:
     """Check temporal consistency of transactions.
 
     Args:
@@ -712,15 +736,15 @@ def check_temporal_consistency(transactions: List[Dict[str, Any]]) -> List[Valid
     """
     validator = TemporalValidator()
     results = []
-    
+
     if transactions:
         results.append(validator.validate_timestamp_ordering(transactions))
         results.append(validator.validate_future_timestamps(transactions))
-    
+
     return results
 
 
-def check_referential_integrity(transactions: List[Dict[str, Any]]) -> List[ValidationResult]:
+def check_referential_integrity(transactions: list[dict[str, Any]]) -> list[ValidationResult]:
     """Check referential integrity of transactions.
 
     Args:
@@ -731,7 +755,7 @@ def check_referential_integrity(transactions: List[Dict[str, Any]]) -> List[Vali
     """
     validator = ReferentialIntegrityValidator()
     results = []
-    
+
     for tx in transactions:
         if "source_account" in tx:
             results.append(validator.validate_account_format(tx["source_account"]))
@@ -739,5 +763,5 @@ def check_referential_integrity(transactions: List[Dict[str, Any]]) -> List[Vali
             results.append(validator.validate_asset_format(tx["asset_code"]))
         if "ledger_sequence" in tx:
             results.append(validator.validate_ledger_sequence(tx["ledger_sequence"]))
-    
+
     return results

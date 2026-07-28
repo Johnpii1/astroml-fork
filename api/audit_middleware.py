@@ -1,15 +1,15 @@
 """Audit logging middleware for sensitive API operations (issue #332)."""
+
 from __future__ import annotations
 
 from typing import Callable
 
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.audit import audit_logger
 from api.database import get_async_session_factory
-
 
 SENSITIVE_ACTIONS = {
     "POST": "create",

@@ -1,26 +1,65 @@
-"""Pydantic schemas shared across all API routers."""
+"""Pydantic schemas shared across all API routers.
+
+See ADR-005 (docs/adr/005-pydantic-data-validation.md) for Pydantic schema validation architecture.
+"""
+
 from __future__ import annotations
 
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Literal
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, Field, field_validator
+
+# Stellar account ID: starts with G, 56 base-32 chars total (G + 55 A-Z2-7)
+_STELLAR_ACCOUNT_RE = re.compile(r"^G[A-Z2-7]{55}$")
+
+# Asset code: 1–12 alphanumeric characters (XLM or issued assets like USDC)
+_ASSET_CODE_RE = re.compile(r"^[A-Za-z0-9]{1,12}$")
+
+
+def _validate_stellar_account(value: str, field_name: str = "account") -> str:
+    """Raise ValueError if *value* is not a valid Stellar account ID."""
+    if not _STELLAR_ACCOUNT_RE.match(value):
+        raise ValueError(
+            f"{field_name} must be a 56-character Stellar account ID starting with 'G'"
+        )
+    return value
 
 
 # ─── Fraud ────────────────────────────────────────────────────────────────────
 
+
 class EdgeInput(BaseModel):
-    src: str
-    dst: str
-    amount: float = 0.0
-    timestamp: float = 0.0
-    asset: str = "XLM"
+    src: str = Field(..., min_length=56, max_length=56)
+    dst: str = Field(..., min_length=56, max_length=56)
+    amount: float = Field(default=0.0, ge=0.0, le=1e15)
+    timestamp: float = Field(default=0.0, ge=0.0)
+    asset: str = Field(default="XLM", min_length=1, max_length=12)
+
+    @field_validator("src", "dst")
+    @classmethod
+    def validate_stellar_account(cls, v: str) -> str:
+        return _validate_stellar_account(v)
+
+    @field_validator("asset")
+    @classmethod
+    def validate_asset_code(cls, v: str) -> str:
+        if not _ASSET_CODE_RE.match(v):
+            raise ValueError("asset must be 1–12 alphanumeric characters")
+        return v.upper()
 
 
 class ScoreRequest(BaseModel):
-    accounts: List[str] = Field(..., max_length=50)
-    edges: List[EdgeInput] = Field(default_factory=list)
+    accounts: List[str] = Field(..., min_length=1, max_length=50)
+    edges: List[EdgeInput] = Field(default_factory=list, max_length=500)
+
+    @field_validator("accounts", mode="before")
+    @classmethod
+    def validate_accounts(cls, v: list) -> list:
+        for item in v:
+            _validate_stellar_account(str(item), "accounts item")
+        return v
 
 
 class ScoreResponse(BaseModel):
@@ -104,15 +143,28 @@ class FraudStatsResponse(BaseModel):
 
 # ─── Accounts ─────────────────────────────────────────────────────────────────
 
+
 class AccountOut(BaseModel):
     account_id: str
     balance: Optional[float] = None
     sequence: Optional[int] = None
-    home_domain: Optional[str] = None
+    home_domain: Optional[str] = Field(default=None, max_length=253)
     flags: int = 0
     last_modified_ledger: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @field_validator("account_id")
+    @classmethod
+    def validate_account_id(cls, v: str) -> str:
+        return _validate_stellar_account(v, "account_id")
+
+    @field_validator("balance")
+    @classmethod
+    def validate_balance(cls, v: Optional[float]) -> Optional[float]:
+        if v is not None and v < 0:
+            raise ValueError("balance must be non-negative")
+        return v
 
     class Config:
         from_attributes = True
@@ -126,15 +178,20 @@ class AccountsResponse(BaseModel):
 
 
 class TransactionOut(BaseModel):
-    hash: str
-    ledger_sequence: int
+    hash: str = Field(..., min_length=1, max_length=128)
+    ledger_sequence: int = Field(..., ge=0)
     source_account: str
     created_at: datetime
-    fee: int
-    operation_count: int
+    fee: int = Field(..., ge=0)
+    operation_count: int = Field(..., ge=0)
     successful: bool
-    memo_type: Optional[str] = None
-    memo: Optional[str] = None
+    memo_type: Optional[str] = Field(default=None, max_length=32)
+    memo: Optional[str] = Field(default=None, max_length=256)
+
+    @field_validator("source_account")
+    @classmethod
+    def validate_source_account(cls, v: str) -> str:
+        return _validate_stellar_account(v, "source_account")
 
     class Config:
         from_attributes = True
@@ -165,21 +222,26 @@ class LoyaltySummaryOut(BaseModel):
 
 # ─── Monitoring ───────────────────────────────────────────────────────────────
 
+
 class ModelMetricsOut(BaseModel):
-    accuracy: Optional[float] = None
-    precision: Optional[float] = None
-    recall: Optional[float] = None
-    f1: Optional[float] = None
-    f1_score: Optional[float] = None   # alias populated from f1 for compatibility
-    auc: Optional[float] = None
-    auc_roc: Optional[float] = None    # alias populated from auc for compatibility
-    drift_score: Optional[float] = None
+    accuracy: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    precision: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    recall: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    f1: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    f1_score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0
+    )  # alias populated from f1 for compatibility
+    auc: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    auc_roc: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0
+    )  # alias populated from auc for compatibility
+    drift_score: Optional[float] = Field(default=None, ge=0.0)
     recorded_at: Optional[datetime] = None
-    
+
     # LLM Tracking
-    llm_cost: Optional[float] = None
-    llm_prompt_tokens: Optional[int] = None
-    llm_completion_tokens: Optional[int] = None
+    llm_cost: Optional[float] = Field(default=None, ge=0.0)
+    llm_prompt_tokens: Optional[int] = Field(default=None, ge=0)
+    llm_completion_tokens: Optional[int] = Field(default=None, ge=0)
 
 
 class PerformancePoint(BaseModel):
@@ -211,6 +273,7 @@ class LatencyStats(BaseModel):
 
 
 # ─── Loyalty ──────────────────────────────────────────────────────────────────
+
 
 class LoyaltyTierOut(BaseModel):
     id: str
@@ -273,12 +336,23 @@ class ReferralOut(BaseModel):
 
 # ─── Mentorship ────────────────────────────────────────────────────────────
 
+
 class MentorProfileIn(BaseModel):
-    bio: Optional[str] = None
-    skills: List[str] = Field(default_factory=list)
-    years_experience: int = Field(ge=0)
-    preferred_session_day: Optional[str] = None
+    bio: Optional[str] = Field(default=None, max_length=1000)
+    skills: List[str] = Field(default_factory=list, max_length=20)
+    years_experience: int = Field(ge=0, le=50)
+    preferred_session_day: Optional[str] = Field(default=None, max_length=16)
     max_mentees: int = Field(default=3, ge=1, le=10)
+
+    @field_validator("skills", mode="before")
+    @classmethod
+    def validate_skills(cls, v: list) -> list:
+        if not isinstance(v, list):
+            raise ValueError("skills must be a list")
+        for skill in v:
+            if not isinstance(skill, str) or len(skill) > 64:
+                raise ValueError("each skill must be a string of at most 64 characters")
+        return v
 
 
 class MentorProfileOut(BaseModel):
@@ -297,11 +371,11 @@ class MentorProfileOut(BaseModel):
 
 
 class MenteeProfileIn(BaseModel):
-    bio: Optional[str] = None
-    learning_interests: List[str] = Field(default_factory=list)
-    years_experience: int = Field(ge=0)
-    preferred_session_day: Optional[str] = None
-    goals: Optional[str] = None
+    bio: Optional[str] = Field(default=None, max_length=1000)
+    learning_interests: List[str] = Field(default_factory=list, max_length=20)
+    years_experience: int = Field(ge=0, le=50)
+    preferred_session_day: Optional[str] = Field(default=None, max_length=16)
+    goals: Optional[str] = Field(default=None, max_length=2000)
 
 
 class MenteeProfileOut(BaseModel):
@@ -415,6 +489,7 @@ class MenteeListResponse(BaseModel):
 
 # ─── Notifications ─────────────────────────────────────────────────────────
 
+
 class NotificationOut(BaseModel):
     id: int
     event_type: str
@@ -488,6 +563,7 @@ class DigestEmailOut(BaseModel):
 
 # ─── Onboarding ────────────────────────────────────────────────────────────
 
+
 class OnboardingStepIn(BaseModel):
     step: str
 
@@ -510,6 +586,7 @@ class OnboardingProgressOut(BaseModel):
 
 
 # ─── FAQ (issue #307) ───────────────────────────────────────────────────────────
+
 
 class FAQOut(BaseModel):
     id: int
@@ -715,7 +792,9 @@ class RoadmapResponse(BaseModel):
     in_progress: List[RoadmapItem]
     completed: List[RoadmapItem]
 
+
 # ─── LLM feedback (#402) ────────────────────────────────────────────────────
+
 
 class LLMFeedbackIn(BaseModel):
     feature: str = Field(min_length=1, max_length=64)
@@ -771,6 +850,7 @@ class LLMPromptImprovement(BaseModel):
 
 # ─── Translation (Issue 1) ──────────────────────────────────────────────────────────
 
+
 class TranslationRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
     target_language: str = Field(..., min_length=2, max_length=10)
@@ -822,6 +902,7 @@ class TranslationCacheStatsResponse(BaseModel):
 
 # ─── Predictive Alerts (Issue 2) ────────────────────────────────────────────────
 
+
 class BehavioralBaseline(BaseModel):
     account_id: str
     metric_name: str
@@ -836,19 +917,23 @@ class BehavioralBaseline(BaseModel):
 
 # --- LLM Feature Schemas ---
 
+
 class SuggestionItem(BaseModel):
     query: str
     popularity: int
     is_correction: bool
 
+
 class SuggestionResponse(BaseModel):
     suggestions: List[SuggestionItem]
     corrected_query: Optional[str] = None
+
 
 class SearchRequest(BaseModel):
     query: str
     filters: Optional[Dict[str, Any]] = None
     top_k: int = 5
+
 
 class SearchResult(BaseModel):
     id: str
@@ -857,9 +942,11 @@ class SearchResult(BaseModel):
     data: Dict[str, Any]
     explanation: str
 
+
 class SearchResponse(BaseModel):
     results: List[SearchResult]
     query_time_ms: int
+
 
 class CostMetric(BaseModel):
     provider: str
@@ -867,9 +954,11 @@ class CostMetric(BaseModel):
     total_cost: float
     total_tokens: int
 
+
 class BudgetAlert(BaseModel):
     threshold_percent: int
     is_triggered: bool
+
 
 class CostDashboardResponse(BaseModel):
     metrics: List[CostMetric]

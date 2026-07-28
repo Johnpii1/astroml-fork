@@ -3,6 +3,7 @@ Integration tests — health check endpoint (issue #244).
 
 Covers: /health returns 200 with expected payload.
 """
+
 from __future__ import annotations
 
 import pytest

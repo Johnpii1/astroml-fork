@@ -1,4 +1,5 @@
 """Pydantic schemas for model registry."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -76,23 +77,26 @@ class ModelTagsUpdateIn(BaseModel):
     add_tags: Optional[List[str]] = None
     remove_tags: Optional[List[str]] = None
 
+
 # Add to existing schemas/model_registry.py
 
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, validator
 
 
 class SemanticVersion(BaseModel):
     """Semantic version model."""
+
     major: int = Field(ge=0)
     minor: int = Field(ge=0)
     patch: int = Field(ge=0)
 
-    @validator('patch')
+    @validator("patch")
     def validate_patch(cls, v):
         if v < 0:
-            raise ValueError('Patch version must be >= 0')
+            raise ValueError("Patch version must be >= 0")
         return v
 
     def __str__(self) -> str:
@@ -101,6 +105,7 @@ class SemanticVersion(BaseModel):
 
 class ModelVersionCreate(BaseModel):
     """Create a new model version."""
+
     version: Optional[str] = None
     artifact_path: str
     hyperparameters: Optional[Dict[str, Any]] = None
@@ -112,6 +117,7 @@ class ModelVersionCreate(BaseModel):
 
 class ModelVersionUpdate(BaseModel):
     """Update a model version."""
+
     status: Optional[str] = None
     metrics: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -119,18 +125,21 @@ class ModelVersionUpdate(BaseModel):
 
 class ModelVersionTransition(BaseModel):
     """Transition a model version to a new status."""
+
     target_status: str
     reason: Optional[str] = None
 
 
 class RollbackRequest(BaseModel):
     """Rollback request."""
+
     target_version: str
     reason: str
 
 
 class ABTestCreate(BaseModel):
     """Create an A/B test."""
+
     control_version: str
     treatment_version: str
     traffic_split: float = Field(ge=0.0, le=1.0)
@@ -139,6 +148,7 @@ class ABTestCreate(BaseModel):
 
 class DeploymentRequest(BaseModel):
     """Deploy a model version."""
+
     version_id: int
     environment: str
     deployed_by: Optional[str] = None
@@ -147,6 +157,7 @@ class DeploymentRequest(BaseModel):
 
 class VersionComparisonResult(BaseModel):
     """Version comparison result."""
+
     versions: List[Dict[str, Any]]
     metrics: Dict[str, Dict[str, Optional[float]]]
     summary: Dict[str, Dict[str, Any]]
@@ -154,6 +165,7 @@ class VersionComparisonResult(BaseModel):
 
 class VersionHistoryItem(BaseModel):
     """Version history item."""
+
     id: int
     version: str
     status: str
@@ -162,3 +174,11 @@ class VersionHistoryItem(BaseModel):
     deployed_at: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
+
+from enum import Enum
+
+
+class DeploymentEnvironment(str, Enum):
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"

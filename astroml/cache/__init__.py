@@ -15,17 +15,18 @@ The caching layer supports:
 
 from __future__ import annotations
 
+from astroml.cache.decorators import cache_feature_store
 from astroml.cache.redis_cache import (
-    RedisCache,
     CacheConfig,
     CacheStats,
+    RedisCache,
     cached,
     cached_feature,
-    cached_prediction,
     cached_graph_snapshot,
-    invalidate_cache,
-    get_cache_stats,
+    cached_prediction,
     clear_all_caches,
+    get_cache_stats,
+    invalidate_cache,
 )
 
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "cached_feature",
     "cached_prediction",
     "cached_graph_snapshot",
+    "cache_feature_store",
     "invalidate_cache",
     "get_cache_stats",
     "clear_all_caches",

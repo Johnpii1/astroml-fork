@@ -1,6 +1,8 @@
 """Tests for GitHub Discussions API integration."""
+
 import pytest
 from fastapi.testclient import TestClient
+
 from api.app import app
 
 client = TestClient(app)
@@ -43,10 +45,7 @@ class TestDiscussionsRouter:
 
     def test_search_discussions(self):
         """Test searching discussions."""
-        response = client.post(
-            "/api/v1/discussions/search",
-            json={"query": "test", "limit": 20}
-        )
+        response = client.post("/api/v1/discussions/search", json={"query": "test", "limit": 20})
         assert response.status_code == 200
         data = response.json()
         assert "results" in data

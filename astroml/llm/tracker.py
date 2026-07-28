@@ -1,6 +1,6 @@
 """LLM Token Usage and Cost Tracking."""
+
 import logging
-from typing import Dict
 
 from astroml.llm.metrics import (
     LLM_COST_USD_TOTAL,
@@ -25,35 +25,25 @@ class LLMUsageTracker:
         self.total_completion_tokens = 0
         self.alert_threshold = 100.0  # $100
 
-    def record_usage(
-        self, provider_name: str, usage: Dict[str, int], latency_ms: float
-    ) -> float:
-        rates = COST_RATES.get(
-            provider_name.lower(), {"prompt": 0.0, "completion": 0.0}
-        )
+    def record_usage(self, provider_name: str, usage: dict[str, int], latency_ms: float) -> float:
+        rates = COST_RATES.get(provider_name.lower(), {"prompt": 0.0, "completion": 0.0})
         prompt_tokens = usage.get("prompt_tokens", 0)
         completion_tokens = usage.get("completion_tokens", 0)
-        cost = (prompt_tokens / 1000.0) * rates["prompt"] + (
-            completion_tokens / 1000.0
-        ) * rates["completion"]
+        cost = (prompt_tokens / 1000.0) * rates["prompt"] + (completion_tokens / 1000.0) * rates[
+            "completion"
+        ]
 
         self.total_prompt_tokens += prompt_tokens
         self.total_completion_tokens += completion_tokens
         self.total_cost += cost
 
-        LLM_REQUESTS_TOTAL.labels(
-            provider=provider_name, status="success"
-        ).inc()
-        LLM_REQUEST_LATENCY_SECONDS.labels(provider=provider_name).observe(
-            latency_ms / 1000.0
-        )
+        LLM_REQUESTS_TOTAL.labels(provider=provider_name, status="success").inc()
+        LLM_REQUEST_LATENCY_SECONDS.labels(provider=provider_name).observe(latency_ms / 1000.0)
         LLM_COST_USD_TOTAL.labels(provider=provider_name).inc(cost)
-        LLM_TOKENS_TOTAL.labels(
-            provider=provider_name, token_type="prompt"
-        ).inc(prompt_tokens)
-        LLM_TOKENS_TOTAL.labels(
-            provider=provider_name, token_type="completion"
-        ).inc(completion_tokens)
+        LLM_TOKENS_TOTAL.labels(provider=provider_name, token_type="prompt").inc(prompt_tokens)
+        LLM_TOKENS_TOTAL.labels(provider=provider_name, token_type="completion").inc(
+            completion_tokens
+        )
 
         logger.info(
             "LLM Usage Recorded: Provider=%s, PromptTokens=%d, "
@@ -74,19 +64,17 @@ class LLMUsageTracker:
     def check_alerts(self):
         if self.total_cost > self.alert_threshold:
             logger.warning(
-                "LLM Cost Alert! Total cost ($%.2f) has exceeded "
-                "threshold ($%.2f)",
+                "LLM Cost Alert! Total cost ($%.2f) has exceeded " "threshold ($%.2f)",
                 self.total_cost,
                 self.alert_threshold,
             )
 
-    def get_summary(self) -> Dict[str, float]:
+    def get_summary(self) -> dict[str, float]:
         return {
             "total_cost": self.total_cost,
             "total_prompt_tokens": self.total_prompt_tokens,
             "total_completion_tokens": self.total_completion_tokens,
-            "total_tokens": self.total_prompt_tokens
-            + self.total_completion_tokens,
+            "total_tokens": self.total_prompt_tokens + self.total_completion_tokens,
         }
 
 

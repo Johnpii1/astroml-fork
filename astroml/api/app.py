@@ -14,11 +14,12 @@ BATCH_INTERVAL_SECONDS  How often the scorer runs (default 300 s / 5 min).
 ACTIVITY_WINDOW_HOURS   Accounts active within this window are scored (default 24).
 ALERT_RETENTION_DAYS    FraudAlert rows older than this are purged (default 90).
 """
+
 from __future__ import annotations
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -34,12 +35,11 @@ DATABASE_URL = os.environ.get(
 )
 
 _engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
-_session_factory: async_sessionmaker = async_sessionmaker(
-    _engine, expire_on_commit=False
-)
+_session_factory: async_sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
 
 
 # ─── Lifespan ────────────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:

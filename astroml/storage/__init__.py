@@ -1,4 +1,5 @@
 """Artifact storage module with support for multiple backends."""
+
 from astroml.storage.artifact_store import (
     ArtifactStore,
     GCSArtifactStore,

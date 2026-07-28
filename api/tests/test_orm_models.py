@@ -3,6 +3,7 @@
 Verifies that all required models can be created, persisted, and queried using
 the SQLite in-memory session provided by the conftest fixtures.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -21,10 +22,10 @@ from api.models.orm import (
     Transaction,
 )
 
-
 # ---------------------------------------------------------------------------
 # Account
 # ---------------------------------------------------------------------------
+
 
 class TestAccountModel:
     def test_create_and_read(self, db_session):
@@ -53,9 +54,7 @@ class TestAccountModel:
             db_session.flush()
 
     def test_optional_fields_default_to_none(self, db_session):
-        acc = Account(
-            public_key="GCKFBEIYV2U22IO2BJ4KVJOIP7XPWQGQFKKWXR6DOSJBV5SG3B3ORJF"
-        )
+        acc = Account(public_key="GCKFBEIYV2U22IO2BJ4KVJOIP7XPWQGQFKKWXR6DOSJBV5SG3B3ORJF")
         db_session.add(acc)
         db_session.flush()
         db_session.refresh(acc)
@@ -68,6 +67,7 @@ class TestAccountModel:
 # ---------------------------------------------------------------------------
 # Transaction
 # ---------------------------------------------------------------------------
+
 
 class TestTransactionModel:
     def test_create_and_read(self, db_session):
@@ -133,6 +133,7 @@ class TestTransactionModel:
 # FraudAlert
 # ---------------------------------------------------------------------------
 
+
 class TestFraudAlertModel:
     def test_create_and_read(self, db_session):
         alert = FraudAlert(
@@ -193,6 +194,7 @@ class TestFraudAlertModel:
 # LoyaltyPoints
 # ---------------------------------------------------------------------------
 
+
 class TestLoyaltyPointsModel:
     def test_create_and_read(self, db_session):
         lp = LoyaltyPoints(
@@ -240,6 +242,7 @@ class TestLoyaltyPointsModel:
 # ---------------------------------------------------------------------------
 # PointsTransaction
 # ---------------------------------------------------------------------------
+
 
 class TestPointsTransactionModel:
     def test_create_earn_record(self, db_session):
@@ -290,6 +293,7 @@ class TestPointsTransactionModel:
         db_session.flush()
 
         from sqlalchemy import select
+
         rows = db_session.scalars(
             select(PointsTransaction).where(PointsTransaction.account_id == account_id)
         ).all()
@@ -299,6 +303,7 @@ class TestPointsTransactionModel:
 # ---------------------------------------------------------------------------
 # ModelRegistry
 # ---------------------------------------------------------------------------
+
 
 class TestModelRegistryModel:
     def test_create_and_read(self, db_session):
@@ -329,7 +334,7 @@ class TestModelRegistryModel:
         )
         db_session.add(parent)
         db_session.flush()
-        
+
         child = ModelRegistry(
             name="fraud_detector",
             version="v1.1.0",
@@ -339,7 +344,7 @@ class TestModelRegistryModel:
         db_session.add(child)
         db_session.flush()
         db_session.refresh(child)
-        
+
         assert child.parent_id == parent.id
 
     def test_status_defaults_to_inactive(self, db_session):
@@ -366,64 +371,50 @@ class TestModelRegistryModel:
 
     def test_name_version_unique_constraint(self, db_session):
         # Add first model
-        db_session.add(ModelRegistry(
-            name="fraud_detector",
-            version="v1.0.0",
-            path="/path/to/model1.pt"
-        ))
+        db_session.add(
+            ModelRegistry(name="fraud_detector", version="v1.0.0", path="/path/to/model1.pt")
+        )
         db_session.flush()
 
         # Try to add another with same name and version
-        db_session.add(ModelRegistry(
-            name="fraud_detector",
-            version="v1.0.0",
-            path="/path/to/model2.pt"
-        ))
+        db_session.add(
+            ModelRegistry(name="fraud_detector", version="v1.0.0", path="/path/to/model2.pt")
+        )
         with pytest.raises(IntegrityError):
             db_session.flush()
 
     def test_same_name_different_version_allowed(self, db_session):
-        db_session.add(ModelRegistry(
-            name="fraud_detector",
-            version="v1.0.0",
-            path="/path/to/model1.pt"
-        ))
-        db_session.add(ModelRegistry(
-            name="fraud_detector",
-            version="v1.1.0",
-            path="/path/to/model2.pt"
-        ))
+        db_session.add(
+            ModelRegistry(name="fraud_detector", version="v1.0.0", path="/path/to/model1.pt")
+        )
+        db_session.add(
+            ModelRegistry(name="fraud_detector", version="v1.1.0", path="/path/to/model2.pt")
+        )
         db_session.flush()
 
         from sqlalchemy import select
+
         rows = db_session.scalars(
             select(ModelRegistry).where(ModelRegistry.name == "fraud_detector")
         ).all()
         assert len(rows) == 2
 
     def test_different_name_same_version_allowed(self, db_session):
-        db_session.add(ModelRegistry(
-            name="fraud_detector",
-            version="v1.0.0",
-            path="/path/to/model1.pt"
-        ))
-        db_session.add(ModelRegistry(
-            name="anomaly_detector",
-            version="v1.0.0",
-            path="/path/to/model2.pt"
-        ))
+        db_session.add(
+            ModelRegistry(name="fraud_detector", version="v1.0.0", path="/path/to/model1.pt")
+        )
+        db_session.add(
+            ModelRegistry(name="anomaly_detector", version="v1.0.0", path="/path/to/model2.pt")
+        )
         db_session.flush()
 
         from sqlalchemy import select
+
         rows = db_session.scalars(select(ModelRegistry)).all()
         assert len(rows) == 2
 
     def test_stage_transitions(self, db_session):
-        model = ModelRegistry(
-            name="fraud_detector",
-            version="v1.0.0",
-            path="/path/to/model.pt"
-        )
+        model = ModelRegistry(name="fraud_detector", version="v1.0.0", path="/path/to/model.pt")
         db_session.add(model)
         db_session.flush()
 

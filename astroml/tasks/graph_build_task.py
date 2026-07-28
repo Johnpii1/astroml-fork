@@ -5,6 +5,7 @@ construct a NetworkX / PyG graph, and persist it to the feature store.
 The current implementation is a placeholder that simulates the workload
 with a short sleep and returns node/edge count metadata.
 """
+
 from __future__ import annotations
 
 import logging

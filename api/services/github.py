@@ -3,6 +3,7 @@
 Opens a GitHub issue for incoming feedback when a token and repo are
 configured; otherwise it's a no-op so the feature works without credentials.
 """
+
 from __future__ import annotations
 
 import logging

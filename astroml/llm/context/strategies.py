@@ -1,7 +1,8 @@
 """Pruning strategies for context management."""
 
+from collections.abc import Callable
 from enum import Enum
-from typing import List, Callable, Optional
+
 from .manager import Message
 
 
@@ -21,7 +22,7 @@ class WindowPruner:
         """Initialize with window size."""
         self.window_size = window_size
 
-    def prune(self, messages: List[Message]) -> List[Message]:
+    def prune(self, messages: list[Message]) -> list[Message]:
         """Keep only recent messages."""
         if len(messages) <= self.window_size:
             return messages
@@ -31,7 +32,7 @@ class WindowPruner:
 class ImportancePruner:
     """Importance-based pruning strategy."""
 
-    def __init__(self, scorer: Optional[Callable] = None, retain_ratio: float = 0.5):
+    def __init__(self, scorer: Callable | None = None, retain_ratio: float = 0.5):
         """Initialize with optional custom scorer.
 
         Args:
@@ -41,7 +42,7 @@ class ImportancePruner:
         self.scorer = scorer or self._default_scorer
         self.retain_ratio = retain_ratio
 
-    def prune(self, messages: List[Message]) -> List[Message]:
+    def prune(self, messages: list[Message]) -> list[Message]:
         """Keep high-importance messages."""
         if not messages:
             return messages
@@ -74,7 +75,7 @@ class ImportancePruner:
 class SummarizationPruner:
     """Summarization-based pruning (requires summarizer function)."""
 
-    def __init__(self, summarizer: Optional[Callable] = None, summary_ratio: float = 0.5):
+    def __init__(self, summarizer: Callable | None = None, summary_ratio: float = 0.5):
         """Initialize with optional custom summarizer.
 
         Args:
@@ -84,7 +85,7 @@ class SummarizationPruner:
         self.summarizer = summarizer
         self.summary_ratio = summary_ratio
 
-    def prune(self, messages: List[Message], keep_recent: int = 5) -> List[Message]:
+    def prune(self, messages: list[Message], keep_recent: int = 5) -> list[Message]:
         """Summarize old messages, keep recent verbatim."""
         if len(messages) <= keep_recent:
             return messages
@@ -121,7 +122,7 @@ class HybridPruner:
         self.summarization_pruner = SummarizationPruner()
         self.summarize_old = summarize_old
 
-    def prune(self, messages: List[Message]) -> List[Message]:
+    def prune(self, messages: list[Message]) -> list[Message]:
         """Apply hybrid pruning."""
         # First apply window
         windowed = self.window_pruner.prune(messages)

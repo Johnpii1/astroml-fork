@@ -5,19 +5,22 @@ Enhanced with:
 - Rate limit violation logging (issue #299)
 - Whitelist/Blacklist support (issue #299)
 """
+
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from api.auth.config import is_auth_enabled, PUBLIC_PATHS
+from api.auth.config import PUBLIC_PATHS, is_auth_enabled
 from api.auth.dependencies import authenticate_token
 from api.auth.rate_limit import rate_limiter
 from api.database import _sync_session_factory
+from astroml.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +43,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         try:
             auth = authenticate_token(token, session)
         except Exception as e:
-            logger.warning(f"Authentication failed for {request.client.host}: {e}")
+            logger.warning(
+                f"Authentication failed for {sanitize_log_value(str(request.client.host))}: {sanitize_log_value(str(e))}"
+            )
             return JSONResponse(status_code=401, content={"detail": "Invalid or expired token"})
         finally:
             session.close()
@@ -55,7 +60,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Log rate limit violations
         if not result.allowed:
             logger.warning(
-                f"Rate limit exceeded: {rate_key} | {client_ip} | {path} | "
+                f"Rate limit exceeded: {sanitize_log_value(rate_key)} | {sanitize_log_value(client_ip)} | {sanitize_log_value(path)} | "
                 f"retry_after={result.retry_after}s | limit={result.limit}"
             )
 
@@ -75,7 +80,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     "retry_after": result.retry_after,
                     "limit": result.limit,
                     "algorithm": result.algorithm,
-                }
+                },
             )
             if result.retry_after is not None:
                 response.headers["Retry-After"] = str(result.retry_after)

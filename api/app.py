@@ -15,6 +15,7 @@ Usage
 -----
     uvicorn api.app:app --host 0.0.0.0 --port 8000
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,16 +26,21 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from strawberry.fastapi import GraphQLRouter
 
-from api.auth.middleware import AuthMiddleware
 from api.audit_middleware import AuditLoggingMiddleware
+from api.auth.middleware import AuthMiddleware
 from api.config import settings
 from api.database import get_async_session_factory
-from api.tracing import setup_tracing
-from api.validation_middleware import ValidationMiddleware
+from api.graphql.context import get_graphql_context
+from api.graphql.schema import schema
+from api.middleware.csp import CSPMiddleware
+from api.middleware.https import HSTSMiddleware, HTTPSRedirectMiddleware
 from api.routers import (
     accounts_router,
+    admin,
+    agents_router,
+    alerts_router,
     audit_router,
     auth_router,
     backup_router,
@@ -42,47 +48,47 @@ from api.routers import (
     compliance_router,
     contact_router,
     contributors_router,
+    cost_router,
     discussions_router,
     errors_router,
+    explanations_router,
     faq_router,
     feedback_router,
     fraud_router,
-    loyalty_router,
+    health,
+    healthz,
+    llm_cache_metrics_router,
     llm_health_router,
+    llm_metrics_router,
+    llm_router,
+    llm_usage_router,
+    loyalty_router,
     mentorship_router,
     models_router,
     monitoring_router,
     notifications_router,
     onboarding_router,
+    query_router,
     rate_limit_router,
+    reports_router,
+    search_router,
+    stream_router,
+    streaming_router,
     transactions_router,
     validation_router,
     voice_router,
     ws_router,
-    streaming_router,
-    llm_usage_router,
-    llm_cache_metrics_router,
-    llm_router,
-    reports_router,
-    alerts_router,
-    query_router,
 )
-
-
-
 from api.routers.monitoring import record_latency
-
-
 from api.routers.ws import poll_and_broadcast_transactions
+from api.tracing import setup_tracing
+from api.validation_middleware import ValidationMiddleware
+from api.versioning import VersionMiddleware
+from api.websocket.llm import router as ws_llm_router
 from astroml.llm import metrics as _llm_metrics
-from api.routers import health
-from api.routers import admin
-
-from strawberry.fastapi import GraphQLRouter
-from api.graphql.schema import schema
-from api.graphql.context import get_graphql_context
-
-
+from astroml.observability.health import readiness_state
+from astroml.observability.metrics import observe_http_request, render_latest
+from astroml.utils.logging import clear_correlation_id, get_correlation_id, set_correlation_id
 
 # Setup distributed tracing (issue #336)
 _tracer_provider = setup_tracing()
@@ -129,7 +135,13 @@ async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
         except Exception:  # noqa: BLE001
             poll_task = None
 
+    # Startup finished — startup/readiness probes may now pass (issue #569).
+    readiness_state.mark_started()
+
     yield
+
+    # Drain traffic before dependencies are torn down.
+    readiness_state.set_ready(False, "Application is shutting down.")
 
     try:
         from astroml.api.scheduler import stop_scheduler  # noqa: PLC0415
@@ -153,24 +165,67 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(VersionMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(ValidationMiddleware)
 app.add_middleware(AuditLoggingMiddleware)
 app.add_middleware(
+    CSPMiddleware,
+    report_only=settings.csp_report_only,
+    report_uri=settings.csp_report_uri,
+    enable_nonce=settings.csp_enable_nonce,
+)
+app.add_middleware(
+    HTTPSRedirectMiddleware,
+    enabled=settings.https_enabled,
+    allowed_hosts=settings.https_allowed_hosts if settings.https_allowed_hosts else None,
+)
+app.add_middleware(
+    HSTSMiddleware,
+    max_age=settings.hsts_max_age,
+    include_subdomains=settings.hsts_include_subdomains,
+    preload=settings.hsts_preload,
+    enabled=settings.hsts_enabled,
+)
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+def _route_template(request: Request) -> str:
+    """Return the matched route path (not the raw URL) to bound cardinality."""
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    return path if isinstance(path, str) else request.url.path
+
+
+@app.middleware("http")
+async def _correlation_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Request-ID")
+    set_correlation_id(correlation_id)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = get_correlation_id() or ""
+    clear_correlation_id()
+    return response
 
 
 @app.middleware("http")
 async def _latency_middleware(request: Request, call_next):
     start = time.perf_counter()
-    response = await call_next(request)
-    record_latency((time.perf_counter() - start) * 1000)
-    return response
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        elapsed = time.perf_counter() - start
+        record_latency(elapsed * 1000)
+        # Prometheus HTTP latency + request count (issue #567).
+        observe_http_request(request.method, _route_template(request), status_code, elapsed)
 
 
 # Include all routers from both branches
@@ -198,15 +253,26 @@ app.include_router(backup_router)
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(streaming_router)
+app.include_router(llm_router)
+app.include_router(query_router)
+app.include_router(explanations_router)
+app.include_router(agents_router)
+app.include_router(cost_router)
+app.include_router(ws_llm_router)
+app.include_router(query_router)
 app.include_router(llm_usage_router)
 app.include_router(llm_cache_metrics_router)
 app.include_router(voice_router)
 app.include_router(llm_router)
+app.include_router(llm_metrics_router)
+app.include_router(search_router)
+app.include_router(stream_router)
 app.include_router(llm_health_router)
 app.include_router(reports_router)
 app.include_router(alerts_router)
 # HEAD branch routers (health, admin, GraphQL)
 app.include_router(health.router)
+app.include_router(healthz.router)
 app.include_router(admin.router)
 app.include_router(graphql_app, prefix="/graphql")
 # upstream/main branch routers
@@ -215,21 +281,39 @@ app.include_router(query_router)
 
 # Add GraphQL playground endpoint (for development)
 if os.environ.get("ENV", "development") == "development":
+
     @app.get("/graphql/playground")
     async def graphql_playground():
         from strawberry.fastapi import GraphQLPlayground
+
         return GraphQLPlayground()
 
 
 @app.get("/health", tags=["ops"])
-
 async def health():
     return {"status": "ok"}
 
 
 @app.get("/metrics", tags=["ops"])
 async def prometheus_metrics():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    """Prometheus exposition endpoint (issue #567)."""
+    _refresh_pool_gauges()
+    body, content_type = render_latest()
+    return Response(body, media_type=content_type)
+
+
+def _refresh_pool_gauges() -> None:
+    """Sample DB pool counters into the gauges just before a scrape (#550)."""
+    try:
+        from api.database import get_async_engine  # noqa: PLC0415
+        from astroml.db.pool_health import collect_pool_stats  # noqa: PLC0415
+        from astroml.observability.metrics import (  # noqa: PLC0415
+            update_db_pool_metrics,
+        )
+
+        update_db_pool_metrics(collect_pool_stats(get_async_engine()))
+    except Exception:  # noqa: BLE001 - a scrape must never 500
+        pass
 
 
 @app.get("/api/v1", tags=["ops"])
