@@ -104,17 +104,11 @@ def validate_range(
             value = bound.arguments.get(param_name)
             if value is not None and not isinstance(value, bool):
                 if not isinstance(value, int):
-                    raise TypeError(
-                        f"{param_name} must be an integer, got {type(value).__name__}"
-                    )
+                    raise TypeError(f"{param_name} must be an integer, got {type(value).__name__}")
                 if start is not None and value < start:
-                    raise ValueError(
-                        f"{param_name} must be >= {start}, got {value}"
-                    )
+                    raise ValueError(f"{param_name} must be >= {start}, got {value}")
                 if end is not None and value > end:
-                    raise ValueError(
-                        f"{param_name} must be <= {end}, got {value}"
-                    )
+                    raise ValueError(f"{param_name} must be <= {end}, got {value}")
             return fn(*args, **kwargs)
 
         return wrapper  # type: ignore[return-value]

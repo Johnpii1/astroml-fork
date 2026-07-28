@@ -1,10 +1,14 @@
 """Permission system for tool access control."""
 
 
-class PermissionDenied(Exception):
+class PermissionDeniedError(Exception):
     """Raised when a user does not have permission to use a tool."""
 
     pass
+
+
+# Backward-compatible alias
+PermissionDenied = PermissionDeniedError
 
 
 class PermissionChecker:
@@ -24,7 +28,7 @@ class PermissionChecker:
             s.discard(user_id)
 
     def check(self, tool_name: str, user_id: str | None = None) -> None:
-        """Raise PermissionDenied if the user is not allowed."""
+        """Raise PermissionDeniedError if the user is not allowed."""
         s = self._acl.get(tool_name)
         if s is None:
             return
@@ -32,4 +36,4 @@ class PermissionChecker:
             return
         if user_id in s:
             return
-        raise PermissionDenied(f"User '{user_id}' is not allowed to use tool '{tool_name}'")
+        raise PermissionDeniedError(f"User '{user_id}' is not allowed to use tool '{tool_name}'")

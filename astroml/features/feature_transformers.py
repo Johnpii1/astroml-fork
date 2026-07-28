@@ -609,11 +609,11 @@ class FeatureEngineering:
             outlier_col = f"{col}_outlier"
 
             if method == "iqr":
-                Q1 = data[col].quantile(0.25)
-                Q3 = data[col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - threshold * IQR
-                upper_bound = Q3 + threshold * IQR
+                q1 = data[col].quantile(0.25)
+                q3 = data[col].quantile(0.75)
+                iqr = q3 - q1
+                lower_bound = q1 - threshold * iqr
+                upper_bound = q3 + threshold * iqr
                 result[outlier_col] = (
                     (data[col] < lower_bound) | (data[col] > upper_bound)
                 ).astype(int)

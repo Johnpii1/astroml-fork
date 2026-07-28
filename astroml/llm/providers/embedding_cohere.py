@@ -40,12 +40,12 @@ class CohereEmbeddingProvider(EmbeddingProvider):
         self.model = model
         self.input_type = input_type
         self.timeout = timeout
-        _DIMS = {
+        _dims = {
             "embed-english-v3.0": 1024,
             "embed-multilingual-v3.0": 1024,
             "embed-english-light-v3.0": 384,
         }
-        self.output_dim = _DIMS.get(model, 1024)
+        self.output_dim = _dims.get(model, 1024)
 
     def is_available(self) -> bool:
         try:

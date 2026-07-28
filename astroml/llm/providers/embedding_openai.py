@@ -38,12 +38,12 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         self.model = model
         self.timeout = timeout
         # Dimension is model-dependent.
-        _DIMS = {
+        _dims = {
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
         }
-        self.output_dim = _DIMS.get(model, 1536)
+        self.output_dim = _dims.get(model, 1536)
 
     def is_available(self) -> bool:
         try:

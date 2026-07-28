@@ -51,8 +51,14 @@ line-length = 100
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["I"]
-ignore = []
+select = ["I", "N"]
+ignore = [
+    "N803",   # argument-name: X, y are standard in sklearn/ML
+    "N805",   # first-arg-name: cls is correct for Pydantic @validator classmethods
+    "N806",   # variable-in-function: N, H, F, G, LoyaltyAccount are standard in graph/ML/API code
+    "N812",   # imported-as: F for torch.nn.functional is a PyTorch convention
+    "N815",   # mixedCase-in-class: API contract fields matching Stellar SDK naming
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["astroml", "api"]

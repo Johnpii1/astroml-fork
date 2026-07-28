@@ -139,7 +139,7 @@ def configure_module_levels_from_env() -> None:
             set_module_log_level(module, level)
 
 
-class correlation_id:
+class CorrelationId:
     def __init__(self, correlation_id: str | None = None):
         self.correlation_id = correlation_id or str(uuid.uuid4())
         self.token = None
@@ -168,6 +168,10 @@ __all__ = [
     "set_module_log_level",
     "get_module_log_level",
     "configure_module_levels_from_env",
+    "CorrelationId",
     "correlation_id",
     "sanitize_log_value",
 ]
+
+# Backward-compatible alias
+correlation_id = CorrelationId

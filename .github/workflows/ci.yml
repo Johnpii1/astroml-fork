@@ -36,6 +36,9 @@ jobs:
       - name: Run linting with ruff
         run: ruff check astroml api tests
 
+      - name: Check naming conventions with ruff
+        run: ruff check --select N --ignore N803,N805,N806,N812,N815 astroml api
+
       - name: Check code complexity with xenon
         run: xenon --max-absolute C --max-modules D --max-average C astroml/
 

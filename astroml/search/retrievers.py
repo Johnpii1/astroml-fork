@@ -16,7 +16,7 @@ class Retriever:
             return []
 
         scores = []
-        N = len(indexer.documents)
+        num_docs = len(indexer.documents)
 
         for idx, doc in enumerate(indexer.documents):
             score = 0.0
@@ -24,7 +24,7 @@ class Retriever:
             for w in words:
                 if w in tf_dict:
                     df = indexer.doc_freqs.get(w, 0)
-                    idf = math.log((N - df + 0.5) / (df + 0.5) + 1.0)
+                    idf = math.log((num_docs - df + 0.5) / (df + 0.5) + 1.0)
                     tf = tf_dict[w]
                     # Simple BM25-like scoring
                     score += (

@@ -43,13 +43,13 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         self.model = model
         self.timeout = timeout
         # Map well-known models to their output dimensions.
-        _DIMS = {
+        _dims = {
             "sentence-transformers/all-MiniLM-L6-v2": 384,
             "sentence-transformers/all-mpnet-base-v2": 768,
             "BAAI/bge-large-en": 1024,
             "BAAI/bge-base-en": 768,
         }
-        self.output_dim = _DIMS.get(model, 768)
+        self.output_dim = _dims.get(model, 768)
         self._url = f"{_HF_API_BASE}/{model}"
 
     def is_available(self) -> bool:

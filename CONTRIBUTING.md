@@ -200,10 +200,26 @@ def process_accounts(
 
 ### Naming Conventions
 
+AstroML enforces naming conventions via [ruff](https://docs.astral.sh/ruff/rules/#pep-8-naming-n):
+
 - **Functions/variables**: `snake_case`
 - **Classes**: `PascalCase`
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Private members**: Prefix with `_`
+- **Exception classes**: Must end with `Error` suffix (e.g., `PermissionDeniedError`)
+
+#### Recognized Exceptions (allowed by convention)
+
+Some naming patterns are standard in their domain and are exempt from the rules:
+- `X`, `y` in ML transformers (scikit-learn convention)
+- `F` for `torch.nn.functional` (PyTorch convention)
+- `N`, `H`, `E`, `G` for graph dimensions (NetworkX/graph ML convention)
+
+Run naming checks locally:
+
+```bash
+ruff check --select N --ignore N803,N805,N806,N812,N815 astroml/ api/
+```
 
 ```python
 class TransactionGraph:
@@ -335,6 +351,7 @@ Before submitting a PR:
 ### Lint & Style
 - [ ] `black --check astroml/ tests/` reports no formatting violations
 - [ ] `ruff check astroml/ tests/` reports no errors
+- [ ] `ruff check --select N astroml/` reports no naming violations
 - [ ] `xenon --max-absolute C --max-modules D --max-average C astroml/` passes
 - [ ] All public functions/classes have Google-style docstrings
 - [ ] Type hints are present on all new function signatures

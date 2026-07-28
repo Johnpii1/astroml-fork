@@ -108,34 +108,34 @@ def compute_betweenness_centrality(
 
     for s in nodes_list:
         # Single-source shortest paths from s
-        S = []
-        P = defaultdict(list)
+        stack = []
+        predecessors = defaultdict(list)
         sigma = defaultdict(float)
         sigma[s] = 1.0
         dist = defaultdict(lambda: -1)
         dist[s] = 0
 
-        Q = deque([s])
+        queue = deque([s])
 
-        while Q:
-            v = Q.popleft()
-            S.append(v)
+        while queue:
+            v = queue.popleft()
+            stack.append(v)
 
             for w in adj[v]:
                 if dist[w] < 0:
-                    Q.append(w)
+                    queue.append(w)
                     dist[w] = dist[v] + 1
 
                 if dist[w] == dist[v] + 1:
                     sigma[w] += sigma[v]
-                    P[w].append(v)
+                    predecessors[w].append(v)
 
         # Accumulation
         delta = defaultdict(float)
 
-        while S:
-            w = S.pop()
-            for v in P[w]:
+        while stack:
+            w = stack.pop()
+            for v in predecessors[w]:
                 delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w])
 
             if w != s:
@@ -186,16 +186,16 @@ def compute_closeness_centrality(
     for s in nodes_list:
         # BFS from s
         dist = {s: 0}
-        Q = deque([s])
+        queue = deque([s])
         visited = {s}
 
-        while Q:
-            v = Q.popleft()
+        while queue:
+            v = queue.popleft()
             for w in adj[v]:
                 if w not in visited:
                     visited.add(w)
                     dist[w] = dist[v] + 1
-                    Q.append(w)
+                    queue.append(w)
 
         if len(visited) <= 1:
             closeness[s] = 0.0
