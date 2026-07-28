@@ -23,3 +23,9 @@ repos:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
         exclude: package.lock.json|go.sum|pnpm-lock.yaml|yarn.lock|poetry.lock
+
+  - repo: https://github.com/rubik/radon
+    rev: 6.0.1
+    hooks:
+      - id: radon
+        args: ["cc", "-nc", "-s", "-i"]

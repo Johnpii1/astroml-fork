@@ -33,5 +33,8 @@ jobs:
       - name: Run linting
         run: ruff check astroml api tests
 
+      - name: Check function complexity
+        run: python -m astroml.ci.complexity_check astroml api
+
       - name: Run tests
         run: pytest tests/ -v --tb=short -p no:randomly
