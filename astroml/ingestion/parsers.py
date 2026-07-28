@@ -1,5 +1,7 @@
 """Parse Horizon API JSON responses into SQLAlchemy ORM models.
 
+See ADR-003 (docs/adr/003-polars-ingestion.md) for Polars ingestion framework choices.
+
 Each ``parse_*`` function accepts a dict (decoded JSON from a Horizon SSE
 event) and returns the corresponding ORM model instance.  These functions
 perform no I/O and are safe to call from any context.

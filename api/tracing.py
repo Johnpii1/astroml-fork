@@ -5,13 +5,26 @@ import os
 from contextlib import contextmanager
 from typing import Optional
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+try:
+    from opentelemetry import trace
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+    from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+    HAS_OTEL = True
+except ImportError:
+    HAS_OTEL = False
+    trace = None
+    FastAPIInstrumentor = None
+    HTTPXClientInstrumentor = None
+    SQLAlchemyInstrumentor = None
+    Resource = None
+    SERVICE_NAME = None
+    TracerProvider = None
+    BatchSpanProcessor = None
+    ConsoleSpanExporter = None
 
 from api.config import settings
 
@@ -32,7 +45,7 @@ def _build_resource() -> Resource:
 def setup_tracing() -> Optional[TracerProvider]:
     """Initialize OpenTelemetry tracing with the configured exporter."""
     global _TRACE_PROVIDER
-    if not settings.tracing_enabled:
+    if not settings.tracing_enabled or not HAS_OTEL:
         return None
 
     if _TRACE_PROVIDER is not None:
@@ -93,8 +106,10 @@ def setup_tracing() -> Optional[TracerProvider]:
     return provider
 
 
-def get_tracer(name: str = __name__) -> trace.Tracer:
+def get_tracer(name: str = __name__) -> Any:
     """Get a tracer for the current module."""
+    if not HAS_OTEL or trace is None:
+        return None
     return trace.get_tracer(name)
 
 
@@ -105,6 +120,9 @@ def trace_operation(
 ):
     """Context manager for tracing an operation."""
     tracer = get_tracer()
+    if tracer is None:
+        yield None
+        return
     with tracer.start_as_current_span(operation_name) as span:
         if attributes:
             for key, value in attributes.items():
@@ -114,6 +132,8 @@ def trace_operation(
 
 def add_span_attributes(attributes: dict[str, str]) -> None:
     """Add attributes to the current span."""
+    if not HAS_OTEL or trace is None:
+        return
     current_span = trace.get_current_span()
     if current_span:
         for key, value in attributes.items():
@@ -122,6 +142,8 @@ def add_span_attributes(attributes: dict[str, str]) -> None:
 
 def add_span_event(name: str, attributes: Optional[dict[str, str]] = None) -> None:
     """Add an event to the current span."""
+    if not HAS_OTEL or trace is None:
+        return
     current_span = trace.get_current_span()
     if current_span:
         current_span.add_event(name, attributes or {})
@@ -129,6 +151,9 @@ def add_span_event(name: str, attributes: Optional[dict[str, str]] = None) -> No
 
 def record_exception(exception: Exception) -> None:
     """Record an exception in the current span."""
+    if not HAS_OTEL or trace is None:
+        return
     current_span = trace.get_current_span()
     if current_span:
         current_span.record_exception(exception)
+

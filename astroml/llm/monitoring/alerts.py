@@ -22,8 +22,9 @@ class AlertManager:
             self._add_alert("high_latency", f"P95 latency is {summary['p95_latency']:.2f}s, exceeding limit of {self.thresholds['latency_p95_limit']}s")
             
         # Error rate check
-        if summary["error_rate_like"] := summary.get("error_rate", 0.0) > self.thresholds["error_rate_limit"]:
-            self._add_alert("high_error_rate", f"Error rate is {summary['error_rate'] * 100:.1f}%, exceeding limit of {self.thresholds['error_rate_limit'] * 100}%")
+        error_rate = summary.get("error_rate", 0.0)
+        if error_rate > self.thresholds["error_rate_limit"]:
+            self._add_alert("high_error_rate", f"Error rate is {error_rate * 100:.1f}%, exceeding limit of {self.thresholds['error_rate_limit'] * 100}%")
             
         # Monthly spend check
         if summary["monthly_spend"] > self.thresholds["monthly_spend_limit"]:

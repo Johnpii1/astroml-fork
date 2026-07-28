@@ -29,12 +29,26 @@ class AuthContext:
 
 def _resolve_api_key(token: str, db: Session) -> AuthContext:
     key_hash = hash_api_key(token)
+    now = datetime.now(timezone.utc)
+
+    # Primary key lookup
     api_key = db.scalar(
         select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active.is_(True))
     )
+
+    # Overlap key lookup: the rotated-out key is kept valid for 30 days
+    if api_key is None:
+        api_key = db.scalar(
+            select(ApiKey).where(
+                ApiKey.overlap_key_hash == key_hash,
+                ApiKey.is_active.is_(True),
+                ApiKey.overlap_expires_at > now,
+            )
+        )
+
     if api_key is None:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    if api_key.expires_at and api_key.expires_at < datetime.now(timezone.utc):
+    if api_key.expires_at and api_key.expires_at < now:
         raise HTTPException(status_code=401, detail="API key expired")
     return AuthContext(
         subject=api_key.name,
@@ -135,4 +149,47 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+
+def get_current_user_from_token(token: str, db: Session) -> Optional[User]:
+    """Resolve a User ORM instance from a raw token string (JWT or API key)."""
+    if not is_auth_enabled():
+        return db.scalar(select(User).where(User.username == "admin"))
+    try:
+        auth = authenticate_token(token, db)
+        if auth.user_id is not None:
+            return db.scalar(select(User).where(User.id == auth.user_id))
+    except Exception:
+        return None
+    return None
+
+
+def get_current_admin_user(
+    auth: AuthContext = Depends(get_current_auth),
+    db: Session = Depends(get_sync_db),
+) -> User:
+    """Resolve the current user and assert they have admin scope."""
+    if not is_auth_enabled():
+        user = db.scalar(select(User).where(User.username == "admin"))
+        if not user:
+            user = User(
+                username="admin",
+                email="admin@astroml.dev",
+                scopes=list(ALL_SCOPES),
+                is_active=True,
+            )
+        return user
+
+    if "admin" not in (auth.scopes or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    if auth.user_id is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    user = db.scalar(select(User).where(User.id == auth.user_id))
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
 

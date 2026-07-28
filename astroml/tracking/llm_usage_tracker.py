@@ -25,8 +25,11 @@ from typing import Callable, Dict, List, Optional
 
 try:
     from prometheus_client import Counter, Gauge, Histogram
+    from prometheus_client.registry import CollectorRegistry
+    from prometheus_client import REGISTRY as _PROM_REGISTRY
 except Exception:  # pragma: no cover
     Counter = Gauge = Histogram = None  # type: ignore
+    _PROM_REGISTRY = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -121,27 +124,58 @@ class LLMUsageTracker:
         if Counter is None:
             return
 
-        self._prom["llm_calls_total"] = Counter(
+        def _get_or_create_counter(name: str, doc: str, labels: list) -> "Counter":
+            """Return existing counter if already registered, else create."""
+            try:
+                return Counter(name, doc, labels)
+            except Exception:
+                # DuplicateTimeseries: collector already registered in global
+                # REGISTRY (happens when multiple LLMUsageTracker instances are
+                # created in the same process, e.g. during tests).
+                for key, col in _PROM_REGISTRY._names_to_collectors.items():
+                    if key.startswith(name):
+                        return col  # type: ignore[return-value]
+                raise
+
+        def _get_or_create_histogram(name: str, doc: str, labels: list) -> "Histogram":
+            try:
+                return Histogram(name, doc, labels)
+            except Exception:
+                for key, col in _PROM_REGISTRY._names_to_collectors.items():
+                    if key.startswith(name):
+                        return col  # type: ignore[return-value]
+                raise
+
+        def _get_or_create_gauge(name: str, doc: str) -> "Gauge":
+            try:
+                return Gauge(name, doc)
+            except Exception:
+                col = _PROM_REGISTRY._names_to_collectors.get(name)
+                if col is not None:
+                    return col  # type: ignore[return-value]
+                raise
+
+        self._prom["llm_calls_total"] = _get_or_create_counter(
             "astroml_llm_calls_total",
             "Total number of LLM calls",
             ["provider", "model"],
         )
-        self._prom["llm_tokens_total"] = Counter(
+        self._prom["llm_tokens_total"] = _get_or_create_counter(
             "astroml_llm_tokens_total",
             "Total tokens used by LLM calls",
             ["provider", "model", "token_type"],
         )
-        self._prom["llm_latency_seconds"] = Histogram(
+        self._prom["llm_latency_seconds"] = _get_or_create_histogram(
             "astroml_llm_latency_seconds",
             "Latency of LLM calls in seconds",
             ["provider", "model"],
         )
-        self._prom["llm_cost_usd_total"] = Counter(
+        self._prom["llm_cost_usd_total"] = _get_or_create_counter(
             "astroml_llm_cost_usd_total",
             "Cumulative cost in USD for LLM calls",
             ["provider", "model"],
         )
-        self._prom["llm_cost_budget_usd_gauge"] = Gauge(
+        self._prom["llm_cost_budget_usd_gauge"] = _get_or_create_gauge(
             "astroml_llm_cost_budget_usd_gauge",
             "Configured LLM cost budget per alert window (USD)",
         )

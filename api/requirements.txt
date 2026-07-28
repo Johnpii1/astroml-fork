@@ -16,7 +16,7 @@ alembic==1.13.0
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
+python-multipart>=0.0.7
 
 # CORS is handled by FastAPI's built-in fastapi.middleware.cors.CORSMiddleware
 # (see api/app.py) — no separate package is needed. The `python-cors==1.0.0`

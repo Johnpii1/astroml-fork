@@ -162,3 +162,13 @@ class VersionHistoryItem(BaseModel):
     deployed_at: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
+
+from enum import Enum
+
+
+class DeploymentEnvironment(str, Enum):
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"
+
+

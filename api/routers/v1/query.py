@@ -5,7 +5,8 @@ Resolves #457: Exposes structured NL-to-SQL/NL-to-API query capabilities.
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, status
 from pydantic import BaseModel, Field
 
 from api.services.llm import LLMService
@@ -65,13 +66,6 @@ async def nl_query(
         confidence=0.85,
         latency_ms=result["latency_ms"],
     )
-"""Natural Language Query API Router."""
-from __future__ import annotations
-
-from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.database import get_db
 from api.auth.dependencies import AuthContext, get_current_auth

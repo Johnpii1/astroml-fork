@@ -181,36 +181,41 @@ _pool_metrics = PoolMetrics()
 @lru_cache(maxsize=1)
 def _async_engine():
     pool_config = _load_pool_config()
-    health_config = _load_health_check_config()
-    
-    return create_async_engine(
-        _async_url(),
-        pool_pre_ping=pool_config.pool_pre_ping,
-        pool_size=pool_config.max_size,
-        max_overflow=pool_config.max_overflow,
-        pool_timeout=pool_config.pool_timeout,
-        pool_recycle=pool_config.pool_recycle,
-        pool_use_lifo=True,  # LIFO reduces connection churn
-        echo=False,
-        echo_pool=False,
-    )
+    url = _async_url()
+    is_sqlite = "sqlite" in url
+
+    kwargs: dict = {"echo": False, "echo_pool": False}
+    if not is_sqlite:
+        kwargs.update(
+            pool_pre_ping=pool_config.pool_pre_ping,
+            pool_size=pool_config.max_size,
+            max_overflow=pool_config.max_overflow,
+            pool_timeout=pool_config.pool_timeout,
+            pool_recycle=pool_config.pool_recycle,
+            pool_use_lifo=True,
+        )
+
+    return create_async_engine(url, **kwargs)
 
 
 @lru_cache(maxsize=1)
 def _sync_engine():
     pool_config = _load_pool_config()
-    
-    return create_engine(
-        _sync_url(),
-        pool_pre_ping=pool_config.pool_pre_ping,
-        pool_size=pool_config.max_size,
-        max_overflow=pool_config.max_overflow,
-        pool_timeout=pool_config.pool_timeout,
-        pool_recycle=pool_config.pool_recycle,
-        pool_use_lifo=True,
-        echo=False,
-        echo_pool=False,
-    )
+    url = _sync_url()
+    is_sqlite = "sqlite" in url
+
+    kwargs: dict = {"echo": False, "echo_pool": False}
+    if not is_sqlite:
+        kwargs.update(
+            pool_pre_ping=pool_config.pool_pre_ping,
+            pool_size=pool_config.max_size,
+            max_overflow=pool_config.max_overflow,
+            pool_timeout=pool_config.pool_timeout,
+            pool_recycle=pool_config.pool_recycle,
+            pool_use_lifo=True,
+        )
+
+    return create_engine(url, **kwargs)
 
 
 def get_async_engine():

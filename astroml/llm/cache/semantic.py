@@ -11,9 +11,10 @@ class SemanticCache:
 
     def __init__(
         self,
-        store: "CacheStore",
-        embedding_provider: "EmbeddingProvider" = None,
+        store: Optional["CacheStore"] = None,
+        embedding_provider: Optional["EmbeddingProvider"] = None,
         similarity_threshold: float = 0.95,
+        ttl: int = 86400,
     ):
         """Initialize semantic cache.
 
@@ -22,9 +23,13 @@ class SemanticCache:
             embedding_provider: Provider for generating embeddings
             similarity_threshold: Minimum cosine similarity for cache hit
         """
+        if store is None:
+            from astroml.llm.cache.store import DiskStore
+            store = DiskStore()
         self.store = store
         self.embedding_provider = embedding_provider
         self.similarity_threshold = similarity_threshold
+        self.ttl = ttl
         self._embedding_cache = {}  # In-memory cache for embeddings
 
     def _get_embedding(self, text: str) -> np.ndarray:
@@ -132,8 +137,9 @@ from typing import Optional, Dict, Tuple, List
 from astroml.search.embedders import get_embedder
 
 class SemanticCache:
-    def __init__(self, similarity_threshold: float = 0.85):
+    def __init__(self, similarity_threshold: float = 0.85, ttl: int = 86400, **kwargs):
         self.threshold = similarity_threshold
+        self.ttl = ttl
         # Stores: query_text -> (response_text, embedding_vector)
         self.cache: Dict[str, Tuple[str, List[float]]] = {}
 
