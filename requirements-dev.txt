@@ -28,6 +28,10 @@ ruff>=0.4.0
 isort>=5.13.0
 pre-commit>=3.7.0
 
+# ── Code complexity analysis ─────────────────────────────────────────────
+radon>=6.0.1
+xenon>=0.9.1
+
 # ── Dependency introspection (issue #562: `make dependency-tree`) ──────────
 pipdeptree>=2.13.0
 

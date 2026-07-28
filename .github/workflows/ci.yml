@@ -36,5 +36,8 @@ jobs:
       - name: Run linting with ruff
         run: ruff check astroml api tests
 
+      - name: Check code complexity with xenon
+        run: xenon --max-absolute C --max-modules D --max-average C astroml/
+
       - name: Run tests
         run: pytest tests/ -v --tb=short -p no:randomly

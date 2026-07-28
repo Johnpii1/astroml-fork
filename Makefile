@@ -52,6 +52,9 @@ format-check:
 	black --check astroml/ tests/ api/
 	ruff check --select I astroml/ tests/ api/
 
+complexity:
+	xenon --max-absolute C --max-modules D --max-average C astroml/
+
 # Issue #562 — resolved dependency tree, e.g. to check what a pin bump would
 # actually pull in, or to spot conflicting transitive requirements. Requires
 # pipdeptree, installed via requirements-dev.txt.

@@ -115,6 +115,36 @@ AstroML follows **PEP 8** with these conventions:
 - **Linter**: Ruff (replaces flake8, isort, pyupgrade, and more)
 - **Enforcement**: All formatting is enforced via pre-commit hooks and CI checks
 
+### Code Complexity Standards
+
+AstroML enforces code complexity limits using [xenon](https://github.com/mombu/xenon) with [radon](https://github.com/rubik/radon):
+
+- **Current thresholds**: max-absolute C, max-modules D, max-average C
+- **Target thresholds**: max-absolute A (cyclomatic complexity ≤ 10 per function), max-modules B, max-average A
+- PRs must not increase complexity beyond current thresholds
+- New code should aim for the target thresholds (grade A)
+
+Run complexity analysis locally:
+
+```bash
+make complexity
+# or directly:
+xenon --max-absolute C --max-modules D --max-average C astroml/
+```
+
+Complexity is checked in CI and PRs must not increase complexity beyond thresholds.
+
+#### Complexity Grades (radon)
+
+| Grade | Complexity | Description |
+|-------|-----------|-------------|
+| A     | 1-10      | Simple, low risk |
+| B     | 11-20     | More complex, moderate risk |
+| C     | 21-30     | Complex, higher risk |
+| D     | 31-40     | Very complex, high risk |
+| E     | 41-50     | Extremely complex |
+| F     | 51+       | Untestable, very high risk |
+
 #### Example:
 
 ```python
@@ -305,6 +335,7 @@ Before submitting a PR:
 ### Lint & Style
 - [ ] `black --check astroml/ tests/` reports no formatting violations
 - [ ] `ruff check astroml/ tests/` reports no errors
+- [ ] `xenon --max-absolute C --max-modules D --max-average C astroml/` passes
 - [ ] All public functions/classes have Google-style docstrings
 - [ ] Type hints are present on all new function signatures
 
