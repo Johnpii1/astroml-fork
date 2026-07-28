@@ -1,4 +1,5 @@
 """Rate limit metrics and configuration router (issue #331)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,7 +32,7 @@ async def get_rate_limit_metrics(
     """Get rate limiting metrics."""
     if "rate_limit:read" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     return RateLimitMetrics(metrics=rate_limiter.get_metrics())
 
 
@@ -42,7 +43,7 @@ async def reset_rate_limit_metrics(
     """Reset rate limiting metrics."""
     if "rate_limit:admin" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     rate_limiter.reset_metrics()
     return {"message": "Rate limit metrics reset"}
 
@@ -56,7 +57,7 @@ async def update_rate_limit_config(
     """Update rate limit configuration for a specific endpoint."""
     if "rate_limit:admin" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     rate_limiter.set_endpoint_config(
         path,
         RateLimitConfig(

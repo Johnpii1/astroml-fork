@@ -7,28 +7,30 @@ Provides endpoints for:
 - Running validation pipelines
 - Getting validation metrics
 """
+
 from __future__ import annotations
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from astroml.validation.api_validation import (
-    ValidationResult,
-    validate_transaction_input,
-    validate_account_input,
-    validate_score_request,
-    validate_feature_data,
     CustomValidationRules,
+    ValidationResult,
+    validate_account_input,
+    validate_feature_data,
+    validate_score_request,
+    validate_transaction_input,
 )
 from astroml.validation.pipeline import (
+    PipelineResult,
     ValidationPipeline,
     ValidationStage,
     ValidationStageConfig,
-    PipelineResult,
-    create_transaction_pipeline,
     create_account_pipeline,
     create_feature_pipeline,
+    create_transaction_pipeline,
 )
 
 router = APIRouter(prefix="/validation", tags=["validation"])
@@ -36,11 +38,14 @@ router = APIRouter(prefix="/validation", tags=["validation"])
 
 # ─── Request/Response Schemas ─────────────────────────────────────────────
 
+
 class ValidationRequest(BaseModel):
     """Request schema for validation endpoint."""
 
     data: Dict[str, Any] = Field(..., description="Data to validate")
-    data_type: str = Field(default="transaction", description="Type of data: transaction, account, feature")
+    data_type: str = Field(
+        default="transaction", description="Type of data: transaction, account, feature"
+    )
     context: Optional[Dict[str, Any]] = Field(default=None, description="Validation context")
 
 
@@ -48,7 +53,9 @@ class PipelineRequest(BaseModel):
     """Request schema for pipeline validation."""
 
     data: Dict[str, Any] = Field(..., description="Data to validate")
-    pipeline_type: str = Field(default="transaction", description="Pipeline type: transaction, account, feature")
+    pipeline_type: str = Field(
+        default="transaction", description="Pipeline type: transaction, account, feature"
+    )
     context: Optional[Dict[str, Any]] = Field(default=None, description="Validation context")
 
 
@@ -62,6 +69,7 @@ class MetricsResponse(BaseModel):
 
 
 # ─── Validation Endpoints ─────────────────────────────────────────────────
+
 
 @router.post("/validate", response_model=Dict[str, Any])
 async def validate_data(request: ValidationRequest):

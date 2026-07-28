@@ -1,4 +1,5 @@
 """FastAPI auth dependencies (issue #240)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -140,7 +141,9 @@ def get_current_user(
         # Return a mock admin user if auth is disabled
         user = db.scalar(select(User).where(User.username == "admin"))
         if not user:
-            user = User(username="admin", email="admin@astroml.dev", scopes=list(ALL_SCOPES), is_active=True)
+            user = User(
+                username="admin", email="admin@astroml.dev", scopes=list(ALL_SCOPES), is_active=True
+            )
         return user
 
     if auth.user_id is None:
@@ -191,5 +194,3 @@ def get_current_admin_user(
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
-
-

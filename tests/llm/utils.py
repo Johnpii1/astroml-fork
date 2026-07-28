@@ -3,16 +3,17 @@
 Resolves #458: Helpers for snapshot testing, response assertion,
 async test support, VCR cassette management, and performance benchmarking.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import time
 from pathlib import Path
-from typing import Any, Callable
-
+from typing import Any
 
 # ─── Snapshot testing ────────────────────────────────────────────────────────
+
 
 class SnapshotStore:
     """Simple snapshot store for LLM output regression testing.
@@ -41,9 +42,7 @@ class SnapshotStore:
             return
         stored = self._load(path)
         assert stored == value, (
-            f"Snapshot mismatch for key={key!r}.\n"
-            f"Expected: {stored!r}\n"
-            f"Actual  : {value!r}"
+            f"Snapshot mismatch for key={key!r}.\n" f"Expected: {stored!r}\n" f"Actual  : {value!r}"
         )
 
     def update(self, key: str, value: Any) -> None:
@@ -62,6 +61,7 @@ class SnapshotStore:
 
 
 # ─── Response assertion helpers ───────────────────────────────────────────────
+
 
 def assert_valid_generate_response(response: dict[str, Any]) -> None:
     """Assert that *response* has the required fields of a GenerateResponse."""
@@ -100,12 +100,14 @@ def assert_safety_blocked(guard_result: Any) -> None:
 
 # ─── Async test runner ────────────────────────────────────────────────────────
 
+
 def run_async(coro) -> Any:
     """Run an async coroutine synchronously — useful in non-async test contexts."""
     return asyncio.get_event_loop().run_until_complete(coro)
 
 
 # ─── Latency benchmark helper ─────────────────────────────────────────────────
+
 
 class LatencyTimer:
     """Context manager for timing test operations.
@@ -121,19 +123,18 @@ class LatencyTimer:
         self.max_ms = max_ms
         self.elapsed_ms: float = 0.0
 
-    def __enter__(self) -> "LatencyTimer":
+    def __enter__(self) -> LatencyTimer:
         self._start = time.monotonic()
         return self
 
     def __exit__(self, *args) -> None:
         self.elapsed_ms = (time.monotonic() - self._start) * 1000
         if self.max_ms is not None and self.elapsed_ms > self.max_ms:
-            raise AssertionError(
-                f"Latency {self.elapsed_ms:.1f}ms exceeded limit {self.max_ms}ms"
-            )
+            raise AssertionError(f"Latency {self.elapsed_ms:.1f}ms exceeded limit {self.max_ms}ms")
 
 
 # ─── VCR cassette helpers ─────────────────────────────────────────────────────
+
 
 def vcr_cassette_path(test_name: str) -> Path:
     """Return the cassette file path for *test_name*."""

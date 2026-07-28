@@ -1,25 +1,23 @@
 """Embeddings generation and retrieval service."""
 
-from typing import Any, Dict, List, Optional, Tuple
-import time
 import hashlib
+import time
 from abc import ABC, abstractmethod
+from typing import Any
 
-import numpy as np
-
-from .models import EmbeddingConfig, EmbeddingModel, MODEL_DIMENSIONS
+from .models import EmbeddingConfig
 
 
 class EmbeddingProvider(ABC):
     """Abstract base for embedding providers."""
 
     @abstractmethod
-    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for texts."""
         pass
 
     @abstractmethod
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         """Generate embedding for single text."""
         pass
 
@@ -27,9 +25,7 @@ class EmbeddingProvider(ABC):
 class EmbeddingsService:
     """Service for generating, storing, and retrieving embeddings."""
 
-    def __init__(
-        self, config: EmbeddingConfig, provider: Optional[EmbeddingProvider] = None
-    ):
+    def __init__(self, config: EmbeddingConfig, provider: EmbeddingProvider | None = None):
         """Initialize embeddings service.
 
         Args:
@@ -38,11 +34,11 @@ class EmbeddingsService:
         """
         self.config = config
         self.provider = provider
-        self.embeddings_cache: Dict[str, List[float]] = {}
-        self.metadata_store: Dict[str, Dict[str, Any]] = {}
+        self.embeddings_cache: dict[str, list[float]] = {}
+        self.metadata_store: dict[str, dict[str, Any]] = {}
         self.chunk_count = 0
 
-    def chunk_text(self, text: str) -> List[str]:
+    def chunk_text(self, text: str) -> list[str]:
         """Chunk text based on configured strategy.
 
         Args:
@@ -58,7 +54,7 @@ class EmbeddingsService:
         else:
             return [text]
 
-    def _chunk_fixed_size(self, text: str, chunk_size: int = 500) -> List[str]:
+    def _chunk_fixed_size(self, text: str, chunk_size: int = 500) -> list[str]:
         """Chunk text into fixed-size overlapping chunks (by tokens approximation)."""
         words = text.split()
         chunks = []
@@ -81,7 +77,7 @@ class EmbeddingsService:
 
         return chunks
 
-    def _chunk_recursive(self, text: str) -> List[str]:
+    def _chunk_recursive(self, text: str) -> list[str]:
         """Recursively chunk text by sentences then words."""
         sentences = text.split(". ")
         chunks = []
@@ -104,8 +100,8 @@ class EmbeddingsService:
         return chunks
 
     def embed_texts_batch(
-        self, texts: List[str], metadata: Optional[List[Dict[str, Any]]] = None
-    ) -> Tuple[List[List[float]], List[str]]:
+        self, texts: list[str], metadata: list[dict[str, Any]] | None = None
+    ) -> tuple[list[list[float]], list[str]]:
         """Generate embeddings for multiple texts.
 
         Args:
@@ -147,8 +143,8 @@ class EmbeddingsService:
         return embeddings, text_ids
 
     def similarity_search(
-        self, query: str, top_k: int = 10, metadata_filter: Optional[Dict] = None
-    ) -> List[Tuple[str, float, Dict[str, Any]]]:
+        self, query: str, top_k: int = 10, metadata_filter: dict | None = None
+    ) -> list[tuple[str, float, dict[str, Any]]]:
         """Search for similar documents.
 
         Args:
@@ -177,7 +173,7 @@ class EmbeddingsService:
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:top_k]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get service statistics."""
         return {
             "cached_embeddings": len(self.embeddings_cache),
@@ -196,7 +192,7 @@ class EmbeddingsService:
         return hashlib.sha256(text.encode()).hexdigest()[:16]
 
     @staticmethod
-    def _cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+    def _cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
         """Compute cosine similarity between vectors."""
         if not vec1 or not vec2:
             return 0.0
@@ -210,6 +206,6 @@ class EmbeddingsService:
 
         return dot_product / (norm1 * norm2)
 
-    def _get_dummy_embedding(self) -> List[float]:
+    def _get_dummy_embedding(self) -> list[float]:
         """Get placeholder embedding (for testing without API)."""
         return [0.0] * self.config.embedding_dim

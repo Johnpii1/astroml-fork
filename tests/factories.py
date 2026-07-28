@@ -8,11 +8,13 @@ Usage:
 
 Resolves #517 / #518.
 """
+
 from __future__ import annotations
 
-import factory
 from datetime import datetime, timezone
 from typing import Any
+
+import factory
 
 
 def _utcnow() -> datetime:
@@ -70,6 +72,7 @@ class GraphFactory(factory.Factory):
     @factory.lazy_attribute
     def edges(self):
         import random
+
         rng = random.Random(self.seed)
         return [
             (rng.randint(0, self.num_nodes - 1), rng.randint(0, self.num_nodes - 1))
@@ -91,6 +94,7 @@ class FeatureDefinitionFactory(factory.Factory):
 
 
 # ─── Convenience aliases ────────────────────────────────────────────────────
+
 
 def create_ledger(**kwargs: Any) -> dict:
     """Create a single ledger dict with overrides."""

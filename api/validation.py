@@ -1,8 +1,9 @@
 """Centralized input validation and sanitization (issue #333)."""
+
 from __future__ import annotations
 
-import re
 import html
+import re
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -50,13 +51,13 @@ class InputValidator:
         """Sanitize a string input."""
         if not isinstance(value, str):
             return value
-        
+
         # Remove null bytes
         value = value.replace("\x00", "")
-        
+
         # Escape HTML entities
         value = html.escape(value)
-        
+
         return value
 
     @classmethod
@@ -64,7 +65,7 @@ class InputValidator:
         """Check if input contains SQL injection patterns."""
         if not isinstance(value, str):
             return False
-        
+
         value_upper = value.upper()
         for pattern in cls.SQL_INJECTION_PATTERNS:
             if re.search(pattern, value_upper, re.IGNORECASE):
@@ -76,7 +77,7 @@ class InputValidator:
         """Check if input contains XSS patterns."""
         if not isinstance(value, str):
             return False
-        
+
         for pattern in cls.XSS_PATTERNS:
             if re.search(pattern, value, re.IGNORECASE):
                 return True
@@ -116,8 +117,7 @@ class InputValidator:
                 sanitized[key] = cls.sanitize_input(value)
             elif isinstance(value, list):
                 sanitized[key] = [
-                    cls.sanitize_string(item) if isinstance(item, str) else item
-                    for item in value
+                    cls.sanitize_string(item) if isinstance(item, str) else item for item in value
                 ]
             else:
                 sanitized[key] = value
@@ -129,9 +129,9 @@ class InputValidator:
         for field, validators in field_validators.items():
             if field not in data:
                 continue
-            
+
             value = data[field]
-            
+
             for validator_func in validators:
                 if not validator_func(value):
                     raise ValidationError(
@@ -147,28 +147,34 @@ class SQLInjectionAuditor:
     def audit_query(cls, query: str) -> dict[str, Any]:
         """Audit a SQL query for potential injection vulnerabilities."""
         issues = []
-        
+
         # Check for string concatenation patterns
         if re.search(r'["\'].*\+.*["\']', query):
-            issues.append({
-                "severity": "high",
-                "message": "String concatenation detected - use parameterized queries",
-            })
-        
+            issues.append(
+                {
+                    "severity": "high",
+                    "message": "String concatenation detected - use parameterized queries",
+                }
+            )
+
         # Check for direct user input patterns
-        if re.search(r'(format|%|\.format)\(', query):
-            issues.append({
-                "severity": "medium",
-                "message": "String formatting detected - use parameterized queries",
-            })
-        
+        if re.search(r"(format|%|\.format)\(", query):
+            issues.append(
+                {
+                    "severity": "medium",
+                    "message": "String formatting detected - use parameterized queries",
+                }
+            )
+
         # Check for EXEC/EXECUTE with user input
-        if re.search(r'(EXEC|EXECUTE)\s*\(', query, re.IGNORECASE):
-            issues.append({
-                "severity": "high",
-                "message": "Dynamic SQL execution detected",
-            })
-        
+        if re.search(r"(EXEC|EXECUTE)\s*\(", query, re.IGNORECASE):
+            issues.append(
+                {
+                    "severity": "high",
+                    "message": "Dynamic SQL execution detected",
+                }
+            )
+
         return {
             "safe": len(issues) == 0,
             "issues": issues,
@@ -209,9 +215,7 @@ class FileUploadValidator:
         "application/json",
     }
 
-    ALLOWED_EXTENSIONS = {
-        ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".txt", ".json"
-    }
+    ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".txt", ".json"}
 
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -263,11 +267,11 @@ class FileUploadValidator:
             "/",  # Path separator
             "\\",  # Windows path separator
         ]
-        
+
         for pattern in malicious_patterns:
             if pattern in filename:
                 return True
-        
+
         return False
 
 

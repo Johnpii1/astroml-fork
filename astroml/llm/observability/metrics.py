@@ -3,6 +3,7 @@
 Resolves #456: Exposes requests/min, p50/p95/p99 latency, token throughput,
 error rates, and cache hit rates as Prometheus metrics.
 """
+
 from __future__ import annotations
 
 import threading
@@ -12,7 +13,8 @@ from typing import Any
 
 # Optional prometheus_client — gracefully degrade if not installed
 try:
-    from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry
+    from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
+
     _PROMETHEUS_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _PROMETHEUS_AVAILABLE = False

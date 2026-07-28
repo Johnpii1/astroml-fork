@@ -3,6 +3,7 @@ Integration tests — transactions (issue #264).
 
 Tests cover: filtering by account, stats aggregation, and edge cases.
 """
+
 import pytest
 
 
@@ -13,7 +14,13 @@ class TestTransactionFixtures:
         assert len(sample_transactions) == 3
 
     def test_transactions_have_required_fields(self, sample_transactions):
-        required = {"transaction_hash", "ledger_sequence", "source_account", "fee_charged", "successful"}
+        required = {
+            "transaction_hash",
+            "ledger_sequence",
+            "source_account",
+            "fee_charged",
+            "successful",
+        }
         for tx in sample_transactions:
             assert required.issubset(tx.keys())
 

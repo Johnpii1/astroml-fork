@@ -3,6 +3,7 @@
 Sends via SendGrid when ``sendgrid_api_key`` is configured; otherwise logs the
 message so the feature works in development/test without external credentials.
 """
+
 from __future__ import annotations
 
 import logging
@@ -21,9 +22,7 @@ async def send_email(to: str, subject: str, body: str) -> bool:
     """Send a plain-text email. Returns True if dispatched to the provider."""
     api_key = settings.sendgrid_api_key
     if not api_key:
-        logger.info(
-            "Email not sent (SendGrid not configured) to=%s subject=%s", to, subject
-        )
+        logger.info("Email not sent (SendGrid not configured) to=%s subject=%s", to, subject)
         return False
 
     payload: dict[str, Any] = {

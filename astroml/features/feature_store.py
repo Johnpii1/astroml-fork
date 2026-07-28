@@ -17,44 +17,40 @@ Key Features:
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
+import sqlite3
 import threading
+from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import Enum
+from pathlib import Path
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Union,
-    Callable,
     Protocol,
     runtime_checkable,
 )
-from enum import Enum
-from pathlib import Path
-import sqlite3
-from contextlib import contextmanager
-import concurrent.futures
 
 import pandas as pd
 from cachetools import TTLCache
 
 from astroml.features.schema_validation import (
-    dry_run_ingestion,
-    ValidationResult,
     FEATURE_VALUE_SCHEMA,
+    ValidationResult,
+    dry_run_ingestion,
 )
 
 from ..cache import cache_feature_store
-
 
 logger = logging.getLogger(__name__)
 
 
 class FeatureType(Enum):
     """Supported feature data types."""
+
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
     BOOLEAN = "boolean"
@@ -65,6 +61,7 @@ class FeatureType(Enum):
 
 class FeatureStatus(Enum):
     """Feature lifecycle status."""
+
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
@@ -75,7 +72,7 @@ class FeatureStatus(Enum):
 @dataclass
 class FeatureDefinition:
     """Definition of a feature in the feature store.
-    
+
     Attributes:
         name: Unique feature name
         description: Human-readable description
@@ -90,19 +87,19 @@ class FeatureDefinition:
         updated_at: Last update timestamp
         metadata: Additional metadata
     """
-    
+
     name: str
     description: str
     feature_type: FeatureType
-    computation_function: Optional[Callable] = None
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    tags: List[str] = field(default_factory=list)
+    computation_function: Callable | None = None
+    parameters: dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
     owner: str = ""
     status: FeatureStatus = FeatureStatus.DEVELOPMENT
     version: int = 1
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Generate feature ID and validate definition."""
@@ -110,13 +107,13 @@ class FeatureDefinition:
             raise ValueError("FeatureDefinition.name must not be empty")
         if self.version < 1:
             raise ValueError("FeatureDefinition.version must be at least 1")
-        
+
     @property
     def feature_id(self) -> str:
         """Unique feature identifier."""
         return f"{self.name}_v{self.version}"
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "name": self.name,
@@ -131,9 +128,9 @@ class FeatureDefinition:
             "updated_at": self.updated_at.isoformat(),
             "metadata": self.metadata,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FeatureDefinition:
+    def from_dict(cls, data: dict[str, Any]) -> FeatureDefinition:
         """Create from dictionary representation."""
         data = data.copy()
         data.pop("feature_id", None)
@@ -147,7 +144,7 @@ class FeatureDefinition:
 @dataclass
 class FeatureValue:
     """Container for computed feature values with metadata.
-    
+
     Attributes:
         feature_id: Feature identifier
         entity_id: Entity identifier (account, transaction, etc.)
@@ -156,21 +153,21 @@ class FeatureValue:
         validity_period: Period during which feature is valid
         metadata: Additional metadata
     """
-    
+
     feature_id: str
     entity_id: str
     value: Any
     timestamp: datetime
-    validity_period: Optional[timedelta] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    validity_period: timedelta | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     @property
-    def expires_at(self) -> Optional[datetime]:
+    def expires_at(self) -> datetime | None:
         """Expiration timestamp for the feature value."""
         if self.validity_period:
             return self.timestamp + self.validity_period
         return None
-    
+
     def is_valid_at(self, timestamp: datetime) -> bool:
         """Check if feature value is valid at given timestamp."""
         if self.expires_at and timestamp > self.expires_at:
@@ -181,7 +178,7 @@ class FeatureValue:
 @dataclass
 class FeatureSet:
     """Collection of related features for a specific use case.
-    
+
     Attributes:
         name: Feature set name
         description: Feature set description
@@ -191,16 +188,16 @@ class FeatureSet:
         updated_at: Last update timestamp
         metadata: Additional metadata
     """
-    
+
     name: str
     description: str
-    feature_ids: List[str]
+    feature_ids: list[str]
     entity_type: str
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "name": self.name,
@@ -216,7 +213,7 @@ class FeatureSet:
 @runtime_checkable
 class FeatureComputer(Protocol):
     """Protocol for feature computation functions."""
-    
+
     def __call__(
         self,
         data: pd.DataFrame,
@@ -225,13 +222,13 @@ class FeatureComputer(Protocol):
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Compute features from input data.
-        
+
         Args:
             data: Input DataFrame
             entity_col: Entity identifier column
             timestamp_col: Timestamp column
             **kwargs: Additional parameters
-            
+
         Returns:
             DataFrame with computed features indexed by entity
         """
@@ -240,28 +237,29 @@ class FeatureComputer(Protocol):
 
 class FeatureStorage:
     """Storage backend for feature values and metadata."""
-    
-    def __init__(self, storage_path: Union[str, Path]):
+
+    def __init__(self, storage_path: str | Path):
         """Initialize storage backend.
-        
+
         Args:
             storage_path: Path to storage directory
         """
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize SQLite database for metadata
         self.db_path = self.storage_path / "feature_store.db"
         self._init_database()
-        
+
         # Directory for feature data
         self.data_path = self.storage_path / "data"
         self.data_path.mkdir(exist_ok=True)
-    
+
     def _init_database(self) -> None:
         """Initialize SQLite database with required tables."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.executescript("""
+            conn.executescript(
+                """
                 CREATE TABLE IF NOT EXISTS feature_definitions (
                     feature_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -300,11 +298,12 @@ class FeatureStorage:
                 
                 CREATE INDEX IF NOT EXISTS idx_feature_definitions_status 
                     ON feature_definitions(status);
-            """)
-    
+            """
+            )
+
     def store_feature_definition(self, feature_def: FeatureDefinition) -> None:
         """Store feature definition in database.
-        
+
         Args:
             feature_def: Feature definition to store
         """
@@ -331,13 +330,13 @@ class FeatureStorage:
                     json.dumps(feature_def.metadata),
                 ),
             )
-    
-    def get_feature_definition(self, feature_id: str) -> Optional[FeatureDefinition]:
+
+    def get_feature_definition(self, feature_id: str) -> FeatureDefinition | None:
         """Retrieve feature definition by ID.
-        
+
         Args:
             feature_id: Feature identifier
-            
+
         Returns:
             Feature definition if found, None otherwise
         """
@@ -347,82 +346,100 @@ class FeatureStorage:
                 (feature_id,),
             )
             row = cursor.fetchone()
-            
+
             if row:
                 columns = [
-                    "feature_id", "name", "version", "description", "feature_type",
-                    "parameters", "tags", "owner", "status", "created_at", 
-                    "updated_at", "metadata"
+                    "feature_id",
+                    "name",
+                    "version",
+                    "description",
+                    "feature_type",
+                    "parameters",
+                    "tags",
+                    "owner",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "metadata",
                 ]
                 data = dict(zip(columns, row))
                 data["parameters"] = json.loads(data["parameters"])
                 data["tags"] = json.loads(data["tags"])
                 data["metadata"] = json.loads(data["metadata"])
                 return FeatureDefinition.from_dict(data)
-            
+
             return None
-    
+
     def list_feature_definitions(
         self,
-        status: Optional[FeatureStatus] = None,
-        tags: Optional[List[str]] = None,
-        owner: Optional[str] = None,
-    ) -> List[FeatureDefinition]:
+        status: FeatureStatus | None = None,
+        tags: list[str] | None = None,
+        owner: str | None = None,
+    ) -> list[FeatureDefinition]:
         """List feature definitions with optional filtering.
-        
+
         Args:
             status: Filter by status
             tags: Filter by tags (must contain all specified tags)
             owner: Filter by owner
-            
+
         Returns:
             List of feature definitions
         """
         query = "SELECT * FROM feature_definitions WHERE 1=1"
         params = []
-        
+
         if status:
             query += " AND status = ?"
             params.append(status.value)
-        
+
         if owner:
             query += " AND owner = ?"
             params.append(owner)
-        
+
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
-            
+
             features = []
             for row in rows:
                 columns = [
-                    "feature_id", "name", "version", "description", "feature_type",
-                    "parameters", "tags", "owner", "status", "created_at", 
-                    "updated_at", "metadata"
+                    "feature_id",
+                    "name",
+                    "version",
+                    "description",
+                    "feature_type",
+                    "parameters",
+                    "tags",
+                    "owner",
+                    "status",
+                    "created_at",
+                    "updated_at",
+                    "metadata",
                 ]
                 data = dict(zip(columns, row))
                 data["parameters"] = json.loads(data["parameters"])
                 data["tags"] = json.loads(data["tags"])
                 data["metadata"] = json.loads(data["metadata"])
-                
+
                 # Filter by tags if specified
                 if tags:
                     feature_tags = set(data["tags"])
                     if not all(tag in feature_tags for tag in tags):
                         continue
-                
+
                 features.append(FeatureDefinition.from_dict(data))
-            
+
             return features
-    
+
     def store_feature_values(
         self,
         feature_id: str,
         values: pd.DataFrame,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Store computed feature values.
-        
+
         Args:
             feature_id: Feature identifier
             values: DataFrame with feature values indexed by entity
@@ -430,51 +447,51 @@ class FeatureStorage:
         """
         # Store as parquet file for efficient storage and retrieval
         file_path = self.data_path / f"{feature_id}.parquet"
-        
+
         # Add metadata to DataFrame
         if metadata:
             values.attrs["metadata"] = metadata
             values.attrs["feature_id"] = feature_id
             values.attrs["stored_at"] = datetime.utcnow().isoformat()
-        
+
         values.to_parquet(file_path, index=True)
         logger.info(f"Stored {len(values)} feature values for {feature_id}")
-    
+
     def get_feature_values(
         self,
         feature_id: str,
-        entity_ids: Optional[List[str]] = None,
-        timestamp: Optional[datetime] = None,
-    ) -> Optional[pd.DataFrame]:
+        entity_ids: list[str] | None = None,
+        timestamp: datetime | None = None,
+    ) -> pd.DataFrame | None:
         """Retrieve stored feature values.
-        
+
         Args:
             feature_id: Feature identifier
             entity_ids: Optional list of entity IDs to filter
             timestamp: Optional timestamp for point-in-time queries
-            
+
         Returns:
             DataFrame with feature values if found, None otherwise
         """
         file_path = self.data_path / f"{feature_id}.parquet"
-        
+
         if not file_path.exists():
             return None
-        
+
         values = pd.read_parquet(file_path)
-        
+
         # Filter by entity IDs if specified
         if entity_ids:
             values = values[values.index.isin(entity_ids)]
-        
+
         # TODO: Implement point-in-time filtering if timestamp is provided
         # This would require storing multiple versions of feature values
-        
+
         return values
-    
+
     def store_feature_set(self, feature_set: FeatureSet) -> None:
         """Store feature set definition.
-        
+
         Args:
             feature_set: Feature set to store
         """
@@ -496,13 +513,13 @@ class FeatureStorage:
                     json.dumps(feature_set.metadata),
                 ),
             )
-    
-    def get_feature_set(self, name: str) -> Optional[FeatureSet]:
+
+    def get_feature_set(self, name: str) -> FeatureSet | None:
         """Retrieve feature set by name.
-        
+
         Args:
             name: Feature set name
-            
+
         Returns:
             Feature set if found, None otherwise
         """
@@ -512,42 +529,48 @@ class FeatureStorage:
                 (name,),
             )
             row = cursor.fetchone()
-            
+
             if row:
                 columns = [
-                    "name", "description", "feature_ids", "entity_type",
-                    "created_at", "updated_at", "metadata"
+                    "name",
+                    "description",
+                    "feature_ids",
+                    "entity_type",
+                    "created_at",
+                    "updated_at",
+                    "metadata",
                 ]
                 data = dict(zip(columns, row))
                 data["feature_ids"] = json.loads(data["feature_ids"])
                 data["metadata"] = json.loads(data["metadata"])
                 data["created_at"] = datetime.fromisoformat(data["created_at"])
                 data["updated_at"] = datetime.fromisoformat(data["updated_at"])
-                
+
                 return FeatureSet(**data)
-            
+
             return None
 
 
 class FeatureRegistry:
     """Registry for managing feature definitions and computations."""
-    
+
     def __init__(self, storage: FeatureStorage):
         """Initialize feature registry.
-        
+
         Args:
             storage: Storage backend
         """
         self.storage = storage
-        self._computers: Dict[str, FeatureComputer] = {}
-        self._plugin_computers: Dict[str, str] = {}
+        self._computers: dict[str, FeatureComputer] = {}
+        self._plugin_computers: dict[str, str] = {}
         self._register_builtin_features()
         self._discover_plugins()
-    
+
     def _discover_plugins(self) -> None:
         """Discover and register feature computer plugins via entry points."""
         try:
             from importlib.metadata import entry_points
+
             plugins = entry_points(group="astroml.feature_computers")
             for ep in plugins:
                 try:
@@ -560,7 +583,9 @@ class FeatureRegistry:
                             name,
                             computer.compute if hasattr(computer, "compute") else computer,
                             {
-                                "description": getattr(computer_cls, "__doc__", f"Plugin: {ep.name}"),
+                                "description": getattr(
+                                    computer_cls, "__doc__", f"Plugin: {ep.name}"
+                                ),
                                 "feature_type": FeatureType.NUMERIC,
                                 "tags": ["plugin", ep.name],
                                 "owner": "plugin",
@@ -582,36 +607,36 @@ class FeatureRegistry:
             logger.debug("importlib.metadata not available for plugin discovery")
         except Exception as e:
             logger.warning(f"Plugin discovery failed: {e}")
-    
+
     def _validate_plugin(self, plugin_cls: type) -> None:
         """Validate that a plugin class has required methods.
-        
+
         Args:
             plugin_cls: Plugin class to validate
-            
+
         Raises:
             TypeError: If plugin is missing required methods
         """
         if hasattr(plugin_cls, "compute"):
-            if not callable(getattr(plugin_cls, "compute")):
+            if not callable(plugin_cls.compute):
                 raise TypeError(f"Plugin {plugin_cls.__name__}.compute must be callable")
         elif not callable(plugin_cls):
             raise TypeError(
                 f"Plugin {plugin_cls.__name__} must either be callable "
                 f"or have a callable 'compute' method"
             )
-    
+
     def _register_builtin_features(self) -> None:
         """Register built-in feature computers from existing modules."""
         try:
             # Import existing feature modules
             from astroml.features import (
-                frequency,
-                structural_importance,
-                node_features,
                 asset_diversity,
+                frequency,
+                node_features,
+                structural_importance,
             )
-            
+
             # Register frequency features
             self.register_computer(
                 "daily_transaction_count",
@@ -622,7 +647,7 @@ class FeatureRegistry:
                     "tags": ["frequency", "activity"],
                 },
             )
-            
+
             self.register_computer(
                 "transaction_burstiness",
                 frequency.compute_burstiness,
@@ -632,7 +657,7 @@ class FeatureRegistry:
                     "tags": ["frequency", "behavior"],
                 },
             )
-            
+
             # Register structural importance features
             self.register_computer(
                 "degree_centrality",
@@ -643,7 +668,7 @@ class FeatureRegistry:
                     "tags": ["graph", "centrality"],
                 },
             )
-            
+
             self.register_computer(
                 "betweenness_centrality",
                 structural_importance.compute_betweenness_centrality,
@@ -653,7 +678,7 @@ class FeatureRegistry:
                     "tags": ["graph", "centrality"],
                 },
             )
-            
+
             self.register_computer(
                 "pagerank",
                 structural_importance.compute_pagerank,
@@ -663,7 +688,7 @@ class FeatureRegistry:
                     "tags": ["graph", "importance"],
                 },
             )
-            
+
             # Register node features
             self.register_computer(
                 "node_features",
@@ -674,7 +699,7 @@ class FeatureRegistry:
                     "tags": ["node", "basic"],
                 },
             )
-            
+
             # Register asset diversity features
             self.register_computer(
                 "asset_diversity",
@@ -685,27 +710,27 @@ class FeatureRegistry:
                     "tags": ["asset", "diversity"],
                 },
             )
-            
+
             logger.info("Registered built-in feature computers")
-            
+
         except ImportError as e:
             logger.warning(f"Could not import some feature modules: {e}")
-    
+
     def register_computer(
         self,
         name: str,
         computer: FeatureComputer,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """Register a feature computer.
-        
+
         Args:
             name: Feature name
             computer: Computation function
             metadata: Feature metadata
         """
         self._computers[name] = computer
-        
+
         # Create feature definition
         feature_def = FeatureDefinition(
             name=name,
@@ -715,22 +740,22 @@ class FeatureRegistry:
             tags=metadata.get("tags", []),
             owner=metadata.get("owner", "system"),
         )
-        
+
         self.storage.store_feature_definition(feature_def)
         logger.info(f"Registered feature computer: {name}")
-    
-    def get_computer(self, name: str) -> Optional[FeatureComputer]:
+
+    def get_computer(self, name: str) -> FeatureComputer | None:
         """Get registered feature computer.
-        
+
         Args:
             name: Feature name
-            
+
         Returns:
             Feature computer if found, None otherwise
         """
         return self._computers.get(name)
-    
-    def list_features(self) -> List[str]:
+
+    def list_features(self) -> list[str]:
         """List all registered feature names."""
         return list(self._computers.keys())
 
@@ -763,7 +788,7 @@ class FeatureStore:
 
     def __init__(
         self,
-        storage_path: Union[str, Path] = "./feature_store",
+        storage_path: str | Path = "./feature_store",
         max_cache_size_mb: int = 500,
         cache_ttl_seconds: int = _DEFAULT_TTL,
         cache_maxsize: int = _DEFAULT_MAXSIZE,
@@ -793,7 +818,7 @@ class FeatureStore:
         self.registry = FeatureRegistry(self.storage)
 
         # Lightweight metadata cache (feature definitions rarely change).
-        self._metadata_cache: Dict[str, FeatureDefinition] = {}
+        self._metadata_cache: dict[str, FeatureDefinition] = {}
 
         # Primary value cache: TTLCache provides automatic TTL expiry *and*
         # LRU eviction when maxsize is reached.  A threading.Lock makes all
@@ -820,19 +845,19 @@ class FeatureStore:
         self._max_workers: int = max_workers
         self._chunk_size: int = chunk_size
         self._enable_parallel: bool = enable_parallel and max_workers > 1
-    
+
     def register_feature(
         self,
         name: str,
         computer: FeatureComputer,
         description: str,
         feature_type: FeatureType = FeatureType.NUMERIC,
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         owner: str = "",
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
     ) -> FeatureDefinition:
         """Register a new feature.
-        
+
         Args:
             name: Feature name
             computer: Computation function
@@ -841,7 +866,7 @@ class FeatureStore:
             tags: Feature tags
             owner: Feature owner
             parameters: Feature parameters
-            
+
         Returns:
             Created feature definition
         """
@@ -852,16 +877,16 @@ class FeatureStore:
             "owner": owner,
             "parameters": parameters or {},
         }
-        
+
         self.registry.register_computer(name, computer, metadata)
-        
+
         # Return the created feature definition
         feature_def = self.storage.get_feature_definition(f"{name}_v1")
         if feature_def is None:
             raise RuntimeError("Failed to create feature definition")
-        
+
         return feature_def
-    
+
     def compute_feature(
         self,
         feature_name: str,
@@ -999,13 +1024,8 @@ class FeatureStore:
 
         results = []
         try:
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=self._max_workers
-            ) as executor:
-                future_to_chunk = {
-                    executor.submit(process_chunk, chunk): chunk
-                    for chunk in chunks
-                }
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                future_to_chunk = {executor.submit(process_chunk, chunk): chunk for chunk in chunks}
 
                 for future in concurrent.futures.as_completed(future_to_chunk):
                     try:
@@ -1025,24 +1045,24 @@ class FeatureStore:
             return combined_result
         else:
             return pd.DataFrame()
-    
+
     def store_feature(
         self,
         feature_name: str,
         values: pd.DataFrame,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         validate_schema: bool = True,
         dry_run: bool = False,
     ) -> ValidationResult:
         """Store computed feature values.
-        
+
         Args:
             feature_name: Feature name
             values: Feature values to store
             metadata: Additional metadata
             validate_schema: Whether to validate schema before storing
             dry_run: If True, validate but don't store
-            
+
         Returns:
             ValidationResult if validate_schema=True, otherwise empty ValidationResult
         """
@@ -1050,7 +1070,7 @@ class FeatureStore:
         feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
         if feature_def is None:
             raise ValueError(f"Feature '{feature_name}' not found")
-        
+
         # Validate schema if requested
         if validate_schema:
             result = dry_run_ingestion(values, FEATURE_VALUE_SCHEMA, log_issues=True)
@@ -1059,7 +1079,7 @@ class FeatureStore:
                 return result
         else:
             result = ValidationResult(is_valid=True)
-        
+
         # Store values if not dry run
         if not dry_run:
             self.storage.store_feature_values(feature_def.feature_id, values, metadata)
@@ -1074,9 +1094,9 @@ class FeatureStore:
             logger.info(f"Stored feature '{feature_name}' with {len(values)} values")
         else:
             logger.info(f"Dry run: would store feature '{feature_name}' with {len(values)} values")
-        
+
         return result
-    
+
     def _get_dataframe_size_bytes(self, df: pd.DataFrame) -> int:
         """Estimate DataFrame memory usage in bytes."""
         return int(df.memory_usage(deep=True).sum())
@@ -1119,15 +1139,15 @@ class FeatureStore:
         """
         with self._cache_lock:
             return feature_id not in self._value_cache
-    
+
     @cache_feature_store(ttl_seconds=900)
     def get_feature(
         self,
         feature_name: str,
-        entity_ids: Optional[List[str]] = None,
-        timestamp: Optional[datetime] = None,
+        entity_ids: list[str] | None = None,
+        timestamp: datetime | None = None,
         use_cache: bool = True,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """Retrieve stored feature values with lazy loading.
 
         Uses lazy loading: only loads feature values on-demand and caches
@@ -1177,17 +1197,13 @@ class FeatureStore:
 
             # Enforce soft memory cap before inserting.
             with self._cache_lock:
-                if (
-                    self._current_cache_size_bytes + value_size_bytes
-                    > self._max_cache_size_bytes
-                ):
+                if self._current_cache_size_bytes + value_size_bytes > self._max_cache_size_bytes:
                     required_space = (
-                        self._current_cache_size_bytes + value_size_bytes
+                        self._current_cache_size_bytes
+                        + value_size_bytes
                         - self._max_cache_size_bytes
                     )
-                    logger.debug(
-                        f"Cache at memory cap, freeing {required_space} bytes"
-                    )
+                    logger.debug(f"Cache at memory cap, freeing {required_space} bytes")
                     self._evict_lru_features(required_space)
 
                 self._value_cache[feature_id] = {
@@ -1204,18 +1220,18 @@ class FeatureStore:
             )
 
         return values
-    
+
     def compute_and_store(
         self,
         feature_name: str,
         data: pd.DataFrame,
         entity_col: str,
         timestamp_col: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Compute and store feature values in one step.
-        
+
         Args:
             feature_name: Feature name
             data: Input data
@@ -1223,31 +1239,31 @@ class FeatureStore:
             timestamp_col: Timestamp column
             metadata: Additional metadata
             **kwargs: Additional parameters
-            
+
         Returns:
             Computed feature values
         """
         values = self.compute_feature(feature_name, data, entity_col, timestamp_col, **kwargs)
         self.store_feature(feature_name, values, metadata)
         return values
-    
+
     def create_feature_set(
         self,
         name: str,
-        feature_names: List[str],
+        feature_names: list[str],
         description: str,
         entity_type: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FeatureSet:
         """Create a feature set.
-        
+
         Args:
             name: Feature set name
             feature_names: List of feature names
             description: Feature set description
             entity_type: Entity type
             metadata: Additional metadata
-            
+
         Returns:
             Created feature set
         """
@@ -1258,7 +1274,7 @@ class FeatureStore:
             if feature_def is None:
                 raise ValueError(f"Feature '{feature_name}' not found")
             feature_ids.append(feature_def.feature_id)
-        
+
         feature_set = FeatureSet(
             name=name,
             description=description,
@@ -1266,26 +1282,26 @@ class FeatureStore:
             entity_type=entity_type,
             metadata=metadata or {},
         )
-        
+
         self.storage.store_feature_set(feature_set)
         return feature_set
-    
-    def get_feature_set(self, name: str) -> Optional[FeatureSet]:
+
+    def get_feature_set(self, name: str) -> FeatureSet | None:
         """Retrieve feature set.
-        
+
         Args:
             name: Feature set name
-            
+
         Returns:
             Feature set if found, None otherwise
         """
         return self.storage.get_feature_set(name)
-    
+
     def get_features_for_entities(
         self,
-        feature_names: List[str],
-        entity_ids: List[str],
-        timestamp: Optional[datetime] = None,
+        feature_names: list[str],
+        entity_ids: list[str],
+        timestamp: datetime | None = None,
         parallel: bool = True,
     ) -> pd.DataFrame:
         """Get multiple features for specific entities.
@@ -1303,7 +1319,7 @@ class FeatureStore:
 
         if parallel and self._enable_parallel and len(feature_names) > 1:
             # Fetch features in parallel
-            def fetch_feature(feature_name: str) -> tuple[str, Optional[pd.DataFrame]]:
+            def fetch_feature(feature_name: str) -> tuple[str, pd.DataFrame | None]:
                 """Fetch a single feature."""
                 values = self.get_feature(feature_name, entity_ids, timestamp)
                 return feature_name, values
@@ -1313,8 +1329,7 @@ class FeatureStore:
                     max_workers=min(self._max_workers, len(feature_names))
                 ) as executor:
                     future_to_feature = {
-                        executor.submit(fetch_feature, fn): fn
-                        for fn in feature_names
+                        executor.submit(fetch_feature, fn): fn for fn in feature_names
                     }
 
                     for future in concurrent.futures.as_completed(future_to_feature):
@@ -1356,25 +1371,25 @@ class FeatureStore:
 
         result = pd.DataFrame(feature_data, index=entity_ids)
         return result
-    
+
     def list_features(
         self,
-        status: Optional[FeatureStatus] = None,
-        tags: Optional[List[str]] = None,
-        owner: Optional[str] = None,
-    ) -> List[FeatureDefinition]:
+        status: FeatureStatus | None = None,
+        tags: list[str] | None = None,
+        owner: str | None = None,
+    ) -> list[FeatureDefinition]:
         """List available features.
-        
+
         Args:
             status: Filter by status
             tags: Filter by tags
             owner: Filter by owner
-            
+
         Returns:
             List of feature definitions
         """
         return self.storage.list_feature_definitions(status, tags, owner)
-    
+
     def clear_cache(self) -> None:
         """Clear all in-process caches (metadata and value) and reset metrics."""
         self._metadata_cache.clear()
@@ -1383,7 +1398,7 @@ class FeatureStore:
             self._current_cache_size_bytes = 0
         logger.info("Feature cache cleared")
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Return cache statistics including hit/miss/eviction metrics.
 
         Returns:
@@ -1430,7 +1445,7 @@ class FeatureStore:
             "hit_rate": hit_rate,
             "miss_rate": miss_rate,
         }
-    
+
     @contextmanager
     def batch_mode(self):
         """Context manager for batch operations.
@@ -1454,7 +1469,8 @@ class FeatureStore:
 # Convenience functions
 # ---------------------------------------------------------------------------
 
-def _load_feature_store_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+
+def _load_feature_store_config(config_path: str | Path | None = None) -> dict[str, Any]:
     """Load feature store configuration from YAML.
 
     Looks for ``config/feature_store.yaml`` relative to the current working
@@ -1477,7 +1493,7 @@ def _load_feature_store_config(config_path: Optional[Union[str, Path]] = None) -
         logger.debug(f"Feature store config not found at '{config_path}', using defaults")
         return {}
 
-    with open(config_path, "r", encoding="utf-8") as fh:
+    with open(config_path, encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
 
     logger.info(f"Loaded feature store config from '{config_path}'")
@@ -1486,10 +1502,10 @@ def _load_feature_store_config(config_path: Optional[Union[str, Path]] = None) -
 
 def create_feature_store(
     storage_path: str = "./feature_store",
-    config_path: Optional[Union[str, Path]] = None,
-    max_workers: Optional[int] = None,
-    chunk_size: Optional[int] = None,
-    enable_parallel: Optional[bool] = None,
+    config_path: str | Path | None = None,
+    max_workers: int | None = None,
+    chunk_size: int | None = None,
+    enable_parallel: bool | None = None,
 ) -> FeatureStore:
     """Create a :class:`FeatureStore` instance, optionally driven by YAML config.
 
@@ -1518,15 +1534,18 @@ def create_feature_store(
         max_cache_size_mb=cache_cfg.get("max_size_mb", 500),
         cache_ttl_seconds=cache_cfg.get("ttl_seconds", FeatureStore._DEFAULT_TTL),
         cache_maxsize=cache_cfg.get("maxsize", FeatureStore._DEFAULT_MAXSIZE),
-        max_workers=max_workers or parallel_cfg.get("max_workers", FeatureStore._DEFAULT_MAX_WORKERS),
+        max_workers=max_workers
+        or parallel_cfg.get("max_workers", FeatureStore._DEFAULT_MAX_WORKERS),
         chunk_size=chunk_size or parallel_cfg.get("chunk_size", FeatureStore._DEFAULT_CHUNK_SIZE),
-        enable_parallel=enable_parallel if enable_parallel is not None else parallel_cfg.get("enable", True),
+        enable_parallel=(
+            enable_parallel if enable_parallel is not None else parallel_cfg.get("enable", True)
+        ),
     )
 
 
 def get_feature_store(
     storage_path: str = "./feature_store",
-    config_path: Optional[Union[str, Path]] = None,
+    config_path: str | Path | None = None,
 ) -> FeatureStore:
     """Alias for :func:`create_feature_store`.
 

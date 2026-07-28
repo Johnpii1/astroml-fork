@@ -3,11 +3,11 @@
 All tests use an in-memory SQLite database via SQLAlchemy async so no
 PostgreSQL or real ML models are required.
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -15,17 +15,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from api.models.orm import FraudAlert  # noqa: F401 — registers ORM on Base
-from astroml.db.schema import Base as SchemaBase  # for accounts table
 from astroml.api.scheduler import (
     ALERT_RETENTION_DAYS,
-    ACTIVITY_WINDOW_HOURS,
     run_batch_scoring_job,
     start_scheduler,
     stop_scheduler,
 )
-
+from astroml.db.schema import Base as SchemaBase  # for accounts table
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
+
 
 @pytest_asyncio.fixture
 async def engine():
@@ -44,6 +43,7 @@ async def session_factory(engine):
 
 # ─── FraudAlert model tests ──────────────────────────────────────────────────
 
+
 class TestFraudAlertModel:
     def test_risk_level_low(self):
         assert FraudAlert.risk_level_for_score(0.0) == "low"
@@ -59,6 +59,7 @@ class TestFraudAlertModel:
 
 
 # ─── Batch job tests ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestRunBatchScoringJob:
@@ -78,14 +79,17 @@ class TestRunBatchScoringJob:
         now = datetime.now(timezone.utc)
 
         # Insert two accounts updated within the activity window
-        async with session_factory() as sess:
-            async with sess.begin():
-                for acct_id in ["GAAA000000000000000000000000000000000000000000000000001",
-                                 "GAAA000000000000000000000000000000000000000000000000002"]:
-                    sess.add(Account(
+        async with session_factory() as sess, sess.begin():
+            for acct_id in [
+                "GAAA000000000000000000000000000000000000000000000000001",
+                "GAAA000000000000000000000000000000000000000000000000002",
+            ]:
+                sess.add(
+                    Account(
                         account_id=acct_id,
                         updated_at=now - timedelta(hours=1),
-                    ))
+                    )
+                )
 
         metrics = await run_batch_scoring_job(
             session_factory,
@@ -114,12 +118,13 @@ class TestRunBatchScoringJob:
         now = datetime.now(timezone.utc)
         acct_id = "GAAA000000000000000000000000000000000000000000000000ERR"
 
-        async with session_factory() as sess:
-            async with sess.begin():
-                sess.add(Account(
+        async with session_factory() as sess, sess.begin():
+            sess.add(
+                Account(
                     account_id=acct_id,
                     updated_at=now - timedelta(hours=1),
-                ))
+                )
+            )
 
         def boom(_account_id):
             raise RuntimeError("scorer exploded")
@@ -135,15 +140,14 @@ class TestRunBatchScoringJob:
         stale_time = now - timedelta(days=ALERT_RETENTION_DAYS + 1)
 
         # Insert a stale alert directly
-        async with session_factory() as sess:
-            async with sess.begin():
-                stale = FraudAlert(
-                    account_id="GAAA_OLD",
-                    risk_score=0.1,
-                    risk_level="low",
-                    detected_at=stale_time,
-                )
-                sess.add(stale)
+        async with session_factory() as sess, sess.begin():
+            stale = FraudAlert(
+                account_id="GAAA_OLD",
+                risk_score=0.1,
+                risk_level="low",
+                detected_at=stale_time,
+            )
+            sess.add(stale)
 
         metrics = await run_batch_scoring_job(
             session_factory,
@@ -165,15 +169,14 @@ class TestRunBatchScoringJob:
         now = datetime.now(timezone.utc)
         recent_time = now - timedelta(days=ALERT_RETENTION_DAYS - 1)
 
-        async with session_factory() as sess:
-            async with sess.begin():
-                fresh = FraudAlert(
-                    account_id="GAAA_NEW",
-                    risk_score=0.7,
-                    risk_level="medium",
-                    detected_at=recent_time,
-                )
-                sess.add(fresh)
+        async with session_factory() as sess, sess.begin():
+            fresh = FraudAlert(
+                account_id="GAAA_NEW",
+                risk_score=0.7,
+                risk_level="medium",
+                detected_at=recent_time,
+            )
+            sess.add(fresh)
 
         await run_batch_scoring_job(
             session_factory,
@@ -189,6 +192,7 @@ class TestRunBatchScoringJob:
 
 
 # ─── Scheduler lifecycle tests ────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestSchedulerLifecycle:

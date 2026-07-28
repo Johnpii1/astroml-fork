@@ -1,10 +1,12 @@
 """GitHub Discussions API integration router."""
-import httpx
+
 import logging
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
+from typing import Optional
+
+import httpx
+from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/api/v1/discussions", tags=["discussions"])
 logger = logging.getLogger(__name__)
@@ -26,9 +28,7 @@ class DiscussionService:
             "Accept": "application/vnd.github.v3+json",
         }
 
-    async def fetch_discussions(
-        self, category: Optional[str] = None, limit: int = 20
-    ) -> list:
+    async def fetch_discussions(self, category: Optional[str] = None, limit: int = 20) -> list:
         """Fetch recent discussions from GitHub."""
         if not GITHUB_TOKEN:
             return []
@@ -169,7 +169,7 @@ async def get_recent_discussions(
 ):
     """Get recent discussions from GitHub."""
     cache_key = f"discussions:{category}:{limit}"
-    
+
     # Check cache
     if cache_key in DISCUSSION_CACHE:
         cached_data, timestamp = DISCUSSION_CACHE[cache_key]
@@ -177,10 +177,10 @@ async def get_recent_discussions(
             return {"discussions": cached_data, "cached": True}
 
     discussions = await discussion_service.fetch_discussions(category, limit)
-    
+
     # Cache result
     DISCUSSION_CACHE[cache_key] = (discussions, datetime.now())
-    
+
     return {"discussions": discussions, "cached": False}
 
 
@@ -188,7 +188,7 @@ async def get_recent_discussions(
 async def get_discussion_categories():
     """Get available discussion categories."""
     cache_key = "discussion_categories"
-    
+
     # Check cache
     if cache_key in DISCUSSION_CACHE:
         cached_data, timestamp = DISCUSSION_CACHE[cache_key]
@@ -196,10 +196,10 @@ async def get_discussion_categories():
             return {"categories": cached_data, "cached": True}
 
     categories = await discussion_service.get_discussion_categories()
-    
+
     # Cache result
     DISCUSSION_CACHE[cache_key] = (categories, datetime.now())
-    
+
     return {"categories": categories, "cached": False}
 
 
@@ -207,12 +207,13 @@ async def get_discussion_categories():
 async def search_discussions(query: str, limit: int = 20):
     """Search discussions by query (simple text search on cached data)."""
     discussions = await discussion_service.fetch_discussions(limit=100)
-    
+
     filtered = [
-        d for d in discussions
+        d
+        for d in discussions
         if query.lower() in d["title"].lower() or query.lower() in d["body"].lower()
     ][:limit]
-    
+
     return {"results": filtered, "total": len(filtered)}
 
 
@@ -256,7 +257,9 @@ async def get_user_reputation(username: str):
             )
 
         if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail="Failed to fetch user data")
+            raise HTTPException(
+                status_code=response.status_code, detail="Failed to fetch user data"
+            )
 
         data = response.json()
         if "errors" in data:
@@ -264,16 +267,16 @@ async def get_user_reputation(username: str):
 
         user = data.get("data", {}).get("user", {})
         contributions = user.get("contributionsCollection", {})
-        
+
         # Calculate reputation score
         reputation_score = (
-            contributions.get("totalCommitContributions", 0) * 10 +
-            contributions.get("totalIssueContributions", 0) * 5 +
-            contributions.get("totalPullRequestContributions", 0) * 15 +
-            user.get("followers", {}).get("totalCount", 0) * 2 +
-            user.get("repositories", {}).get("totalCount", 0) * 3
+            contributions.get("totalCommitContributions", 0) * 10
+            + contributions.get("totalIssueContributions", 0) * 5
+            + contributions.get("totalPullRequestContributions", 0) * 15
+            + user.get("followers", {}).get("totalCount", 0) * 2
+            + user.get("repositories", {}).get("totalCount", 0) * 3
         )
-        
+
         return {
             "username": username,
             "reputationScore": reputation_score,

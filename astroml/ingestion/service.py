@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Callable, Iterator, List, Literal, Optional
+from typing import Literal
 
 from .state import StateStore
 
@@ -11,9 +12,9 @@ logger = logging.getLogger("astroml.ingestion.service")
 
 @dataclass
 class IngestionResult:
-    attempted: List[int]
-    processed: List[int]
-    skipped: List[int]
+    attempted: list[int]
+    processed: list[int]
+    skipped: list[int]
 
 
 @dataclass(frozen=True)
@@ -29,15 +30,15 @@ class LedgerOutcome:
 
 
 class IngestionService:
-    def __init__(self, state_store: Optional[StateStore] = None) -> None:
+    def __init__(self, state_store: StateStore | None = None) -> None:
         self.state = state_store or StateStore()
 
     def ingest(
         self,
-        start_ledger: Optional[int] = None,
-        end_ledger: Optional[int] = None,
-        fetch_fn: Optional[Callable[[int], object]] = None,
-        process_fn: Optional[Callable[[int, object], None]] = None,
+        start_ledger: int | None = None,
+        end_ledger: int | None = None,
+        fetch_fn: Callable[[int], object] | None = None,
+        process_fn: Callable[[int, object], None] | None = None,
         batch_size: int = 100,
     ) -> IngestionResult:
         """Ingest ledgers incrementally and idempotently.
@@ -59,9 +60,9 @@ class IngestionService:
         as-is (rather than changed to return a smaller summary) to avoid breaking existing
         callers that rely on the full id lists.
         """
-        attempted: List[int] = []
-        processed: List[int] = []
-        skipped: List[int] = []
+        attempted: list[int] = []
+        processed: list[int] = []
+        skipped: list[int] = []
 
         for ledger_id, outcome in self.ingest_stream(
             start_ledger=start_ledger,
@@ -80,10 +81,10 @@ class IngestionService:
 
     def ingest_stream(
         self,
-        start_ledger: Optional[int] = None,
-        end_ledger: Optional[int] = None,
-        fetch_fn: Optional[Callable[[int], object]] = None,
-        process_fn: Optional[Callable[[int, object], None]] = None,
+        start_ledger: int | None = None,
+        end_ledger: int | None = None,
+        fetch_fn: Callable[[int], object] | None = None,
+        process_fn: Callable[[int, object], None] | None = None,
         batch_size: int = 100,
     ) -> Iterator[tuple[int, LedgerOutcome]]:
         """Stream ledger ingestion results one ledger at a time — issue #547.
@@ -157,13 +158,9 @@ class IngestionService:
             # here keeps the gauge balanced even if the caller abandons the
             # generator partway through — GeneratorExit unwinds this `with`.
             with track_active_job("ingestion"):
-                for offset, ledger_id in enumerate(
-                    range(start_ledger, end_ledger + 1), start=1
-                ):
+                for offset, ledger_id in enumerate(range(start_ledger, end_ledger + 1), start=1):
                     if ledger_id in processed_set:
-                        yield ledger_id, LedgerOutcome(
-                            ledger_id=ledger_id, status="skipped"
-                        )
+                        yield ledger_id, LedgerOutcome(ledger_id=ledger_id, status="skipped")
                     else:
                         payload = fetch(ledger_id)
                         process(ledger_id, payload)
@@ -177,14 +174,14 @@ class IngestionService:
                         if pending_flush >= batch_size:
                             self.state.save(state)
                             pending_flush = 0
-                        yield ledger_id, LedgerOutcome(
-                            ledger_id=ledger_id, status="processed"
-                        )
+                        yield ledger_id, LedgerOutcome(ledger_id=ledger_id, status="processed")
 
                     if offset % batch_size == 0:
                         logger.info(
                             "ingest_stream progress: %d/%d ledgers (up to %d)",
-                            offset, end_ledger - start_ledger + 1, ledger_id,
+                            offset,
+                            end_ledger - start_ledger + 1,
+                            ledger_id,
                         )
         finally:
             if pending_flush:

@@ -51,6 +51,7 @@ def test_iter_db_snapshots_streams_in_chunks():
 
 def test_iter_db_snapshots_parallel_prefetches_windows(monkeypatch):
     from datetime import timedelta
+
     from astroml.features.graph.snapshot import iter_db_snapshots
 
     t0 = datetime(2024, 1, 1, tzinfo=timezone.utc)

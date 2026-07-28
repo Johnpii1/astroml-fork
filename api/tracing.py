@@ -1,4 +1,5 @@
 """OpenTelemetry distributed tracing setup (issue #336)."""
+
 from __future__ import annotations
 
 import os
@@ -10,9 +11,10 @@ try:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
     from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-    from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
     HAS_OTEL = True
 except ImportError:
     HAS_OTEL = False
@@ -156,4 +158,3 @@ def record_exception(exception: Exception) -> None:
     current_span = trace.get_current_span()
     if current_span:
         current_span.record_exception(exception)
-

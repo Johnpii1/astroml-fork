@@ -18,18 +18,18 @@ Usage (programmatic):
 CLI suggestion (future): expose via astroml.cli.
 """
 
-from dataclasses import dataclass, asdict
 import json
 import os
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 
 try:
     import psutil  # type: ignore
 except Exception:  # pragma: no cover
     psutil = None  # Fallback to /proc/self status parsing if available
 
-from .service import IngestionService, IngestionResult
+from .service import IngestionResult, IngestionService
 
 
 @dataclass
@@ -53,13 +53,13 @@ def _get_rss_mb() -> float:
         return p.memory_info().rss / (1024 * 1024)
     # Fallback: read from /proc/self/statm on Linux
     try:
-        with open('/proc/self/statm', 'r') as f:
+        with open("/proc/self/statm") as f:
             parts = f.read().split()
             rss_pages = int(parts[1])
-        page_size = os.sysconf('SC_PAGE_SIZE')
+        page_size = os.sysconf("SC_PAGE_SIZE")
         return (rss_pages * page_size) / (1024 * 1024)
     except Exception:
-        return float('nan')
+        return float("nan")
 
 
 def run_benchmark(
@@ -67,8 +67,8 @@ def run_benchmark(
     *,
     start_ledger: int,
     end_ledger: int,
-    fetch_fn: Optional[Callable[[int], object]] = None,
-    process_fn: Optional[Callable[[int, object], None]] = None,
+    fetch_fn: Callable[[int], object] | None = None,
+    process_fn: Callable[[int, object], None] | None = None,
     results_path: str = ".astroml_bench/ingestion_benchmark.jsonl",
     fetch_cost_us: int = 0,
     process_cost_us: int = 0,
@@ -121,12 +121,16 @@ def run_benchmark(
         tx_per_sec=txps,
         rss_mb_start=rss_start,
         rss_mb_end=rss_end,
-        rss_mb_delta=(rss_end - rss_start) if (not (rss_start != rss_start or rss_end != rss_end)) else float('nan'),
+        rss_mb_delta=(
+            (rss_end - rss_start)
+            if (not (rss_start != rss_start or rss_end != rss_end))
+            else float("nan")
+        ),
         timestamp=time.time(),
     )
 
     # Persist as JSONL
-    with open(results_path, 'a', encoding='utf-8') as f:
+    with open(results_path, "a", encoding="utf-8") as f:
         f.write(json.dumps(asdict(bench)) + "\n")
 
     return bench

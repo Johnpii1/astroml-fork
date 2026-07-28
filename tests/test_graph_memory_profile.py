@@ -56,8 +56,12 @@ def test_profile_graph_memory_reports_duration_and_shape() -> None:
     edges = _make_edges(200)
 
     result, profile = profile_graph_memory(
-        window_snapshot, edges, edges[0].timestamp, edges[-1].timestamp,
-        n_nodes=42, n_edges=200,
+        window_snapshot,
+        edges,
+        edges[0].timestamp,
+        edges[-1].timestamp,
+        n_nodes=42,
+        n_edges=200,
     )
 
     assert result is not None
@@ -75,7 +79,10 @@ def test_profile_graph_memory_nests_without_stopping_outer_trace() -> None:
     try:
         edges = _make_edges(50)
         _result, profile = profile_graph_memory(
-            window_snapshot, edges, edges[0].timestamp, edges[-1].timestamp,
+            window_snapshot,
+            edges,
+            edges[0].timestamp,
+            edges[-1].timestamp,
         )
         assert profile.traced_peak_mb >= 0.0
         # The outer trace must still be running — nested profiling shouldn't
@@ -102,7 +109,11 @@ def test_memory_profiled_decorator_is_opt_in() -> None:
 
 def test_graph_memory_profile_summary_contains_key_fields() -> None:
     profile = GraphMemoryProfile(
-        n_nodes=10, n_edges=20, traced_peak_mb=1.5, rss_delta_mb=2.5, duration_s=0.01,
+        n_nodes=10,
+        n_edges=20,
+        traced_peak_mb=1.5,
+        rss_delta_mb=2.5,
+        duration_s=0.01,
     )
     summary = profile.summary()
     assert "nodes=10" in summary

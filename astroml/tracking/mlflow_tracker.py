@@ -1,18 +1,19 @@
 """MLflow experiment tracking integration for AstroML."""
+
 from __future__ import annotations
 
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from astroml.storage import ArtifactStore, create_artifact_store
-from astroml.db.session import get_session
 from api.models.orm import ModelRegistry
+from astroml.db.session import get_session
+from astroml.storage import ArtifactStore, create_artifact_store
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class MLflowTracker:
 
     Gracefully degrades to a no-op when MLflow is not installed or
     when ``enabled=False`` so training still works without the dependency.
-    
+
     Supports configurable artifact storage backends (local, S3, GCS) via
     the artifact_uri parameter.
     """
@@ -32,13 +33,13 @@ class MLflowTracker:
         enabled: bool = True,
         tracking_uri: str = "mlruns",
         experiment_name: str = "astroml_experiment",
-        run_name: Optional[str] = None,
+        run_name: str | None = None,
         log_model_weights: bool = True,
-        artifact_uri: Optional[str] = None,
-        artifact_store: Optional[ArtifactStore] = None,
+        artifact_uri: str | None = None,
+        artifact_store: ArtifactStore | None = None,
     ):
         """Initialize MLflow tracker with optional artifact store.
-        
+
         Args:
             enabled: Whether to enable MLflow tracking
             tracking_uri: MLflow tracking server URI
@@ -89,19 +90,19 @@ class MLflowTracker:
     # Public helpers
     # ------------------------------------------------------------------
 
-    def log_params(self, params: Dict[str, Any]) -> None:
+    def log_params(self, params: dict[str, Any]) -> None:
         """Log a flat dictionary of hyper-parameters."""
         if not self.enabled or self._run is None:
             return
         self._mlflow.log_params(params)
 
-    def log_metric(self, key: str, value: float, step: Optional[int] = None) -> None:
+    def log_metric(self, key: str, value: float, step: int | None = None) -> None:
         """Log a single scalar metric."""
         if not self.enabled or self._run is None:
             return
         self._mlflow.log_metric(key, value, step=step)
 
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
+    def log_metrics(self, metrics: dict[str, float], step: int | None = None) -> None:
         """Log multiple scalar metrics at once."""
         if not self.enabled or self._run is None:
             return
@@ -111,14 +112,14 @@ class MLflowTracker:
         self,
         model: nn.Module,
         artifact_path: str = "model",
-        checkpoint_path: Optional[str] = None,
-    ) -> Optional[str]:
+        checkpoint_path: str | None = None,
+    ) -> str | None:
         """Log model weights as an MLflow artifact.
 
         Saves ``model.state_dict()`` to a temporary ``.pth`` file and
         uploads it. If *checkpoint_path* already exists on disk it is
         uploaded directly (avoids a redundant save).
-        
+
         If an artifact store is configured, also saves to the artifact store
         and returns the artifact URI.
 
@@ -136,7 +137,7 @@ class MLflowTracker:
         import os
 
         artifact_uri = None
-        
+
         # Determine which file to log
         if checkpoint_path and Path(checkpoint_path).exists():
             file_to_log = checkpoint_path
@@ -152,7 +153,7 @@ class MLflowTracker:
         try:
             # Log to MLflow
             self._mlflow.log_artifact(file_to_log, artifact_path=artifact_path)
-            
+
             # Log to artifact store if configured
             if self.artifact_store:
                 remote_path = f"{artifact_path}/{Path(file_to_log).name}"
@@ -167,9 +168,9 @@ class MLflowTracker:
 
     def save_artifact(
         self,
-        local_path: Union[str, Path],
+        local_path: str | Path,
         artifact_path: str = "artifacts",
-    ) -> Optional[str]:
+    ) -> str | None:
         """Save an arbitrary artifact to both MLflow and artifact store.
 
         Args:
@@ -201,7 +202,7 @@ class MLflowTracker:
     def load_artifact(
         self,
         remote_path: str,
-        local_path: Union[str, Path],
+        local_path: str | Path,
     ) -> Path:
         """Load an artifact from the artifact store to local filesystem.
 
@@ -220,7 +221,7 @@ class MLflowTracker:
 
         return self.artifact_store.load(remote_path, local_path)
 
-    def log_roc_auc(self, y_true: np.ndarray, y_score: np.ndarray, step: Optional[int] = None) -> None:
+    def log_roc_auc(self, y_true: np.ndarray, y_score: np.ndarray, step: int | None = None) -> None:
         """Compute and log ROC-AUC."""
         if not self.enabled or self._run is None:
             return
@@ -237,15 +238,15 @@ class MLflowTracker:
         model_name: str,
         version: str,
         path: str,
-        owner: Optional[str] = None,
-        tags: Optional[list[str]] = None,
-        status: Optional[str] = "inactive",
-    ) -> Optional[ModelRegistry]:
+        owner: str | None = None,
+        tags: list[str] | None = None,
+        status: str | None = "inactive",
+    ) -> ModelRegistry | None:
         """Register a model version to the model registry.
-        
+
         Automatically syncs metrics and parameters from the current MLflow run
         and stores the mlflow_run_id.
-        
+
         Args:
             model_name: Name of the model
             version: Version identifier
@@ -253,7 +254,7 @@ class MLflowTracker:
             owner: Optional owner of the model
             tags: Optional tags for the model
             status: Optional status (inactive, active, deprecated)
-            
+
         Returns:
             The created ModelRegistry entry if successful, None otherwise
         """
@@ -269,10 +270,11 @@ class MLflowTracker:
                 metrics = dict(self._run.data.metrics)
 
             # Check if model already exists
-            existing = db.query(ModelRegistry).filter(
-                ModelRegistry.name == model_name,
-                ModelRegistry.version == version
-            ).first()
+            existing = (
+                db.query(ModelRegistry)
+                .filter(ModelRegistry.name == model_name, ModelRegistry.version == version)
+                .first()
+            )
             if existing:
                 logger.warning(
                     f"Model {model_name} version {version} already exists, "
@@ -302,7 +304,7 @@ class MLflowTracker:
                 "Model registered | name=%s version=%s mlflow_run_id=%s",
                 model_name,
                 version,
-                self._run.info.run_id
+                self._run.info.run_id,
             )
             return entry
         except Exception as e:
@@ -312,13 +314,13 @@ class MLflowTracker:
         finally:
             db.close()
 
-    def load_run_metadata(self, model_name: str, version: str) -> Optional[Dict[str, Any]]:
+    def load_run_metadata(self, model_name: str, version: str) -> dict[str, Any] | None:
         """Load MLflow run metadata for a registered model version.
-        
+
         Args:
             model_name: Name of the model
             version: Version identifier
-            
+
         Returns:
             Run metadata dict if found, None otherwise
         """
@@ -328,10 +330,11 @@ class MLflowTracker:
 
         db = get_session()
         try:
-            entry = db.query(ModelRegistry).filter(
-                ModelRegistry.name == model_name,
-                ModelRegistry.version == version
-            ).first()
+            entry = (
+                db.query(ModelRegistry)
+                .filter(ModelRegistry.name == model_name, ModelRegistry.version == version)
+                .first()
+            )
             if not entry or not entry.mlflow_run_id:
                 logger.warning(f"No MLflow run ID found for {model_name} v{version}")
                 return None
@@ -365,7 +368,7 @@ class MLflowTracker:
     # Context-manager support
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> "MLflowTracker":
+    def __enter__(self) -> MLflowTracker:
         return self
 
     def __exit__(self, *_: Any) -> None:

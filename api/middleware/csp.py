@@ -4,6 +4,7 @@ Adds CSP headers to prevent XSS attacks by controlling which resources
 can be loaded by the browser. Implements a restrictive policy with
 nonce-based script execution support.
 """
+
 from __future__ import annotations
 
 import base64
@@ -82,7 +83,11 @@ class CSPMiddleware(BaseHTTPMiddleware):
         policy = "; ".join(policy_parts)
 
         # Set CSP header
-        header_name = "Content-Security-Policy-Report-Only" if self._report_only else "Content-Security-Policy"
+        header_name = (
+            "Content-Security-Policy-Report-Only"
+            if self._report_only
+            else "Content-Security-Policy"
+        )
         response.headers[header_name] = policy
 
         # Add nonce to response state for use in templates

@@ -7,6 +7,7 @@ Verifies that:
 - The CI workflow file contains a CPU-only run that excludes GPU tests,
   preventing accidental CUDA imports from breaking standard CI.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -33,7 +34,7 @@ def _pyproject_markers() -> list[str]:
             if stripped.startswith("]"):
                 break
             if stripped.startswith('"') or stripped.startswith("'"):
-                name = stripped.strip('"\'').split(":")[0].strip()
+                name = stripped.strip("\"'").split(":")[0].strip()
                 markers.append(name)
     return markers
 
@@ -50,9 +51,7 @@ def test_gpu_marker_registered() -> None:
 def test_e2e_marker_registered() -> None:
     """The `e2e` marker must be declared in pyproject.toml (#163)."""
     markers = _pyproject_markers()
-    assert "e2e" in markers, (
-        "pytest marker 'e2e' is not registered in pyproject.toml"
-    )
+    assert "e2e" in markers, "pytest marker 'e2e' is not registered in pyproject.toml"
 
 
 def test_ci_workflow_excludes_gpu_on_cpu_runs() -> None:
@@ -73,9 +72,7 @@ def test_ci_workflow_has_gpu_flavor() -> None:
     if not workflow.exists():
         pytest.skip(".github/workflows/pytest.yml not found")
     text = workflow.read_text()
-    assert "gpu" in text, (
-        "CI matrix must include a gpu flavor entry"
-    )
+    assert "gpu" in text, "CI matrix must include a gpu flavor entry"
 
 
 def test_ci_gpu_job_is_optional() -> None:

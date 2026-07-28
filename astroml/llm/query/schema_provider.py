@@ -1,7 +1,6 @@
 """Schema context injection for NL-to-SQL translation."""
-from __future__ import annotations
 
-from typing import Dict, Any, List
+from __future__ import annotations
 
 
 def get_db_schema_context() -> str:
@@ -42,19 +41,19 @@ Database Schema Tables:
 """
 
 
-def get_few_shot_examples() -> List[Dict[str, str]]:
+def get_few_shot_examples() -> list[dict[str, str]]:
     """Return few-shot NL-to-SQL query mappings for prompt injection."""
     return [
         {
             "nl": "Show me all accounts with balance > 1000 XLM in the last 7 days",
-            "sql": "SELECT account_id, balance, updated_at FROM accounts WHERE balance > 1000 AND updated_at >= NOW() - INTERVAL '7 days';"
+            "sql": "SELECT account_id, balance, updated_at FROM accounts WHERE balance > 1000 AND updated_at >= NOW() - INTERVAL '7 days';",
         },
         {
             "nl": "Top 10 accounts by transaction volume this month",
-            "sql": "SELECT source_account, COUNT(hash) AS tx_count FROM transactions WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE) GROUP BY source_account ORDER BY tx_count DESC LIMIT 10;"
+            "sql": "SELECT source_account, COUNT(hash) AS tx_count FROM transactions WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE) GROUP BY source_account ORDER BY tx_count DESC LIMIT 10;",
         },
         {
             "nl": "Show fraud alerts for accounts with risk score > 0.8",
-            "sql": "SELECT account_id, risk_score FROM accounts WHERE risk_score > 0.8 ORDER BY risk_score DESC;"
-        }
+            "sql": "SELECT account_id, risk_score FROM accounts WHERE risk_score > 0.8 ORDER BY risk_score DESC;",
+        },
     ]

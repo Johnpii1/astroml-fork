@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class AssertionTemplate(Enum):
     """Pre-defined assertion templates."""
+
     EQUAL = "assert {actual} == {expected}"
     NOT_EQUAL = "assert {actual} != {expected}"
     TRUE = "assert {actual} is True"
@@ -36,8 +37,8 @@ class AssertionTemplate(Enum):
 class AssertionGenerator:
     """Generates assertions based on return types and expected behavior."""
 
-    return_type_hint: Optional[str] = None
-    expected_exceptions: List[str] = field(default_factory=list)
+    return_type_hint: str | None = None
+    expected_exceptions: list[str] = field(default_factory=list)
     edge_case: bool = False
 
     def generate_assertions(
@@ -45,7 +46,7 @@ class AssertionGenerator:
         actual: str,
         expected: Any = None,
         tolerance: float = 1e-6,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate appropriate assertions for the given context."""
         assertions = []
 
@@ -85,7 +86,7 @@ class AssertionGenerator:
             expected=expected_type,
         )
 
-    def _type_to_assertions(self, actual: str) -> List[str]:
+    def _type_to_assertions(self, actual: str) -> list[str]:
         type_map = {
             "int": [f"isinstance({actual}, int)"],
             "float": [f"isinstance({actual}, float)"],
@@ -103,7 +104,7 @@ class AssertionGenerator:
                 return [f"assert {assertion[0]}"]
         return [f"assert {actual} is not None"]
 
-    def _edge_case_assertions(self, actual: str) -> List[str]:
+    def _edge_case_assertions(self, actual: str) -> list[str]:
         return [
             f"assert {actual} is not None",
             f"assert {actual} is not False",

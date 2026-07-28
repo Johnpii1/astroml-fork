@@ -1,4 +1,5 @@
 """Authentication endpoints (issue #240)."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -58,7 +59,11 @@ class ApiKeyResponse(BaseModel):
 def login(body: LoginRequest, db: Session = Depends(get_sync_db)):
     """Authenticate with username/password and return a JWT."""
     user = db.scalar(select(User).where(User.username == body.username))
-    if user is None or not user.is_active or not verify_password(body.password, user.hashed_password):
+    if (
+        user is None
+        or not user.is_active
+        or not verify_password(body.password, user.hashed_password)
+    ):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     token = create_access_token(user.username, user.scopes or [])
@@ -123,9 +128,11 @@ def ensure_default_admin(db: Session) -> None:
     if db.scalar(select(User).limit(1)) is not None:
         return
 
-    db.add(User(
-        username=DEFAULT_ADMIN_USERNAME,
-        hashed_password=hash_password(DEFAULT_ADMIN_PASSWORD),
-        scopes=["admin", "read:transactions", "read:fraud", "write:loyalty"],
-    ))
+    db.add(
+        User(
+            username=DEFAULT_ADMIN_USERNAME,
+            hashed_password=hash_password(DEFAULT_ADMIN_PASSWORD),
+            scopes=["admin", "read:transactions", "read:fraud", "write:loyalty"],
+        )
+    )
     db.commit()

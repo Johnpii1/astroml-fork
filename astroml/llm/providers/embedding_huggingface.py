@@ -16,12 +16,12 @@ Trade-offs
 - **Note**: The HuggingFace Inference API returns embeddings as a nested
   list ``[[float, …]]``; we take ``response[0]`` for single inputs.
 """
+
 from __future__ import annotations
 
 import os
-from typing import List
 
-from .embedding_base import EmbeddingProvider, EmbeddingError
+from .embedding_base import EmbeddingError, EmbeddingProvider
 
 # Default endpoint base for the Inference API.
 _HF_API_BASE = "https://api-inference.huggingface.co/pipeline/feature-extraction"
@@ -57,6 +57,7 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         # We only report unavailable if we can't even import requests.
         try:
             import requests  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -67,9 +68,10 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
             h["Authorization"] = f"Bearer {self.api_key}"
         return h
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         try:
             import requests
+
             payload = {"inputs": text, "options": {"wait_for_model": True}}
             resp = requests.post(
                 self._url,
@@ -92,11 +94,12 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         except Exception as exc:
             raise EmbeddingError(f"HuggingFace embed failed: {exc}") from exc
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         try:
             import requests
+
             payload = {"inputs": texts, "options": {"wait_for_model": True}}
             resp = requests.post(
                 self._url,

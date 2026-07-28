@@ -1,4 +1,5 @@
 """Deterministic LLM mocking helpers for integration tests (#401)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -36,7 +37,9 @@ class DeterministicLLMMock:
         prompt_tokens = max(1, len(prompt) // 4)
         completion_tokens = max(1, len(response) // 4)
         cost_usd = (prompt_tokens * 0.00001) + (completion_tokens * 0.00002)
-        self.calls.append(LLMCall(prompt, response, latency_ms, prompt_tokens, completion_tokens, cost_usd))
+        self.calls.append(
+            LLMCall(prompt, response, latency_ms, prompt_tokens, completion_tokens, cost_usd)
+        )
         return response
 
     async def generate_stream(self, prompt: str) -> Iterable[str]:

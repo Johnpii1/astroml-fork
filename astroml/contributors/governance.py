@@ -2,11 +2,11 @@
 
 Defines roles, permissions, and contribution-based role advancement.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -89,7 +89,7 @@ class GovernanceSystem:
             )
         return self._records[github_login]
 
-    def get_role(self, github_login: str) -> Optional[str]:
+    def get_role(self, github_login: str) -> str | None:
         """Return the contributor's current role, or ``None`` if unknown."""
         record = self._records.get(github_login)
         return record.role if record else None
@@ -112,7 +112,7 @@ class GovernanceSystem:
     # Role advancement
     # ------------------------------------------------------------------
 
-    def advance_role(self, github_login: str) -> Optional[str]:
+    def advance_role(self, github_login: str) -> str | None:
         """Advance the contributor's role if contribution thresholds are met.
 
         Roles advance in order: contributor -> reviewer -> maintainer.
@@ -128,10 +128,10 @@ class GovernanceSystem:
             return None
 
         current_index = _ROLE_ORDER.index(record.role) if record.role in _ROLE_ORDER else -1
-        new_role: Optional[str] = None
+        new_role: str | None = None
 
         # Walk up from the next tier
-        for candidate in _ROLE_ORDER[current_index + 1:]:
+        for candidate in _ROLE_ORDER[current_index + 1 :]:
             threshold = CONTRIBUTION_THRESHOLDS[candidate]
             if record.contribution_count >= threshold:
                 new_role = candidate

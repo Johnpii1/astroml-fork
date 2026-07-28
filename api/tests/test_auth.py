@@ -1,4 +1,5 @@
 """Integration tests — authentication (issue #240)."""
+
 from __future__ import annotations
 
 import pytest
@@ -12,11 +13,13 @@ def auth_client(client, db_session, monkeypatch):
     """TestClient with auth enabled and a seeded admin user."""
     monkeypatch.setenv("AUTH_ENABLED", "true")
 
-    db_session.add(User(
-        username="testadmin",
-        hashed_password=hash_password("secret"),
-        scopes=["admin", "read:transactions", "read:fraud", "write:loyalty"],
-    ))
+    db_session.add(
+        User(
+            username="testadmin",
+            hashed_password=hash_password("secret"),
+            scopes=["admin", "read:transactions", "read:fraud", "write:loyalty"],
+        )
+    )
     db_session.commit()
     return client
 
@@ -29,20 +32,26 @@ class TestAuthentication:
         assert resp.status_code == 401
 
     def test_login_returns_jwt(self, auth_client):
-        resp = auth_client.post("/api/v1/auth/login", json={
-            "username": "testadmin",
-            "password": "secret",
-        })
+        resp = auth_client.post(
+            "/api/v1/auth/login",
+            json={
+                "username": "testadmin",
+                "password": "secret",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
     def test_authenticated_request_succeeds(self, auth_client):
-        login = auth_client.post("/api/v1/auth/login", json={
-            "username": "testadmin",
-            "password": "secret",
-        })
+        login = auth_client.post(
+            "/api/v1/auth/login",
+            json={
+                "username": "testadmin",
+                "password": "secret",
+            },
+        )
         token = login.json()["access_token"]
         resp = auth_client.get(
             "/api/v1/fraud/alerts",

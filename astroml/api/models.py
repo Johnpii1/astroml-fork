@@ -4,10 +4,10 @@
 so that the API package can be imported independently of the full ingestion
 schema.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -50,10 +50,8 @@ class FraudAlert(APIBase):
     score: Mapped[float] = mapped_column(Float, nullable=False)
     risk_level: Mapped[str] = mapped_column(String(16), nullable=False)
     batch_run_at: Mapped[datetime] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=func.now()
-    )
-    notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    notes: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (
         Index("ix_fraud_alerts_account_id", "account_id"),

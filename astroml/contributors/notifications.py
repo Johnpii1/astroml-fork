@@ -7,12 +7,12 @@ Features:
   - User preference management
   - GitHub webhook handling
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 class NotificationType(str, Enum):
     """Types of notifications."""
+
     PR_COMMENT = "pr_comment"
     PR_MENTION = "pr_mention"
     ISSUE_COMMENT = "issue_comment"
@@ -32,6 +33,7 @@ class NotificationType(str, Enum):
 
 class NotificationChannel(str, Enum):
     """Notification delivery channels."""
+
     EMAIL = "email"
     SLACK = "slack"
     DISCORD = "discord"
@@ -40,12 +42,13 @@ class NotificationChannel(str, Enum):
 @dataclass
 class NotificationEvent:
     """Represents a notification event."""
+
     event_type: NotificationType
     user_id: int
     title: str
     content: str
-    link: Optional[str] = None
-    actor: Optional[str] = None  # GitHub username who triggered it
+    link: str | None = None
+    actor: str | None = None  # GitHub username who triggered it
     timestamp: datetime = None
 
     def __post_init__(self):
@@ -140,9 +143,7 @@ class NotificationService:
         from api.models.orm import NotificationPreference  # noqa: PLC0415
 
         result = self.db.execute(
-            select(NotificationPreference).where(
-                NotificationPreference.user_id == user_id
-            )
+            select(NotificationPreference).where(NotificationPreference.user_id == user_id)
         )
         pref_record = result.scalar_one_or_none()
 
@@ -156,9 +157,7 @@ class NotificationService:
         """Mark notification as read."""
         from api.models.orm import Notification  # noqa: PLC0415
 
-        result = self.db.execute(
-            select(Notification).where(Notification.id == notification_id)
-        )
+        result = self.db.execute(select(Notification).where(Notification.id == notification_id))
         notification = result.scalar_one_or_none()
 
         if not notification:
@@ -366,6 +365,7 @@ class GitHubWebhookHandler:
     def _extract_mentions(text: str) -> list[str]:
         """Extract @mentions from text."""
         import re
+
         pattern = r"@(\w+)"
         return re.findall(pattern, text)
 

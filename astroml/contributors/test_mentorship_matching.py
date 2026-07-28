@@ -6,9 +6,8 @@ Tests the core logic for:
   - Availability matching
   - Overall compatibility scoring
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from astroml.contributors.mentorship import MentorshipMatcher
 

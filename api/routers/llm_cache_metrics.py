@@ -16,4 +16,3 @@ router = APIRouter(prefix="/api/v1/llm", tags=["llm"])
 def semantic_cache_metrics():
     """Return semantic cache hit/miss and avg lookup latency."""
     return get_semantic_cache_metrics(redis_cache=RedisCache())
-

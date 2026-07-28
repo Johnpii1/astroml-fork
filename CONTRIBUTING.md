@@ -107,10 +107,13 @@ alembic upgrade head
 
 AstroML follows **PEP 8** with these conventions:
 
-- **Line length**: 88 characters (Black formatter)
-- **Imports**: Organize as (stdlib, third-party, local)
+- **Line length**: 100 characters (Black formatter)
+- **Imports**: Organized by ruff import sorting (replaces isort)
 - **Docstrings**: Use Google-style docstrings for all public functions/classes
 - **Type hints**: Required for all new function signatures and return values
+- **Formatter**: Black (auto-formats on save via pre-commit hooks)
+- **Linter**: Ruff (replaces flake8, isort, pyupgrade, and more)
+- **Enforcement**: All formatting is enforced via pre-commit hooks and CI checks
 
 #### Example:
 
@@ -301,7 +304,7 @@ Before submitting a PR:
 
 ### Lint & Style
 - [ ] `black --check astroml/ tests/` reports no formatting violations
-- [ ] `flake8 astroml/ tests/` reports no errors (line length ≤ 88)
+- [ ] `ruff check astroml/ tests/` reports no errors
 - [ ] All public functions/classes have Google-style docstrings
 - [ ] Type hints are present on all new function signatures
 
@@ -329,8 +332,8 @@ Every pull request **must** pass all of the following before requesting review.
 - [ ] No hardcoded test data paths — fixtures and `test_data/` only
 
 #### Lint & Style
-- [ ] `black --check astroml/ tests/` reports no formatting violations
-- [ ] `flake8 astroml/ tests/` reports no errors (line length ≤ 88)
+- [ ] `black --check astroml/ tests/` reports no formatting violations (line length 100)
+- [ ] `ruff check astroml/ tests/` reports no errors
 - [ ] `mypy astroml/` passes with no new type errors
 - [ ] All public functions/classes have Google-style docstrings
 - [ ] Type hints are present on all new function signatures
@@ -368,7 +371,7 @@ Every pull request **must** pass all of the following before requesting review.
    black --check astroml/ tests/
 
    # Lint
-   flake8 astroml/ tests/
+   ruff check astroml/ tests/
 
    # Type check
    mypy astroml/

@@ -1,10 +1,11 @@
 """End-to-end API tests for critical user journeys."""
-import pytest
-import asyncio
-from fastapi.testclient import TestClient
-from api.app import app
+
 import os
 
+import pytest
+from fastapi.testclient import TestClient
+
+from api.app import app
 
 client = TestClient(app)
 
@@ -39,18 +40,14 @@ class TestAuthFlow:
             json={
                 "email": f"testuser_{os.urandom(4).hex()}@example.com",
                 "password": "SecurePassword123!",
-                "full_name": "Test User"
-            }
+                "full_name": "Test User",
+            },
         )
         assert register_response.status_code in [200, 201, 409]  # 409 if user exists
 
         # Login
         login_response = client.post(
-            "/api/v1/auth/login",
-            json={
-                "email": "testuser@example.com",
-                "password": "password"
-            }
+            "/api/v1/auth/login", json={"email": "testuser@example.com", "password": "password"}
         )
         assert login_response.status_code in [200, 422, 401]
 
@@ -110,10 +107,7 @@ class TestLoyaltyJourney:
 
     def test_redeem_points(self):
         """Test redeeming loyalty points."""
-        response = client.post(
-            "/api/v1/loyalty/redeem",
-            json={"points": 100}
-        )
+        response = client.post("/api/v1/loyalty/redeem", json={"points": 100})
         assert response.status_code in [200, 201, 400, 401]
 
     def test_points_history(self):
@@ -152,10 +146,7 @@ class TestDiscussionsJourney:
         assert "discussions" in data
 
         # Search discussions
-        search_response = client.post(
-            "/api/v1/discussions/search",
-            json={"query": "test"}
-        )
+        search_response = client.post("/api/v1/discussions/search", json={"query": "test"})
         assert search_response.status_code == 200
 
 
@@ -183,10 +174,7 @@ class TestNotificationsJourney:
 
     def test_mark_notification_read(self):
         """Test marking notification as read."""
-        response = client.put(
-            "/api/v1/notifications/test-id",
-            json={"read": True}
-        )
+        response = client.put("/api/v1/notifications/test-id", json={"read": True})
         assert response.status_code in [200, 401, 404]
 
 
@@ -201,18 +189,13 @@ class TestErrorHandling:
     def test_invalid_json(self):
         """Test invalid JSON handling."""
         response = client.post(
-            "/api/v1/auth/login",
-            data="invalid json",
-            headers={"Content-Type": "application/json"}
+            "/api/v1/auth/login", data="invalid json", headers={"Content-Type": "application/json"}
         )
         assert response.status_code in [400, 422]
 
     def test_missing_required_fields(self):
         """Test missing required fields handling."""
-        response = client.post(
-            "/api/v1/auth/login",
-            json={}
-        )
+        response = client.post("/api/v1/auth/login", json={})
         assert response.status_code in [400, 422]
 
 
@@ -254,10 +237,7 @@ class TestResponseFormats:
 
     def test_error_response_format(self):
         """Test that error responses follow format."""
-        response = client.post(
-            "/api/v1/auth/login",
-            json={"invalid": "data"}
-        )
+        response = client.post("/api/v1/auth/login", json={"invalid": "data"})
         assert response.status_code in [400, 422]
         data = response.json()
         assert isinstance(data, dict)
@@ -288,16 +268,14 @@ class TestCORSHeaders:
         # CORS headers are typically set by middleware
 
 
-@pytest.mark.skipif(
-    os.getenv("E2E_SKIP_SLOW_TESTS") == "1",
-    reason="Slow test skipped in CI"
-)
+@pytest.mark.skipif(os.getenv("E2E_SKIP_SLOW_TESTS") == "1", reason="Slow test skipped in CI")
 class TestPerformance:
     """Test performance characteristics."""
 
     def test_response_time_under_threshold(self):
         """Test that responses are within acceptable time."""
         import time
+
         start = time.time()
         response = client.get("/api/v1/discussions/recent")
         elapsed = time.time() - start
@@ -309,6 +287,7 @@ class TestPerformance:
     def test_concurrent_performance(self):
         """Test performance under concurrent load."""
         import time
+
         start = time.time()
 
         for _ in range(20):

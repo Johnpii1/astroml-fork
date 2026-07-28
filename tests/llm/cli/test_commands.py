@@ -1,6 +1,7 @@
 """Tests for LLM CLI command registration."""
 
 import argparse
+
 from astroml.cli_llm.commands import register_llm_subcommands
 
 
@@ -72,10 +73,21 @@ class TestCliCommands:
         assert hasattr(args, "func")
 
     def test_generate_with_flags(self):
-        args = self.parser.parse_args([
-            "generate", "test", "--provider", "anthropic", "--model", "claude-3",
-            "--max-tokens", "500", "--temperature", "0.5", "--json",
-        ])
+        args = self.parser.parse_args(
+            [
+                "generate",
+                "test",
+                "--provider",
+                "anthropic",
+                "--model",
+                "claude-3",
+                "--max-tokens",
+                "500",
+                "--temperature",
+                "0.5",
+                "--json",
+            ]
+        )
         assert args.provider == "anthropic"
         assert args.model == "claude-3"
         assert args.max_tokens == 500
@@ -83,10 +95,17 @@ class TestCliCommands:
         assert args.json is True
 
     def test_chat_with_flags(self):
-        args = self.parser.parse_args([
-            "chat", "--provider", "anthropic", "--model", "claude-3",
-            "--system-prompt", "Be helpful",
-        ])
+        args = self.parser.parse_args(
+            [
+                "chat",
+                "--provider",
+                "anthropic",
+                "--model",
+                "claude-3",
+                "--system-prompt",
+                "Be helpful",
+            ]
+        )
         assert args.provider == "anthropic"
         assert args.model == "claude-3"
         assert args.system_prompt == "Be helpful"

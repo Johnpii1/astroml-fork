@@ -1,4 +1,5 @@
 """Audit log router for searching and exporting audit logs (issue #332)."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -31,7 +32,7 @@ async def search_audit_logs(
     """Search audit logs with filters."""
     if "audit:read" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     logs = await audit_logger.search_logs(
         session,
         user_id=user_id,
@@ -80,7 +81,7 @@ async def export_audit_logs(
     """Export audit logs as JSON."""
     if "audit:export" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     export_data = await audit_logger.export_logs(
         session,
         user_id=user_id,
@@ -103,7 +104,7 @@ async def rotate_audit_logs(
     """Manually trigger audit log rotation (delete old logs)."""
     if "audit:admin" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     deleted_count = await audit_logger.rotate_logs(session)
     return {
         "deleted_count": deleted_count,
@@ -119,7 +120,7 @@ async def get_audit_stats(
     """Get audit log statistics."""
     if "audit:read" not in current_user.scopes:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    
+
     total_count = await audit_logger.get_log_count(session)
     return {
         "total_logs": total_count,

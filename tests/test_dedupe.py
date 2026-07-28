@@ -11,6 +11,7 @@ Issue #204 — flakiness fix:
   same worker when pytest-xdist is active, avoiding any race on module-level
   imports that could surface intermittently on slow runners.
 """
+
 import pytest
 
 from astroml.validation import dedupe
@@ -26,6 +27,7 @@ def _tx(
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture()
 def deduplicator():
     """Fresh Deduplicator for each test — no shared state."""
@@ -39,6 +41,7 @@ def tracking_deduplicator():
 
 
 # ── TestDeduplicator ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.xdist_group("dedupe")
 class TestDeduplicator:
@@ -134,6 +137,7 @@ class TestDeduplicator:
 
 # ── TestDeduplicate (convenience function) ────────────────────────────────────
 
+
 @pytest.mark.xdist_group("dedupe")
 class TestDeduplicate:
     """Tests for deduplicate convenience function."""
@@ -157,10 +161,7 @@ class TestDeduplicate:
 
     def test_deduplicate_all_unique(self):
         """Should return all items when none are duplicates."""
-        txs = [
-            {"id": str(i), "payload": f"p{i}", "timestamp": "2024-01-01"}
-            for i in range(5)
-        ]
+        txs = [{"id": str(i), "payload": f"p{i}", "timestamp": "2024-01-01"} for i in range(5)]
         result = dedupe.deduplicate(txs)
         assert len(result.unique) == 5
         assert len(result.duplicates) == 0

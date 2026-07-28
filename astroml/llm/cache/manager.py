@@ -1,12 +1,13 @@
 """Cache orchestration with multi-level storage."""
+
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .exact import ExactMatchCache
-from .semantic import SemanticCache
-from .store import CacheStore, RedisStore, SQLiteStore, DiskStore
 from .metrics import CacheMetrics
+from .semantic import SemanticCache
+from .store import DiskStore, RedisStore, SQLiteStore
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class CacheManager:
         prompt: str,
         use_semantic: bool = True,
         **kwargs: Any,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Retrieve cached response from any tier.
 
         Checks in order: Redis exact → Redis semantic → SQLite exact → SQLite semantic → Disk
@@ -188,7 +189,7 @@ class CacheManager:
         if "redis" in self.exact_caches:
             self.exact_caches["redis"].set(prompt, response, ttl=3600, **kwargs)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics.
 
         Returns:

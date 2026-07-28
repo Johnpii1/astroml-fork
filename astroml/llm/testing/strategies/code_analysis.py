@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ast
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class CodeAnalysisStrategy:
         self.source_code = source_code
         self.tree = ast.parse(source_code)
 
-    def extract_functions(self) -> List[Dict[str, Any]]:
+    def extract_functions(self) -> list[dict[str, Any]]:
         """Extract function signatures and docstrings from source."""
         functions = []
         for node in ast.walk(self.tree):
@@ -28,37 +28,37 @@ class CodeAnalysisStrategy:
                 func_info = {
                     "name": node.name,
                     "args": [arg.arg for arg in node.args.args],
-                    "returns": (
-                        ast.dump(node.returns) if node.returns else None
-                    ),
+                    "returns": (ast.dump(node.returns) if node.returns else None),
                     "docstring": ast.get_docstring(node) or "",
                     "lineno": node.lineno,
-                    "decorators": [
-                        ast.dump(d) for d in node.decorator_list
-                    ],
+                    "decorators": [ast.dump(d) for d in node.decorator_list],
                 }
                 functions.append(func_info)
         return functions
 
-    def identify_branches(self, function_name: str) -> List[Dict[str, Any]]:
+    def identify_branches(self, function_name: str) -> list[dict[str, Any]]:
         """Identify conditional branches for edge case discovery."""
         branches = []
         for node in ast.walk(self.tree):
             if isinstance(node, ast.FunctionDef) and node.name == function_name:
                 for child in ast.walk(node):
                     if isinstance(child, ast.If):
-                        branches.append({
-                            "test": ast.dump(child.test),
-                            "lineno": child.lineno,
-                        })
+                        branches.append(
+                            {
+                                "test": ast.dump(child.test),
+                                "lineno": child.lineno,
+                            }
+                        )
                     elif isinstance(child, (ast.Try, ast.ExceptHandler)):
-                        branches.append({
-                            "type": "exception",
-                            "lineno": child.lineno,
-                        })
+                        branches.append(
+                            {
+                                "type": "exception",
+                                "lineno": child.lineno,
+                            }
+                        )
         return branches
 
-    def get_return_paths(self, function_name: str) -> List[str]:
+    def get_return_paths(self, function_name: str) -> list[str]:
         """Identify all possible return paths in a function."""
         paths = []
         for node in ast.walk(self.tree):
@@ -70,7 +70,7 @@ class CodeAnalysisStrategy:
                         paths.append(f"raises: {ast.dump(child.exc)}")
         return paths if paths else ["None"]
 
-    def get_type_hints(self, function_name: str) -> Dict[str, str]:
+    def get_type_hints(self, function_name: str) -> dict[str, str]:
         """Extract type hints from function signature."""
         hints = {}
         for node in ast.walk(self.tree):

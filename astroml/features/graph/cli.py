@@ -12,7 +12,6 @@ import argparse
 import logging
 import random
 import sys
-from typing import List
 
 from astroml.features.graph.memory_profile import GraphMemoryProfile, profile_graph_memory
 from astroml.features.graph.snapshot import Edge, iter_db_snapshots, window_snapshot
@@ -32,7 +31,7 @@ def _configure_logging(level: str = "INFO") -> None:
     configure_logging(level=level)
 
 
-def _synthetic_edges(num_edges: int, num_accounts: int, seed: int) -> List[Edge]:
+def _synthetic_edges(num_edges: int, num_accounts: int, seed: int) -> list[Edge]:
     rng = random.Random(seed)
     accounts = [f"acct{i}" for i in range(max(1, num_accounts))]
     ts = 1_700_000_000
@@ -85,7 +84,7 @@ def _run_db(args: argparse.Namespace) -> GraphMemoryProfile:
     )
 
 
-def _parse_args(argv: List[str]) -> argparse.Namespace:
+def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build a graph snapshot, optionally profiling memory usage.",
     )
@@ -101,29 +100,39 @@ def _parse_args(argv: List[str]) -> argparse.Namespace:
         help="Where to pull edges from (default: synthetic, no DB required).",
     )
     parser.add_argument(
-        "--num-edges", type=int, default=10_000,
+        "--num-edges",
+        type=int,
+        default=10_000,
         help="Number of synthetic edges to build (--source synthetic only, default: 10000).",
     )
     parser.add_argument(
-        "--num-accounts", type=int, default=500,
+        "--num-accounts",
+        type=int,
+        default=500,
         help="Number of distinct synthetic accounts (--source synthetic only, default: 500).",
     )
     parser.add_argument(
-        "--seed", type=int, default=0,
+        "--seed",
+        type=int,
+        default=0,
         help="Random seed for synthetic edge generation (default: 0).",
     )
     parser.add_argument(
-        "--window", type=str, default="7d",
+        "--window",
+        type=str,
+        default="7d",
         help="Window size for --source db, e.g. '7d', '24h' (default: 7d).",
     )
     parser.add_argument(
-        "--log-level", type=str, default="INFO",
+        "--log-level",
+        type=str,
+        default="INFO",
         help="Log level (default: INFO).",
     )
     return parser.parse_args(argv)
 
 
-def main(argv: List[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     _configure_logging(args.log_level)
 

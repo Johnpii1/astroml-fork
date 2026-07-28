@@ -1,8 +1,15 @@
 """Tests for API versioning middleware and utilities (issue #572)."""
+
 from __future__ import annotations
 
 import pytest
-from api.versioning import CURRENT_API_VERSION, LATEST_API_VERSION, SUPPORTED_VERSIONS, get_api_prefix
+
+from api.versioning import (
+    CURRENT_API_VERSION,
+    LATEST_API_VERSION,
+    SUPPORTED_VERSIONS,
+    get_api_prefix,
+)
 
 
 class TestVersionConstants:

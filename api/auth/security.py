@@ -1,4 +1,5 @@
 """JWT and password utilities (issue #240)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -18,12 +19,14 @@ from api.auth.config import (
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-ALL_SCOPES = frozenset({
-    "read:transactions",
-    "read:fraud",
-    "write:loyalty",
-    "admin",
-})
+ALL_SCOPES = frozenset(
+    {
+        "read:transactions",
+        "read:fraud",
+        "write:loyalty",
+        "admin",
+    }
+)
 
 
 def hash_password(password: str) -> str:

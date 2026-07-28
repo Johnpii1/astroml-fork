@@ -1,7 +1,7 @@
 """Exact match cache using hash-based lookups."""
+
 import hashlib
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class ExactMatchCache:
         combined = "|".join(key_parts)
         return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
-    def get(self, prompt: str, **kwargs) -> Optional[str]:
+    def get(self, prompt: str, **kwargs) -> str | None:
         """Retrieve cached response if exact match exists.
 
         Args:

@@ -4,6 +4,7 @@ Integration tests — model monitoring (issue #244).
 Covers: metrics endpoint shape, history endpoint, latency recording,
 drift report structure, and prediction stats.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -19,7 +20,16 @@ class TestMonitoringMetrics:
 
     def test_metrics_response_has_required_fields(self, client):
         data = client.get("/api/v1/monitoring/metrics").json()
-        required = {"accuracy", "precision", "recall", "f1", "f1_score", "auc", "auc_roc", "drift_score"}
+        required = {
+            "accuracy",
+            "precision",
+            "recall",
+            "f1",
+            "f1_score",
+            "auc",
+            "auc_roc",
+            "drift_score",
+        }
         assert required.issubset(data.keys()), f"missing keys: {required - data.keys()}"
 
     def test_metrics_values_are_numeric_or_null(self, client):

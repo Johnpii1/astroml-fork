@@ -1,4 +1,5 @@
 """Application configuration loaded from environment variables / .env file."""
+
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,7 +33,9 @@ class Settings(BaseSettings):
     hsts_max_age: int = 31536000  # HSTS max-age in seconds (1 year)
     hsts_include_subdomains: bool = True  # Apply HSTS to subdomains
     hsts_preload: bool = False  # Include in browser preload list
-    secure_proxy_ssl_header: tuple[str, str] | None = None  # For load balancers: ("X-Forwarded-Proto", "https")
+    secure_proxy_ssl_header: tuple[str, str] | None = (
+        None  # For load balancers: ("X-Forwarded-Proto", "https")
+    )
 
     # Auth
     secret_key: str = "change-me-in-production"
@@ -71,7 +74,6 @@ class Settings(BaseSettings):
     # LLM Settings (issue #440)
     llm_provider: str = "openai"
     llm_encryption_key: str = "change-me-in-production-llm-key-32b"
-
 
 
 settings = Settings()

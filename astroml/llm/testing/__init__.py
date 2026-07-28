@@ -12,8 +12,8 @@ Supports:
 - Test quality review
 """
 
-from .generator import TestGenerator, TestGenerationConfig, TestType
-from .reviewer import TestReviewer, ReviewResult
+from .generator import TestGenerationConfig, TestGenerator, TestType
+from .reviewer import ReviewResult, TestReviewer
 
 __all__ = [
     "TestGenerator",

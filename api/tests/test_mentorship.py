@@ -10,6 +10,7 @@ Tests cover:
   - Metrics calculation
   - Dashboard endpoints
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 
-from api.models.orm import Mentor, Mentee, Mentorship, MentorshipSession, MentorshipFeedback
+from api.models.orm import Mentee, Mentor, Mentorship, MentorshipFeedback, MentorshipSession
 
 
 @pytest.fixture()
@@ -125,6 +126,7 @@ def seeded_feedback(db_session, seeded_session, seeded_mentorship):
 
 # ─── Mentor Registration & Management ──────────────────────────────────────
 
+
 def test_register_mentor(client: TestClient, mentor_profile):
     """Test mentor registration."""
     response = client.post("/api/v1/mentorship/mentors", json=mentor_profile)
@@ -213,6 +215,7 @@ def test_update_mentor(client: TestClient, db_session, seeded_mentor):
 
 # ─── Mentee Registration & Management ──────────────────────────────────────
 
+
 def test_register_mentee(client: TestClient, mentee_profile):
     """Test mentee registration."""
     response = client.post("/api/v1/mentorship/mentees", json=mentee_profile)
@@ -250,6 +253,7 @@ def test_list_mentees(client: TestClient, db_session, seeded_mentee):
 
 # ─── Matching ─────────────────────────────────────────────────────────────
 
+
 def test_find_mentor_matches(client: TestClient, db_session, seeded_mentee, seeded_mentor):
     """Test finding mentor matches for mentee."""
     response = client.get(f"/api/v1/mentorship/matches/{seeded_mentee.id}")
@@ -271,13 +275,12 @@ def test_find_mentor_matches_mentee_not_found(client: TestClient):
 
 def test_find_mentor_matches_with_filters(client: TestClient, seeded_mentee):
     """Test matching with custom filters."""
-    response = client.get(
-        f"/api/v1/mentorship/matches/{seeded_mentee.id}?limit=3&min_score=0.5"
-    )
+    response = client.get(f"/api/v1/mentorship/matches/{seeded_mentee.id}?limit=3&min_score=0.5")
     assert response.status_code == 200
 
 
 # ─── Mentorship Relationships ─────────────────────────────────────────────
+
 
 def test_create_mentorship(client: TestClient, db_session, seeded_mentor, seeded_mentee):
     """Test creating a mentorship relationship."""
@@ -344,6 +347,7 @@ def test_update_mentorship_invalid_status(client: TestClient, seeded_mentorship)
 
 # ─── Sessions ──────────────────────────────────────────────────────────────
 
+
 def test_record_session(client: TestClient, seeded_mentorship):
     """Test recording a mentorship session."""
     session_data = {
@@ -387,6 +391,7 @@ def test_get_session(client: TestClient, seeded_session):
 
 # ─── Feedback ──────────────────────────────────────────────────────────────
 
+
 def test_submit_feedback(client: TestClient, seeded_session):
     """Test submitting session feedback."""
     feedback_data = {
@@ -418,7 +423,9 @@ def test_submit_feedback_invalid_rating(client: TestClient, seeded_session):
     assert response.status_code == 422
 
 
-def test_submit_feedback_duplicate(client: TestClient, db_session, seeded_session, seeded_mentorship):
+def test_submit_feedback_duplicate(
+    client: TestClient, db_session, seeded_session, seeded_mentorship
+):
     """Test can't submit duplicate feedback."""
     # First feedback
     feedback1 = MentorshipFeedback(
@@ -441,11 +448,12 @@ def test_submit_feedback_duplicate(client: TestClient, db_session, seeded_sessio
 
 # ─── Metrics ──────────────────────────────────────────────────────────────
 
-def test_get_mentorship_metrics(client: TestClient, db_session, seeded_mentorship, seeded_session, seeded_feedback):
+
+def test_get_mentorship_metrics(
+    client: TestClient, db_session, seeded_mentorship, seeded_session, seeded_feedback
+):
     """Test get metrics for a mentorship."""
-    response = client.get(
-        f"/api/v1/mentorship/metrics/mentorship/{seeded_mentorship.id}"
-    )
+    response = client.get(f"/api/v1/mentorship/metrics/mentorship/{seeded_mentorship.id}")
     assert response.status_code == 200
     data = response.json()
     assert data["total_sessions"] == 1
@@ -454,11 +462,16 @@ def test_get_mentorship_metrics(client: TestClient, db_session, seeded_mentorshi
     assert "Python Basics" in data["topics_covered"]
 
 
-def test_get_mentor_metrics(client: TestClient, db_session, seeded_mentor, seeded_mentorship, seeded_session, seeded_feedback):
+def test_get_mentor_metrics(
+    client: TestClient,
+    db_session,
+    seeded_mentor,
+    seeded_mentorship,
+    seeded_session,
+    seeded_feedback,
+):
     """Test get metrics for a mentor."""
-    response = client.get(
-        f"/api/v1/mentorship/metrics/mentor/{seeded_mentor.id}"
-    )
+    response = client.get(f"/api/v1/mentorship/metrics/mentor/{seeded_mentor.id}")
     assert response.status_code == 200
     data = response.json()
     assert data["total_mentees"] == 1
@@ -475,11 +488,10 @@ def test_get_mentor_metrics_not_found(client: TestClient):
 
 # ─── Dashboards ────────────────────────────────────────────────────────
 
+
 def test_get_mentor_dashboard(client: TestClient, seeded_mentor):
     """Test mentor dashboard."""
-    response = client.get(
-        f"/api/v1/mentorship/dashboard/mentor/{seeded_mentor.id}"
-    )
+    response = client.get(f"/api/v1/mentorship/dashboard/mentor/{seeded_mentor.id}")
     assert response.status_code == 200
     data = response.json()
     assert "mentor" in data
@@ -489,9 +501,7 @@ def test_get_mentor_dashboard(client: TestClient, seeded_mentor):
 
 def test_get_mentee_dashboard(client: TestClient, seeded_mentee):
     """Test mentee dashboard."""
-    response = client.get(
-        f"/api/v1/mentorship/dashboard/mentee/{seeded_mentee.id}"
-    )
+    response = client.get(f"/api/v1/mentorship/dashboard/mentee/{seeded_mentee.id}")
     assert response.status_code == 200
     data = response.json()
     assert "mentee" in data

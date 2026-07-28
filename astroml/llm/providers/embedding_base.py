@@ -26,10 +26,10 @@ resolves this by:
 4. Normalising all returned vectors to unit L2 length so cosine similarity
    is equivalent to a dot product.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
 
 
 class EmbeddingProvider(ABC):
@@ -52,7 +52,7 @@ class EmbeddingProvider(ABC):
     # ------------------------------------------------------------------
 
     @abstractmethod
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         """Return an embedding vector for *text*.
 
         Parameters
@@ -72,7 +72,7 @@ class EmbeddingProvider(ABC):
         """
 
     @abstractmethod
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Return embedding vectors for a list of texts.
 
         Default implementations may call :meth:`embed` in a loop.

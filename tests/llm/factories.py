@@ -3,10 +3,11 @@
 Resolves #458: Factory functions for generating test data structures
 (prompts, conversations, documents, tool calls, etc.) for use in tests.
 """
+
 from __future__ import annotations
 
-import uuid
 import random
+import uuid
 from typing import Any
 
 
@@ -26,8 +27,18 @@ def make_prompt(
         return text
     rng = random.Random(seed)
     words = [
-        "transaction", "fraud", "blockchain", "account", "user", "payment",
-        "verify", "detect", "analyse", "report", "summary", "explain",
+        "transaction",
+        "fraud",
+        "blockchain",
+        "account",
+        "user",
+        "payment",
+        "verify",
+        "detect",
+        "analyse",
+        "report",
+        "summary",
+        "explain",
     ]
     return " ".join(rng.choices(words, k=length))
 

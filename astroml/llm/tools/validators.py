@@ -5,6 +5,7 @@ from typing import Any
 
 class ValidationError(Exception):
     """Raised when tool parameters or output fail validation."""
+
     pass
 
 
@@ -51,8 +52,7 @@ def _validate_value(field: str, value: Any, prop: dict[str, Any]) -> None:
 def validate_output_size(result: Any, max_bytes: int = 100_000) -> None:
     """Validate that tool output does not exceed max size."""
     import json
+
     serialized = json.dumps(result)
     if len(serialized) > max_bytes:
-        raise ValidationError(
-            f"Tool output exceeds maximum size of {max_bytes} bytes"
-        )
+        raise ValidationError(f"Tool output exceeds maximum size of {max_bytes} bytes")

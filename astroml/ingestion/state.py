@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Optional, Set
-
 
 DEFAULT_STATE_DIR = os.path.join(os.getcwd(), ".astroml_state")
 DEFAULT_STATE_FILE = os.path.join(DEFAULT_STATE_DIR, "ingestion_state.json")
@@ -12,8 +10,8 @@ DEFAULT_STATE_FILE = os.path.join(DEFAULT_STATE_DIR, "ingestion_state.json")
 
 @dataclass
 class IngestionState:
-    last_processed_ledger: Optional[int]
-    processed_ledgers: Set[int]
+    last_processed_ledger: int | None
+    processed_ledgers: set[int]
 
     def to_dict(self) -> dict:
         return {
@@ -23,7 +21,7 @@ class IngestionState:
         }
 
     @staticmethod
-    def from_dict(data: dict) -> "IngestionState":
+    def from_dict(data: dict) -> IngestionState:
         return IngestionState(
             last_processed_ledger=data.get("last_processed_ledger"),
             processed_ledgers=set(data.get("processed_ledgers", [])),
@@ -45,7 +43,7 @@ class StateStore:
     def load(self) -> IngestionState:
         if not os.path.exists(self.path):
             return IngestionState(last_processed_ledger=None, processed_ledgers=set())
-        with open(self.path, "r", encoding="utf-8") as f:
+        with open(self.path, encoding="utf-8") as f:
             data = json.load(f)
         return IngestionState.from_dict(data)
 
@@ -78,17 +76,17 @@ class StreamStateManager:
         if not os.path.exists(self.path):
             return {}
         try:
-            with open(self.path, "r", encoding="utf-8") as f:
+            with open(self.path, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("cursors", {})
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             return {}
 
     def save_cursor(self, stream_id: str, cursor: str) -> None:
         self._cursors[stream_id] = cursor
         self._save()
 
-    def get_cursor(self, stream_id: str) -> Optional[str]:
+    def get_cursor(self, stream_id: str) -> str | None:
         return self._cursors.get(stream_id)
 
     def _save(self) -> None:

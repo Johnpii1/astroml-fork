@@ -1,6 +1,6 @@
 """Embeddings service for vector generation and storage."""
 
+from .models import EmbeddingConfig, EmbeddingModel
 from .service import EmbeddingsService
-from .models import EmbeddingModel, EmbeddingConfig
 
 __all__ = ["EmbeddingsService", "EmbeddingModel", "EmbeddingConfig"]

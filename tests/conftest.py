@@ -3,28 +3,28 @@
 Resolves #458: Provides mock providers, safety guards, observability singletons,
 and temporary database fixtures for the entire test suite.
 """
+
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 
-from tests.llm.mocks import DeterministicMockProvider, ErrorInjectingProvider
+from astroml.llm.observability.audit import LLMAuditLog
+from astroml.llm.observability.metrics import LLMMetrics
+from astroml.llm.observability.tracer import LLMTracer
+from astroml.llm.safety.audit import SafetyAuditLog
+from astroml.llm.safety.guards import SafetyGuard, StrictnessLevel
 from tests.llm.fixtures import (
+    MOCK_EMBEDDINGS,
+    MOCK_TOOL_RESPONSES,
+    RAG_TEST_DOCUMENTS,
     SAMPLE_CONVERSATIONS,
     TEST_PROMPTS,
-    RAG_TEST_DOCUMENTS,
-    MOCK_EMBEDDINGS,
     TOOL_DEFINITIONS,
-    MOCK_TOOL_RESPONSES,
 )
-from astroml.llm.safety.guards import SafetyGuard, StrictnessLevel
-from astroml.llm.safety.audit import SafetyAuditLog
-from astroml.llm.observability.tracer import LLMTracer
-from astroml.llm.observability.metrics import LLMMetrics
-from astroml.llm.observability.audit import LLMAuditLog
-
+from tests.llm.mocks import DeterministicMockProvider, ErrorInjectingProvider
 
 # ─── Mock providers ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_provider() -> DeterministicMockProvider:
@@ -57,6 +57,7 @@ def custom_response_provider() -> DeterministicMockProvider:
 
 # ─── Safety fixtures ──────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def safety_audit_log() -> SafetyAuditLog:
     """Fresh in-memory safety audit log."""
@@ -83,6 +84,7 @@ def permissive_guard(safety_audit_log: SafetyAuditLog) -> SafetyGuard:
 
 # ─── Observability fixtures ───────────────────────────────────────────────────
 
+
 @pytest.fixture
 def tracer() -> LLMTracer:
     """Fresh LLM tracer instance."""
@@ -102,6 +104,7 @@ def audit_log() -> LLMAuditLog:
 
 
 # ─── Data fixtures ────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def sample_conversations() -> list:
@@ -135,8 +138,10 @@ def mock_tool_responses() -> dict:
 
 # ─── Async test support ───────────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def event_loop_policy():
     """Ensure asyncio event loop policy is set for pytest-asyncio."""
     import asyncio
+
     return asyncio.DefaultEventLoopPolicy()

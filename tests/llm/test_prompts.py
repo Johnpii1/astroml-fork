@@ -3,11 +3,10 @@
 Resolves #458: Tests for prompt injection detection, PII redaction,
 safety classifications, and prompt template rendering.
 """
+
 from __future__ import annotations
 
-import pytest
-
-from astroml.llm.safety.classifier import ContentClassifier, ContentCategory
+from astroml.llm.safety.classifier import ContentCategory, ContentClassifier
 from astroml.llm.safety.filters import InputFilter
 from tests.llm.fixtures import TEST_PROMPTS
 
@@ -103,15 +102,15 @@ class TestPromptFixtures:
         for item in TEST_PROMPTS:
             if item["safety"] == "safe":
                 category, _ = clf.classify(item["prompt"])
-                assert category == ContentCategory.SAFE, (
-                    f"Expected SAFE for prompt {item['id']!r} but got {category}"
-                )
+                assert (
+                    category == ContentCategory.SAFE
+                ), f"Expected SAFE for prompt {item['id']!r} but got {category}"
 
     def test_injection_prompts_detected(self):
         clf = ContentClassifier()
         for item in TEST_PROMPTS:
             if item["safety"] == "prompt_injection":
                 category, confidence = clf.classify(item["prompt"])
-                assert category == ContentCategory.PROMPT_INJECTION, (
-                    f"Expected PROMPT_INJECTION for {item['id']!r}"
-                )
+                assert (
+                    category == ContentCategory.PROMPT_INJECTION
+                ), f"Expected PROMPT_INJECTION for {item['id']!r}"

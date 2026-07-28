@@ -22,6 +22,7 @@ Endpoints:
   GET /api/v1/mentorship/dashboard/mentor/{id}     — mentor dashboard
   GET /api/v1/mentorship/dashboard/mentee/{id}     — mentee dashboard
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -34,28 +35,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.auth.dependencies import AuthContext, get_current_auth, require_scopes
 from api.database import get_db
 from api.models.orm import (
-    Mentor,
     Mentee,
+    Mentor,
     Mentorship,
-    MentorshipSession,
     MentorshipFeedback,
+    MentorshipSession,
 )
 from api.schemas import (
-    MentorProfileIn,
-    MentorProfileOut,
+    MenteeListResponse,
     MenteeProfileIn,
     MenteeProfileOut,
+    MentorListResponse,
     MentorMatchOut,
+    MentorMetrics,
+    MentorProfileIn,
+    MentorProfileOut,
+    MentorshipFeedbackIn,
+    MentorshipFeedbackOut,
+    MentorshipListResponse,
+    MentorshipMetrics,
     MentorshipOut,
     MentorshipSessionIn,
     MentorshipSessionOut,
-    MentorshipFeedbackIn,
-    MentorshipFeedbackOut,
-    MentorshipMetrics,
-    MentorMetrics,
-    MentorshipListResponse,
-    MentorListResponse,
-    MenteeListResponse,
 )
 from astroml.contributors.mentorship import MentorshipMatcher, MentorshipTracking
 
@@ -63,6 +64,7 @@ router = APIRouter(prefix="/api/v1/mentorship", tags=["mentorship"])
 
 
 # ─── Mentors ──────────────────────────────────────────────────────────────
+
 
 @router.get("/mentors", response_model=MentorListResponse)
 async def list_mentors(
@@ -107,9 +109,7 @@ async def register_mentor(
 ):
     """Register current user as a mentor."""
     # Check if mentor profile already exists
-    result = await db.execute(
-        select(Mentor).where(Mentor.user_id == auth.user_id)
-    )
+    result = await db.execute(select(Mentor).where(Mentor.user_id == auth.user_id))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Mentor profile already exists")
 
@@ -169,6 +169,7 @@ async def update_mentor(
 
 # ─── Mentees ──────────────────────────────────────────────────────────────
 
+
 @router.get("/mentees", response_model=MenteeListResponse)
 async def list_mentees(
     page: int = Query(1, ge=1),
@@ -207,9 +208,7 @@ async def register_mentee(
 ):
     """Register current user as a mentee."""
     # Check if mentee profile already exists
-    result = await db.execute(
-        select(Mentee).where(Mentee.user_id == auth.user_id)
-    )
+    result = await db.execute(select(Mentee).where(Mentee.user_id == auth.user_id))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Mentee profile already exists")
 
@@ -269,6 +268,7 @@ async def update_mentee(
 
 # ─── Matching ──────────────────────────────────────────────────────────────
 
+
 @router.get("/matches/{mentee_id}", response_model=list[MentorMatchOut])
 async def find_mentor_matches(
     mentee_id: int,
@@ -290,9 +290,7 @@ async def find_mentor_matches(
 
     result_list = []
     for score in scores:
-        mentor_result = await db.execute(
-            select(Mentor).where(Mentor.id == score.mentor_id)
-        )
+        mentor_result = await db.execute(select(Mentor).where(Mentor.id == score.mentor_id))
         mentor = mentor_result.scalar_one()
         result_list.append(
             MentorMatchOut(
@@ -309,6 +307,7 @@ async def find_mentor_matches(
 
 
 # ─── Relationships ───────────────────────────────────────────────────────────
+
 
 @router.post("/relationships", response_model=MentorshipOut)
 async def create_mentorship(
@@ -336,9 +335,7 @@ async def create_mentorship(
         )
     )
     if dup_result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=409, detail="Mentorship relationship already exists"
-        )
+        raise HTTPException(status_code=409, detail="Mentorship relationship already exists")
 
     # Calculate match score (simple version; use MentorshipMatcher for full logic)
     score = 0.7  # Placeholder; ideally from matcher
@@ -388,13 +385,9 @@ async def list_mentorships(
     # Enrich with usernames
     result_data = []
     for m in mentorships:
-        mentor_result = await db.execute(
-            select(Mentor).where(Mentor.id == m.mentor_id)
-        )
+        mentor_result = await db.execute(select(Mentor).where(Mentor.id == m.mentor_id))
         mentor = mentor_result.scalar_one()
-        mentee_result = await db.execute(
-            select(Mentee).where(Mentee.id == m.mentee_id)
-        )
+        mentee_result = await db.execute(select(Mentee).where(Mentee.id == m.mentee_id))
         mentee = mentee_result.scalar_one()
 
         result_data.append(
@@ -422,21 +415,15 @@ async def list_mentorships(
 @router.get("/relationships/{mentorship_id}", response_model=MentorshipOut)
 async def get_mentorship(mentorship_id: int, db: AsyncSession = Depends(get_db)):
     """Get mentorship relationship details."""
-    result = await db.execute(
-        select(Mentorship).where(Mentorship.id == mentorship_id)
-    )
+    result = await db.execute(select(Mentorship).where(Mentorship.id == mentorship_id))
     mentorship = result.scalar_one_or_none()
 
     if not mentorship:
         raise HTTPException(status_code=404, detail="Mentorship not found")
 
-    mentor_result = await db.execute(
-        select(Mentor).where(Mentor.id == mentorship.mentor_id)
-    )
+    mentor_result = await db.execute(select(Mentor).where(Mentor.id == mentorship.mentor_id))
     mentor = mentor_result.scalar_one()
-    mentee_result = await db.execute(
-        select(Mentee).where(Mentee.id == mentorship.mentee_id)
-    )
+    mentee_result = await db.execute(select(Mentee).where(Mentee.id == mentorship.mentee_id))
     mentee = mentee_result.scalar_one()
 
     return MentorshipOut(
@@ -459,9 +446,7 @@ async def update_mentorship(
     db: AsyncSession = Depends(get_db),
 ):
     """Update mentorship status (active/paused/completed)."""
-    result = await db.execute(
-        select(Mentorship).where(Mentorship.id == mentorship_id)
-    )
+    result = await db.execute(select(Mentorship).where(Mentorship.id == mentorship_id))
     mentorship = result.scalar_one_or_none()
 
     if not mentorship:
@@ -482,6 +467,7 @@ async def update_mentorship(
 
 # ─── Sessions ──────────────────────────────────────────────────────────────
 
+
 @router.post("/sessions", response_model=MentorshipSessionOut)
 async def record_session(
     mentorship_id: int = Query(...),
@@ -490,9 +476,7 @@ async def record_session(
 ):
     """Record a mentorship session."""
     # Verify mentorship exists
-    m_result = await db.execute(
-        select(Mentorship).where(Mentorship.id == mentorship_id)
-    )
+    m_result = await db.execute(select(Mentorship).where(Mentorship.id == mentorship_id))
     if not m_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Mentorship not found")
 
@@ -512,9 +496,7 @@ async def record_session(
 @router.get("/sessions/{session_id}", response_model=MentorshipSessionOut)
 async def get_session(session_id: int, db: AsyncSession = Depends(get_db)):
     """Get session details."""
-    result = await db.execute(
-        select(MentorshipSession).where(MentorshipSession.id == session_id)
-    )
+    result = await db.execute(select(MentorshipSession).where(MentorshipSession.id == session_id))
     session = result.scalar_one_or_none()
 
     if not session:
@@ -524,6 +506,7 @@ async def get_session(session_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # ─── Feedback ──────────────────────────────────────────────────────────────
+
 
 @router.post("/feedback", response_model=MentorshipFeedbackOut)
 async def submit_feedback(
@@ -566,22 +549,17 @@ async def submit_feedback(
 
 # ─── Metrics & Dashboard ──────────────────────────────────────────────────────
 
+
 @router.get("/metrics/mentorship/{mentorship_id}", response_model=MentorshipMetrics)
-async def get_mentorship_metrics(
-    mentorship_id: int, db: AsyncSession = Depends(get_db)
-):
+async def get_mentorship_metrics(mentorship_id: int, db: AsyncSession = Depends(get_db)):
     """Get metrics for a specific mentorship relationship."""
     # Verify mentorship exists
-    m_result = await db.execute(
-        select(Mentorship).where(Mentorship.id == mentorship_id)
-    )
+    m_result = await db.execute(select(Mentorship).where(Mentorship.id == mentorship_id))
     if not m_result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Mentorship not found")
 
     sessions_result = await db.execute(
-        select(MentorshipSession).where(
-            MentorshipSession.mentorship_id == mentorship_id
-        )
+        select(MentorshipSession).where(MentorshipSession.mentorship_id == mentorship_id)
     )
     sessions = sessions_result.scalars().all()
 
@@ -598,9 +576,7 @@ async def get_mentorship_metrics(
 
     # Get feedback ratings
     feedback_result = await db.execute(
-        select(MentorshipFeedback).where(
-            MentorshipFeedback.mentorship_id == mentorship_id
-        )
+        select(MentorshipFeedback).where(MentorshipFeedback.mentorship_id == mentorship_id)
     )
     all_feedback = feedback_result.scalars().all()
     ratings = [f.rating for f in all_feedback if f.rating]
@@ -699,15 +675,15 @@ async def get_mentee_dashboard(mentee_id: int, db: AsyncSession = Depends(get_db
     mentorship_metrics_list = []
     for mentorship in active_mentorships:
         metrics = await get_mentorship_metrics(mentorship.id, db)
-        mentor_result = await db.execute(
-            select(Mentor).where(Mentor.id == mentorship.mentor_id)
-        )
+        mentor_result = await db.execute(select(Mentor).where(Mentor.id == mentorship.mentor_id))
         mentor = mentor_result.scalar_one()
-        mentorship_metrics_list.append({
-            "mentorship_id": mentorship.id,
-            "mentor_name": mentor.github_username,
-            "metrics": metrics,
-        })
+        mentorship_metrics_list.append(
+            {
+                "mentorship_id": mentorship.id,
+                "mentor_name": mentor.github_username,
+                "metrics": metrics,
+            }
+        )
 
     return {
         "mentee": MenteeProfileOut.from_orm(mentee),

@@ -1,12 +1,10 @@
 """Tests for structured logging (issue #568)."""
+
 from __future__ import annotations
 
 import json
 import logging
 import re
-from io import StringIO
-
-import pytest
 
 from astroml.utils.logging import (
     StructuredJsonFormatter,
@@ -14,9 +12,9 @@ from astroml.utils.logging import (
     configure_logging,
     correlation_id,
     get_correlation_id,
+    get_module_log_level,
     set_correlation_id,
     set_module_log_level,
-    get_module_log_level,
 )
 
 
@@ -31,13 +29,17 @@ class TestStructuredJsonFormatter:
         return json.loads(output)
 
     def test_has_timestamp(self):
-        record = self.logger.makeRecord("test_logger", logging.INFO, "test.py", 10, "test message", (), None)
+        record = self.logger.makeRecord(
+            "test_logger", logging.INFO, "test.py", 10, "test message", (), None
+        )
         result = self._capture_log(record)
         assert "timestamp" in result
         assert re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", result["timestamp"])
 
     def test_has_level(self):
-        record = self.logger.makeRecord("test_logger", logging.WARNING, "test.py", 10, "warning message", (), None)
+        record = self.logger.makeRecord(
+            "test_logger", logging.WARNING, "test.py", 10, "warning message", (), None
+        )
         result = self._capture_log(record)
         assert result["level"] == "WARNING"
 
@@ -47,7 +49,9 @@ class TestStructuredJsonFormatter:
         assert result["logger"] == "test_logger"
 
     def test_has_message(self):
-        record = self.logger.makeRecord("test_logger", logging.INFO, "test.py", 10, "hello world", (), None)
+        record = self.logger.makeRecord(
+            "test_logger", logging.INFO, "test.py", 10, "hello world", (), None
+        )
         result = self._capture_log(record)
         assert result["message"] == "hello world"
 
@@ -73,18 +77,23 @@ class TestStructuredJsonFormatter:
         assert result["ledger_id"] == 12345
 
     def test_output_is_valid_json(self):
-        record = self.logger.makeRecord("test_logger", logging.INFO, "test.py", 10, "json test", (), None)
+        record = self.logger.makeRecord(
+            "test_logger", logging.INFO, "test.py", 10, "json test", (), None
+        )
         output = self.formatter.format(record)
         parsed = json.loads(output)
         assert parsed["message"] == "json test"
 
     def test_exception_info_included(self):
         import sys
+
         try:
             raise ValueError("test error")
         except ValueError:
             exc_info = sys.exc_info()
-            record = self.logger.makeRecord("test_logger", logging.ERROR, "test.py", 10, "error occurred", (), exc_info=exc_info)
+            record = self.logger.makeRecord(
+                "test_logger", logging.ERROR, "test.py", 10, "error occurred", (), exc_info=exc_info
+            )
             result = self._capture_log(record)
             assert "exception" in result
             assert "test error" in result["exception"]

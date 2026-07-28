@@ -5,15 +5,15 @@ Supports GPT-4V, Claude 3, and other vision models for image analysis,
 transaction receipt processing, and document understanding.
 """
 
-from dataclasses import dataclass
-from typing import Optional, List
-from enum import Enum
 import base64
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 
 class VisionProvider(str, Enum):
     """Supported vision model providers."""
+
     OPENAI_GPT4V = "openai_gpt4v"
     ANTHROPIC_CLAUDE3 = "anthropic_claude3"
     GOOGLE_GEMINI = "google_gemini"
@@ -22,6 +22,7 @@ class VisionProvider(str, Enum):
 @dataclass
 class VisionConfig:
     """Configuration for vision model integration."""
+
     provider: VisionProvider = VisionProvider.OPENAI_GPT4V
     model: str = "gpt-4-vision"
     max_tokens: int = 2048
@@ -41,7 +42,7 @@ class VisionProcessor:
     - General image classification
     """
 
-    def __init__(self, config: Optional[VisionConfig] = None):
+    def __init__(self, config: VisionConfig | None = None):
         """Initialize vision processor with given config."""
         self.config = config or VisionConfig()
         self._cache = {}
@@ -163,7 +164,7 @@ class VisionProcessor:
 
         return result
 
-    def classify_image(self, image_path: str, categories: Optional[List[str]] = None) -> dict:
+    def classify_image(self, image_path: str, categories: list[str] | None = None) -> dict:
         """
         Classify image into provided categories.
 

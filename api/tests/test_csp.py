@@ -1,9 +1,10 @@
 """Tests for Content Security Policy (CSP) middleware."""
+
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from api.middleware.csp import CSPMiddleware
 

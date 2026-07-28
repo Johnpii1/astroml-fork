@@ -1,29 +1,29 @@
 """PII redaction service for LLM compliance logging (issue #412)."""
+
 from __future__ import annotations
 
 import re
-from typing import Dict, List
 
 # Patterns for detecting common PII
 PII_PATTERNS = {
-    "email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-    "phone": r'\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b',
-    "ssn": r'\b(?!000|666)[0-9]{3}-(?!00)[0-9]{2}-(?!0000)[0-9]{4}\b',
-    "credit_card": r'\b(?:\d{4}[-\s]?){3}\d{4}\b',
-    "ip_address": r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b',
-    "api_key": r'(?i)(api[_-]?key|apikey|api[_-]?token|token)\s*[:=]\s*[a-zA-Z0-9_-]{20,}',
-    "password": r'(?i)(password|passwd|pwd)\s*[:=]\s*[^\s]{8,}',
-    "account_number": r'\b[0-9]{8,17}\b',
+    "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+    "phone": r"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b",
+    "ssn": r"\b(?!000|666)[0-9]{3}-(?!00)[0-9]{2}-(?!0000)[0-9]{4}\b",
+    "credit_card": r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
+    "ip_address": r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b",
+    "api_key": r"(?i)(api[_-]?key|apikey|api[_-]?token|token)\s*[:=]\s*[a-zA-Z0-9_-]{20,}",
+    "password": r"(?i)(password|passwd|pwd)\s*[:=]\s*[^\s]{8,}",
+    "account_number": r"\b[0-9]{8,17}\b",
 }
 
 
 class PIIRedactor:
     """Service for detecting and redacting personally identifiable information."""
 
-    def __init__(self, patterns: Dict[str, str] = None) -> None:
+    def __init__(self, patterns: dict[str, str] = None) -> None:
         self.patterns = patterns or PII_PATTERNS
 
-    def redact(self, text: str) -> tuple[str, Dict[str, bool]]:
+    def redact(self, text: str) -> tuple[str, dict[str, bool]]:
         """Redact PII from text and return redacted text plus detection results.
 
         Args:
@@ -45,9 +45,7 @@ class PIIRedactor:
                 for match in reversed(matches):
                     start, end = match.span()
                     redacted = self._create_redaction(pii_type, match.group())
-                    redacted_text = (
-                        redacted_text[:start] + redacted + redacted_text[end:]
-                    )
+                    redacted_text = redacted_text[:start] + redacted + redacted_text[end:]
             else:
                 pii_detected[pii_type] = False
 
@@ -100,7 +98,7 @@ class PIIRedactor:
                 return True
         return False
 
-    def get_pii_summary(self, text: str) -> Dict[str, bool]:
+    def get_pii_summary(self, text: str) -> dict[str, bool]:
         """Get summary of PII types detected in text.
 
         Args:

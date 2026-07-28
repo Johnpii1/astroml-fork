@@ -1,13 +1,12 @@
 """Traffic assignment and randomization for experiments."""
 
-from typing import Dict, List, Tuple
 import hashlib
 
 
 class TrafficAssigner:
     """
     Assign traffic to variants with deterministic randomization.
-    
+
     Uses consistent hashing to ensure users get same variant across requests.
     """
 
@@ -18,7 +17,7 @@ class TrafficAssigner:
     def assign_user(
         self,
         user_id: str,
-        variant_weights: Dict[str, float],
+        variant_weights: dict[str, float],
     ) -> str:
         """
         Assign user to variant using consistent hashing.
@@ -52,9 +51,9 @@ class TrafficAssigner:
 
     def batch_assign(
         self,
-        user_ids: List[str],
-        variant_weights: Dict[str, float],
-    ) -> Dict[str, List[str]]:
+        user_ids: list[str],
+        variant_weights: dict[str, float],
+    ) -> dict[str, list[str]]:
         """
         Assign multiple users to variants.
 
@@ -65,7 +64,7 @@ class TrafficAssigner:
         Returns:
             Dict mapping variant names to lists of assigned user IDs
         """
-        assignments: Dict[str, List[str]] = {v: [] for v in variant_weights.keys()}
+        assignments: dict[str, list[str]] = {v: [] for v in variant_weights}
 
         for user_id in user_ids:
             variant = self.assign_user(user_id, variant_weights)
@@ -75,9 +74,9 @@ class TrafficAssigner:
 
     def verify_randomization(
         self,
-        user_ids: List[str],
-        variant_weights: Dict[str, float],
-    ) -> Dict[str, Dict[str, float]]:
+        user_ids: list[str],
+        variant_weights: dict[str, float],
+    ) -> dict[str, dict[str, float]]:
         """
         Verify that randomization matches expected weights.
 

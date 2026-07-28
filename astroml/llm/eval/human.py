@@ -1,10 +1,11 @@
 """Human evaluation workflows and annotation storage."""
+
 from __future__ import annotations
 
 import json
 import os
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 
 class HumanEvaluator:
@@ -12,7 +13,7 @@ class HumanEvaluator:
 
     def __init__(self, storage_path: str = "data/eval/human_feedback.json"):
         self.storage_path = storage_path
-        self.feedback_list: List[Dict[str, Any]] = []
+        self.feedback_list: list[dict[str, Any]] = []
         self._load()
 
     def _load(self) -> None:
@@ -36,8 +37,8 @@ class HumanEvaluator:
         response: str,
         score: int,  # 1 to 5
         annotator: str,
-        comments: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        comments: str | None = None,
+    ) -> dict[str, Any]:
         """Record human review score and comments for a prompt response pair."""
         feedback = {
             "id": len(self.feedback_list) + 1,
@@ -46,7 +47,7 @@ class HumanEvaluator:
             "score": max(1, min(5, score)),
             "annotator": annotator,
             "comments": comments,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         self.feedback_list.append(feedback)
         self.save()

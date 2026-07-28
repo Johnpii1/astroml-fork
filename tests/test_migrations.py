@@ -5,14 +5,15 @@ the declared ORM models after each upgrade/downgrade cycle.
 
 Resolves #515.
 """
+
 from __future__ import annotations
 
 import os
-import pytest
 from unittest.mock import patch
 
-from alembic.config import Config
+import pytest
 from alembic import command
+from alembic.config import Config
 
 
 @pytest.fixture()

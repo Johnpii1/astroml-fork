@@ -19,8 +19,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Final, Iterable, Sequence
+from typing import Any, Final
 
 #: Marker used to find (and update) the bot's previous size comment.
 COMMENT_MARKER: Final[str] = "<!-- astroml:pr-size-limit -->"
@@ -79,7 +80,7 @@ class PullRequestStats:
         return self.additions + self.deletions
 
     @classmethod
-    def from_event(cls, payload: dict[str, Any]) -> "PullRequestStats":
+    def from_event(cls, payload: dict[str, Any]) -> PullRequestStats:
         """Build stats from a GitHub ``pull_request`` event payload.
 
         Args:
@@ -187,8 +188,7 @@ def evaluate_pr_size(
     if stats.changed_files > file_limit:
         suffix = " for `refactor:large` pull requests" if large_refactor else ""
         reasons.append(
-            f"{stats.changed_files} files changed exceeds the "
-            f"{file_limit}-file limit{suffix}."
+            f"{stats.changed_files} files changed exceeds the " f"{file_limit}-file limit{suffix}."
         )
 
     return SizeVerdict(
@@ -259,9 +259,7 @@ def _write_github_output(verdict: SizeVerdict, path: str) -> None:
     with open(path, "a", encoding="utf-8") as handle:
         handle.write(f"exceeded={'true' if verdict.exceeded else 'false'}\n")
         handle.write(f"exempt={'true' if verdict.exempt else 'false'}\n")
-        handle.write(
-            f"should_comment={'true' if verdict.should_comment else 'false'}\n"
-        )
+        handle.write(f"should_comment={'true' if verdict.should_comment else 'false'}\n")
         handle.write("body<<PR_SIZE_EOF\n")
         handle.write(f"{body}\n")
         handle.write("PR_SIZE_EOF\n")

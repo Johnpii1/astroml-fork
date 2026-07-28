@@ -14,12 +14,12 @@ Trade-offs
   (``text-embedding-3-large``).
 - **Requirement**: ``OPENAI_API_KEY`` env var + ``openai`` package.
 """
+
 from __future__ import annotations
 
 import os
-from typing import List
 
-from .embedding_base import EmbeddingProvider, EmbeddingError
+from .embedding_base import EmbeddingError, EmbeddingProvider
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
@@ -48,13 +48,15 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     def is_available(self) -> bool:
         try:
             import openai  # noqa: F401
+
             return bool(self.api_key)
         except ImportError:
             return False
 
-    def embed(self, text: str) -> List[float]:
+    def embed(self, text: str) -> list[float]:
         try:
             import openai
+
             client = openai.OpenAI(api_key=self.api_key, timeout=self.timeout)
             response = client.embeddings.create(input=[text], model=self.model)
             return response.data[0].embedding
@@ -63,11 +65,12 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         except Exception as exc:
             raise EmbeddingError(f"OpenAI embed failed: {exc}") from exc
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
         try:
             import openai
+
             client = openai.OpenAI(api_key=self.api_key, timeout=self.timeout)
             response = client.embeddings.create(input=texts, model=self.model)
             # API returns results in the same order as input.

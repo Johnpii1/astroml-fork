@@ -1,4 +1,5 @@
 """ORM models for the Loyalty Points system."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -22,11 +23,11 @@ class LoyaltyAccount(LoyaltyBase):
     account_id: Mapped[str] = mapped_column(String(56), primary_key=True)
     points_balance: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     tier_id: Mapped[str] = mapped_column(String(16), nullable=False, server_default="bronze")
-    updated_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now(), onupdate=func.now())
-
-    __table_args__ = (
-        Index("ix_loyalty_accounts_tier_id", "tier_id"),
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+    __table_args__ = (Index("ix_loyalty_accounts_tier_id", "tier_id"),)
 
 
 class PointsLedger(LoyaltyBase):

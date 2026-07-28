@@ -1,14 +1,16 @@
 """Structured generation orchestrator."""
-import time
+
 import logging
-from typing import Any, Dict, List, Optional, Type, TypeVar
+import time
+from typing import Any, TypeVar
+
 from pydantic import BaseModel, ValidationError
 
 from ..providers.factory import get_llm_provider
-from .parser import PydanticParser
-from .validator import OutputValidator
 from .correction import AutoCorrector
+from .parser import PydanticParser
 from .prompts import PromptAugmenter
+from .validator import OutputValidator
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +44,8 @@ class StructuredGenerator:
     def generate_structured(
         self,
         prompt: str,
-        output_schema: Type[T],
-        examples: List[Dict[str, Any]] = None,
+        output_schema: type[T],
+        examples: list[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> T:
         """Generate structured output matching the schema.
@@ -85,7 +87,9 @@ class StructuredGenerator:
                 parsed = self.parser.parse(response_text, output_schema)
 
                 latency_ms = (time.time() - start_time) * 1000
-                logger.info(f"Structured output generated successfully in {latency_ms:.0f}ms (attempt {attempt + 1})")
+                logger.info(
+                    f"Structured output generated successfully in {latency_ms:.0f}ms (attempt {attempt + 1})"
+                )
 
                 return parsed
 
@@ -94,7 +98,9 @@ class StructuredGenerator:
                 attempt += 1
 
                 if attempt > self.max_retries:
-                    logger.error(f"Failed to generate valid structured output after {self.max_retries} retries")
+                    logger.error(
+                        f"Failed to generate valid structured output after {self.max_retries} retries"
+                    )
                     raise
 
                 logger.warning(f"Validation failed (attempt {attempt}/{self.max_retries}): {e}")
@@ -122,7 +128,7 @@ class StructuredGenerator:
         # Should not reach here, but just in case
         raise last_error or RuntimeError("Failed to generate structured output")
 
-    def _extract_data_from_response(self, response_text: str) -> Dict[str, Any]:
+    def _extract_data_from_response(self, response_text: str) -> dict[str, Any]:
         """Extract dictionary from response text."""
         import json
         import re
@@ -143,8 +149,8 @@ class StructuredGenerator:
     async def generate_structured_async(
         self,
         prompt: str,
-        output_schema: Type[T],
-        examples: List[Dict[str, Any]] = None,
+        output_schema: type[T],
+        examples: list[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> T:
         """Async version of generate_structured.
@@ -153,6 +159,7 @@ class StructuredGenerator:
         provider would need async generate support.
         """
         import asyncio
+
         return await asyncio.to_thread(
             self.generate_structured,
             prompt,

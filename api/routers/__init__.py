@@ -2,6 +2,7 @@
 
 Organized by version under api/routers/v1/.
 """
+
 from api.routers.v1 import (
     accounts_router,
     agents_router,

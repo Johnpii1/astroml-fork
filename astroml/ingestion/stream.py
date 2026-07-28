@@ -7,6 +7,7 @@ Usage::
 
     python -m astroml.ingestion.stream [--cursor CURSOR] [--endpoint /transactions]
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,14 +15,12 @@ import json
 import logging
 import pathlib
 import signal
-import sys
 from datetime import timedelta
-from typing import Optional
 
 import aiohttp
 from aiohttp_sse_client import client as sse_client
 
-from astroml.db.schema import Ledger, NormalizedTransaction, Transaction
+from astroml.db.schema import Ledger, Transaction
 from astroml.db.session import get_session
 from astroml.ingestion.config import StreamConfig
 from astroml.ingestion.normalizer import normalize_operation
@@ -43,11 +42,11 @@ class HorizonStreamClient:
         config: Streaming configuration. Uses defaults if not provided.
     """
 
-    def __init__(self, config: Optional[StreamConfig] = None) -> None:
+    def __init__(self, config: StreamConfig | None = None) -> None:
         self._config = config or StreamConfig()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._running = False
-        self._last_cursor: Optional[str] = self._config.cursor or self._load_cursor()
+        self._last_cursor: str | None = self._config.cursor or self._load_cursor()
         self._retry_count = 0
 
     # -- Async context manager ------------------------------------------------
@@ -68,9 +67,7 @@ class HorizonStreamClient:
         self._running = False
         if self._session:
             await self._session.close()
-        logger.info(
-            "HorizonStreamClient shut down | last_cursor=%s", self._last_cursor
-        )
+        logger.info("HorizonStreamClient shut down | last_cursor=%s", self._last_cursor)
 
     # -- Signal handling ------------------------------------------------------
 
@@ -87,7 +84,7 @@ class HorizonStreamClient:
     # -- Cursor persistence ---------------------------------------------------
 
     @staticmethod
-    def _load_cursor() -> Optional[str]:
+    def _load_cursor() -> str | None:
         """Load cursor from file if it exists."""
         if CURSOR_FILE.exists():
             text = CURSOR_FILE.read_text().strip()
@@ -144,9 +141,7 @@ class HorizonStreamClient:
         async with sse_client.EventSource(
             url,
             session=self._session,
-            reconnection_time=timedelta(
-                seconds=self._config.reconnect_base_seconds
-            ),
+            reconnection_time=timedelta(seconds=self._config.reconnect_base_seconds),
         ) as event_source:
             self._retry_count = 0
             logger.info("Connected to Horizon stream")
@@ -157,7 +152,7 @@ class HorizonStreamClient:
                 if event.data:
                     await self._process_event(event)
 
-    async def _handle_reconnect(self, exc: Optional[Exception]) -> None:
+    async def _handle_reconnect(self, exc: Exception | None) -> None:
         """Wait with exponential backoff before reconnecting."""
         self._retry_count += 1
         max_retries = self._config.max_retries
@@ -202,9 +197,7 @@ class HorizonStreamClient:
                 logger.warning("Unsupported endpoint: %s", endpoint)
                 return
         except Exception:
-            logger.exception(
-                "Failed to persist event (paging_token=%s)", paging_token
-            )
+            logger.exception("Failed to persist event (paging_token=%s)", paging_token)
             return
 
         # Update cursor only after successful persistence
@@ -257,7 +250,7 @@ class HorizonStreamClient:
         op = parse_operation(data)
         normalized = normalize_operation(data)
         logger.info("Processing operation %d (type=%s)", op.id, op.type)
-        
+
         await asyncio.to_thread(self._db_write_operation_and_normalized, op, normalized)
 
     @staticmethod
@@ -290,7 +283,7 @@ class HorizonStreamClient:
     # -- Cursor access --------------------------------------------------------
 
     @property
-    def last_cursor(self) -> Optional[str]:
+    def last_cursor(self) -> str | None:
         """The paging_token of the last successfully processed event."""
         return self._last_cursor
 

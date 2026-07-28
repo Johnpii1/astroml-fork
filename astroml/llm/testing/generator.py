@@ -11,13 +11,13 @@ import logging
 import textwrap
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Type
 
 logger = logging.getLogger(__name__)
 
 
 class TestType(Enum):
     """Types of tests that can be generated."""
+
     UNIT = "unit"
     INTEGRATION = "integration"
     PROPERTY_BASED = "property_based"
@@ -29,6 +29,7 @@ class TestType(Enum):
 @dataclass
 class TestGenerationConfig:
     """Configuration for test generation."""
+
     test_type: TestType = TestType.UNIT
     framework: str = "pytest"
     max_tests_per_function: int = 5
@@ -44,14 +45,15 @@ class TestGenerationConfig:
 @dataclass
 class GeneratedTest:
     """A generated test case."""
+
     name: str
     body: str
     test_type: TestType
     source_function: str
-    imports: List[str] = field(default_factory=list)
-    fixtures: List[str] = field(default_factory=list)
-    assertions: List[str] = field(default_factory=list)
-    coverage_tags: List[str] = field(default_factory=list)
+    imports: list[str] = field(default_factory=list)
+    fixtures: list[str] = field(default_factory=list)
+    assertions: list[str] = field(default_factory=list)
+    coverage_tags: list[str] = field(default_factory=list)
 
 
 class TestGenerator:
@@ -62,14 +64,14 @@ class TestGenerator:
     and comprehensive assertions.
     """
 
-    def __init__(self, config: Optional[TestGenerationConfig] = None):
+    def __init__(self, config: TestGenerationConfig | None = None):
         self.config = config or TestGenerationConfig()
 
     def generate_from_function(
         self,
         source_code: str,
         function_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate tests from a function's source code and docstring."""
         llm_prompt = self._build_function_prompt(source_code, function_name)
         response = self._call_llm(llm_prompt)
@@ -80,11 +82,12 @@ class TestGenerator:
         self,
         module_source: str,
         module_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate tests from an entire module's source code."""
         tree = ast.parse(module_source)
         functions = [
-            node for node in ast.walk(tree)
+            node
+            for node in ast.walk(tree)
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         ]
         all_tests = []
@@ -98,7 +101,7 @@ class TestGenerator:
         self,
         spec_text: str,
         api_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate integration tests from API specifications."""
         prompt = (
             f"Generate {self.config.framework} integration tests for:\n\n"
@@ -114,7 +117,7 @@ class TestGenerator:
         self,
         type_signature: str,
         function_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate property-based tests from type specifications."""
         prompt = (
             f"Generate property-based tests using hypothesis for:\n\n"
@@ -130,7 +133,7 @@ class TestGenerator:
         self,
         source_code: str,
         function_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate edge case tests from code analysis."""
         prompt = (
             f"Analyze this function and generate edge case tests:\n\n"
@@ -147,7 +150,7 @@ class TestGenerator:
         self,
         bug_report: str,
         fix_code: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate regression tests from bug reports and fixes."""
         prompt = (
             f"Generate regression tests for this bug fix:\n\n"
@@ -163,7 +166,7 @@ class TestGenerator:
         self,
         source_code: str,
         function_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Generate performance/load tests."""
         prompt = (
             f"Generate performance tests for:\n\n"
@@ -188,7 +191,7 @@ class TestGenerator:
             f"- Max {self.config.max_tests_per_function} tests\n"
             f"- Include imports\n"
             f"- Use realistic test data\n"
-            f"- Cover normal cases{f', edge cases' if self.config.include_edge_cases else ''}"
+            f"- Cover normal cases{', edge cases' if self.config.include_edge_cases else ''}"
             f"{', negative cases' if self.config.include_negative_tests else ''}\n"
             f"Return ONLY the Python test code, no explanations."
         )
@@ -197,6 +200,7 @@ class TestGenerator:
         """Call the LLM to generate test code."""
         try:
             from astroml.llm.providers.factory import get_llm_provider
+
             provider = get_llm_provider("openai")
             response = provider.generate(
                 prompt,
@@ -211,7 +215,8 @@ class TestGenerator:
 
     def _fallback_generate(self, prompt: str) -> str:
         """Fallback test generation when LLM is unavailable."""
-        return textwrap.dedent("""\
+        return textwrap.dedent(
+            """\
             import pytest
 
             def test_generated_function():
@@ -223,19 +228,21 @@ class TestGenerator:
             def test_negative_case():
                 with pytest.raises((ValueError, TypeError)):
                     pass
-        """)
+        """
+        )
 
     def _parse_response(
         self,
         response: str,
         source_name: str,
-    ) -> List[GeneratedTest]:
+    ) -> list[GeneratedTest]:
         """Parse LLM response into structured test cases."""
         import re
+
         tests = []
 
         test_blocks = re.findall(
-            r'(?:import .+?\n)+|def test_\w+.*?:(?:\n(?:    .*?\n)*)',
+            r"(?:import .+?\n)+|def test_\w+.*?:(?:\n(?:    .*?\n)*)",
             response,
             re.MULTILINE,
         )
@@ -251,36 +258,42 @@ class TestGenerator:
                 if match:
                     test_name = match.group(1)
                     body = "\n".join(lines[1:]) if len(lines) > 1 else "    pass"
-                    tests.append(GeneratedTest(
-                        name=test_name,
-                        body=body,
-                        test_type=self.config.test_type,
-                        source_function=source_name,
-                        imports=list(current_imports),
-                    ))
+                    tests.append(
+                        GeneratedTest(
+                            name=test_name,
+                            body=body,
+                            test_type=self.config.test_type,
+                            source_function=source_name,
+                            imports=list(current_imports),
+                        )
+                    )
 
         if not tests:
-            tests.append(GeneratedTest(
-                name=f"test_{source_name}_auto",
-                body=textwrap.dedent(f"""\
+            tests.append(
+                GeneratedTest(
+                    name=f"test_{source_name}_auto",
+                    body=textwrap.dedent(
+                        f"""\
                     def test_{source_name}_auto():
                         result = {source_name}()
                         assert result is not None
-                """),
-                test_type=self.config.test_type,
-                source_function=source_name,
-            ))
+                """
+                    ),
+                    test_type=self.config.test_type,
+                    source_function=source_name,
+                )
+            )
 
         return tests
 
     def format_test_file(
         self,
-        tests: List[GeneratedTest],
-        module_path: Optional[str] = None,
+        tests: list[GeneratedTest],
+        module_path: str | None = None,
     ) -> str:
         """Format generated tests into a complete test file."""
-        lines: List[str] = []
-        all_imports: Set[str] = set()
+        lines: list[str] = []
+        all_imports: set[str] = set()
         for test in tests:
             for imp in test.imports:
                 all_imports.add(imp)

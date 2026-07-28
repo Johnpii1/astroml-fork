@@ -4,10 +4,11 @@ Uses SQLite in-memory for DDL smoke tests — no PostgreSQL required.
 PostgreSQL-specific features (JSONB, partial indexes) are validated
 structurally via metadata introspection rather than DDL execution.
 """
+
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,15 +18,6 @@ from astroml.db.schema import (
     Base,
     Experiment,
     ExperimentResult,
-__all__ = [
-    "MLflowTracker",
-    "ModelRegistry",
-    "ABTestingFramework",
-    "GoldenDatasetGenerator",
-    "GoldenDataset",
-    "GoldenDatasetEntry",
-]
-
     GraphAccount,
     GraphClaimDetail,
     GraphEdge,
@@ -39,10 +31,10 @@ __all__ = [
     Variant,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def engine():
@@ -63,6 +55,7 @@ def session(engine):
 # Import & table creation
 # ---------------------------------------------------------------------------
 
+
 def test_models_importable():
     """All model classes import cleanly."""
     for cls in (
@@ -81,15 +74,6 @@ def test_models_importable():
         Experiment,
         Variant,
         ExperimentResult,
-__all__ = [
-    "MLflowTracker",
-    "ModelRegistry",
-    "ABTestingFramework",
-    "GoldenDatasetGenerator",
-    "GoldenDataset",
-    "GoldenDatasetEntry",
-]
-
     ):
         assert hasattr(cls, "__tablename__")
 
@@ -104,9 +88,6 @@ def test_create_all_tables(engine):
         "effects",
         "experiment_results",
         "experiments",
-assert GoldenDataset.__tablename__ == "golden_datasets"
-assert GoldenDatasetEntry.__tablename__ == "golden_dataset_entries"
-
         "graph_accounts",
         "graph_claim_details",
         "graph_edges",
@@ -136,23 +117,32 @@ def test_table_names():
     assert Experiment.__tablename__ == "experiments"
     assert Variant.__tablename__ == "variants"
     assert ExperimentResult.__tablename__ == "experiment_results"
+
+
 assert GoldenDataset.__tablename__ == "golden_datasets"
 assert GoldenDatasetEntry.__tablename__ == "golden_dataset_entries"
-
 
 
 # ---------------------------------------------------------------------------
 # Column verification
 # ---------------------------------------------------------------------------
 
+
 def test_ledger_columns(engine):
     inspector = inspect(engine)
     cols = {c["name"] for c in inspector.get_columns("ledgers")}
     expected = {
-        "sequence", "hash", "prev_hash", "closed_at",
-        "successful_transaction_count", "failed_transaction_count",
-        "operation_count", "total_coins", "fee_pool",
-        "base_fee_in_stroops", "protocol_version",
+        "sequence",
+        "hash",
+        "prev_hash",
+        "closed_at",
+        "successful_transaction_count",
+        "failed_transaction_count",
+        "operation_count",
+        "total_coins",
+        "fee_pool",
+        "base_fee_in_stroops",
+        "protocol_version",
     }
     assert expected <= cols
 
@@ -161,17 +151,22 @@ def test_transaction_columns(engine):
     inspector = inspect(engine)
     cols = {c["name"] for c in inspector.get_columns("transactions")}
     expected = {
-        "hash", "ledger_sequence", "source_account", "created_at",
-        "fee", "operation_count", "successful", "memo_type", "memo",
+        "hash",
+        "ledger_sequence",
+        "source_account",
+        "created_at",
+        "fee",
+        "operation_count",
+        "successful",
+        "memo_type",
+        "memo",
     }
     assert expected <= cols
 
     # FK to ledgers
     fks = inspector.get_foreign_keys("transactions")
     assert any(
-        fk["referred_table"] == "ledgers"
-        and fk["referred_columns"] == ["sequence"]
-        for fk in fks
+        fk["referred_table"] == "ledgers" and fk["referred_columns"] == ["sequence"] for fk in fks
     )
 
 
@@ -179,18 +174,24 @@ def test_operation_columns(engine):
     inspector = inspect(engine)
     cols = {c["name"] for c in inspector.get_columns("operations")}
     expected = {
-        "id", "transaction_hash", "application_order", "type",
-        "source_account", "destination_account", "amount",
-        "asset_code", "asset_issuer", "created_at", "details",
+        "id",
+        "transaction_hash",
+        "application_order",
+        "type",
+        "source_account",
+        "destination_account",
+        "amount",
+        "asset_code",
+        "asset_issuer",
+        "created_at",
+        "details",
     }
     assert expected <= cols
 
     # FK to transactions
     fks = inspector.get_foreign_keys("operations")
     assert any(
-        fk["referred_table"] == "transactions"
-        and fk["referred_columns"] == ["hash"]
-        for fk in fks
+        fk["referred_table"] == "transactions" and fk["referred_columns"] == ["hash"] for fk in fks
     )
 
 
@@ -198,8 +199,14 @@ def test_account_columns(engine):
     inspector = inspect(engine)
     cols = {c["name"] for c in inspector.get_columns("accounts")}
     expected = {
-        "account_id", "balance", "sequence", "home_domain",
-        "flags", "last_modified_ledger", "created_at", "updated_at",
+        "account_id",
+        "balance",
+        "sequence",
+        "home_domain",
+        "flags",
+        "last_modified_ledger",
+        "created_at",
+        "updated_at",
     }
     assert expected <= cols
 
@@ -248,15 +255,9 @@ def test_graph_edge_columns(engine):
 
     fks = inspector.get_foreign_keys("graph_edges")
     assert any(
-        fk["referred_table"] == "graph_accounts"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
+        fk["referred_table"] == "graph_accounts" and fk["referred_columns"] == ["id"] for fk in fks
     )
-    assert any(
-        fk["referred_table"] == "assets"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
-    )
+    assert any(fk["referred_table"] == "assets" and fk["referred_columns"] == ["id"] for fk in fks)
 
 
 def test_graph_detail_columns(engine):
@@ -265,9 +266,33 @@ def test_graph_detail_columns(engine):
     claim_cols = {c["name"] for c in inspector.get_columns("graph_claim_details")}
     payment_cols = {c["name"] for c in inspector.get_columns("graph_payment_details")}
 
-    assert {"edge_id", "edge_type", "successful", "operation_count", "fee", "memo_type", "memo", "details"} <= transaction_cols
-    assert {"edge_id", "edge_type", "claim_reference", "claim_status", "expires_at", "details"} <= claim_cols
-    assert {"edge_id", "edge_type", "payment_reference", "payment_status", "fee_amount", "settled_at", "details"} <= payment_cols
+    assert {
+        "edge_id",
+        "edge_type",
+        "successful",
+        "operation_count",
+        "fee",
+        "memo_type",
+        "memo",
+        "details",
+    } <= transaction_cols
+    assert {
+        "edge_id",
+        "edge_type",
+        "claim_reference",
+        "claim_status",
+        "expires_at",
+        "details",
+    } <= claim_cols
+    assert {
+        "edge_id",
+        "edge_type",
+        "payment_reference",
+        "payment_status",
+        "fee_amount",
+        "settled_at",
+        "details",
+    } <= payment_cols
 
 
 def test_model_columns(engine):
@@ -305,11 +330,7 @@ def test_model_version_columns(engine):
 
     # FK to models
     fks = inspector.get_foreign_keys("model_versions")
-    assert any(
-        fk["referred_table"] == "models"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
-    )
+    assert any(fk["referred_table"] == "models" and fk["referred_columns"] == ["id"] for fk in fks)
 
 
 def test_experiment_columns(engine):
@@ -350,15 +371,11 @@ def test_variant_columns(engine):
     # FK to experiments
     fks = inspector.get_foreign_keys("variants")
     assert any(
-        fk["referred_table"] == "experiments"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
+        fk["referred_table"] == "experiments" and fk["referred_columns"] == ["id"] for fk in fks
     )
     # FK to model_versions
     assert any(
-        fk["referred_table"] == "model_versions"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
+        fk["referred_table"] == "model_versions" and fk["referred_columns"] == ["id"] for fk in fks
     )
 
 
@@ -379,9 +396,7 @@ def test_experiment_result_columns(engine):
     # FK to variants
     fks = inspector.get_foreign_keys("experiment_results")
     assert any(
-        fk["referred_table"] == "variants"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
+        fk["referred_table"] == "variants" and fk["referred_columns"] == ["id"] for fk in fks
     )
 
 
@@ -424,14 +439,14 @@ def test_golden_dataset_entry_columns(engine):
     # FK to golden_datasets
     fks = inspector.get_foreign_keys("golden_dataset_entries")
     assert any(
-        fk["referred_table"] == "golden_datasets"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
+        fk["referred_table"] == "golden_datasets" and fk["referred_columns"] == ["id"] for fk in fks
     )
+
 
 # ---------------------------------------------------------------------------
 # Relationships
 # ---------------------------------------------------------------------------
+
 
 def test_relationships(session):
     """Ledger.transactions and Transaction.operations resolve correctly."""
@@ -656,14 +671,14 @@ def test_golden_dataset_entry_columns(engine):
     # FK to golden_datasets
     fks = inspector.get_foreign_keys("golden_dataset_entries")
     assert any(
-        fk["referred_table"] == "golden_datasets"
-        and fk["referred_columns"] == ["id"]
-        for fk in fks
+        fk["referred_table"] == "golden_datasets" and fk["referred_columns"] == ["id"] for fk in fks
     )
+
 
 # ---------------------------------------------------------------------------
 # Round-trip insert & query
 # ---------------------------------------------------------------------------
+
 
 def test_insert_and_query(session):
     """Insert one row per table and read it back."""

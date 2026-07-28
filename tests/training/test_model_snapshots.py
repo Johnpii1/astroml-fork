@@ -8,10 +8,11 @@ To update snapshots after an intentional change:
 
 Resolves #516.
 """
+
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,7 @@ class TestModelSnapshots:
         """Snapshot a deterministic feature computation."""
         # Simulate a deterministic feature vector from fixed seed
         import random
+
         rng = random.Random(FIXED_SEED)
         features = [rng.random() for _ in range(10)]
         digest = _hash_array(features)

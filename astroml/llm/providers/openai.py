@@ -1,7 +1,11 @@
 """OpenAI Provider implementation."""
+
 import json
-from typing import Any, Dict, Iterator, List
+from collections.abc import Iterator
+from typing import Any
+
 from .base import LLMProvider
+
 
 class OpenAIProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = "gpt-4"):
@@ -9,11 +13,16 @@ class OpenAIProvider(LLMProvider):
 
     def _generate_raw(self, prompt: str, tools: list[dict] | None = None, **kwargs: Any) -> str:
         import openai
+
         client = openai.OpenAI(api_key=self.api_key)
 
         messages: list[dict[str, Any]]
         try:
-            messages = json.loads(prompt) if prompt.startswith("[") or prompt.startswith("{") else [{"role": "user", "content": prompt}]
+            messages = (
+                json.loads(prompt)
+                if prompt.startswith("[") or prompt.startswith("{")
+                else [{"role": "user", "content": prompt}]
+            )
         except json.JSONDecodeError:
             messages = [{"role": "user", "content": prompt}]
 
@@ -46,26 +55,35 @@ class OpenAIProvider(LLMProvider):
         if message.tool_calls:
             tool_calls_list = []
             for tc in message.tool_calls:
-                tool_calls_list.append({
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": json.loads(tc.function.arguments) if isinstance(tc.function.arguments, str) else tc.function.arguments,
-                    },
-                })
-            return json.dumps({
-                "content": message.content or "",
-                "tool_calls": tool_calls_list,
-            })
+                tool_calls_list.append(
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": (
+                                json.loads(tc.function.arguments)
+                                if isinstance(tc.function.arguments, str)
+                                else tc.function.arguments
+                            ),
+                        },
+                    }
+                )
+            return json.dumps(
+                {
+                    "content": message.content or "",
+                    "tool_calls": tool_calls_list,
+                }
+            )
 
         return message.content or ""
 
-    def get_token_usage(self) -> Dict[str, int]:
+    def get_token_usage(self) -> dict[str, int]:
         return self.last_usage
 
     def stream(self, prompt: str, **kwargs: Any) -> Iterator[str]:
         import openai
+
         client = openai.OpenAI(api_key=self.api_key)
         response = client.chat.completions.create(
             model=kwargs.pop("model", self.model),
@@ -77,19 +95,19 @@ class OpenAIProvider(LLMProvider):
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
 
-    def embed(self, text: str, **kwargs: Any) -> List[float]:
+    def embed(self, text: str, **kwargs: Any) -> list[float]:
         import openai
+
         client = openai.OpenAI(api_key=self.api_key)
         response = client.embeddings.create(
-            input=[text],
-            model=kwargs.pop("model", "text-embedding-3-small"),
-            **kwargs
+            input=[text], model=kwargs.pop("model", "text-embedding-3-small"), **kwargs
         )
         return response.data[0].embedding
 
     def count_tokens(self, text: str) -> int:
         try:
             import tiktoken
+
             encoding = tiktoken.encoding_for_model(self.model)
             return len(encoding.encode(text))
         except Exception:

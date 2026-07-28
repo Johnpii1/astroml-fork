@@ -1,6 +1,7 @@
 """Tests for tool permission system."""
 
 import pytest
+
 from astroml.llm.tools.permissions import PermissionChecker, PermissionDenied
 
 

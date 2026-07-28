@@ -1,4 +1,5 @@
 """Input validation middleware for API requests (issue #333, #533)."""
+
 from __future__ import annotations
 
 from typing import Callable

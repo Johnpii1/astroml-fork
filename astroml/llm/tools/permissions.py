@@ -1,10 +1,9 @@
 """Permission system for tool access control."""
 
-from typing import Any
-
 
 class PermissionDenied(Exception):
     """Raised when a user does not have permission to use a tool."""
+
     pass
 
 

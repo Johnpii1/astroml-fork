@@ -7,32 +7,27 @@ LLM-generated features within the feature store lifecycle.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 import pandas as pd
 
+from astroml.cache import cached_feature
 from astroml.features.feature_store import (
-    FeatureStore,
     FeatureDefinition,
-    FeatureType,
-    FeatureRegistry,
     FeatureStatus,
+    FeatureStore,
+    FeatureType,
 )
 from astroml.features.feature_versioning import (
-    FeatureVersionManager,
-    VersionStatus,
     create_version_manager,
 )
 from astroml.features.llm_features import (
-    LLMFeatureCategory,
-    LLMFeatureMeta,
     EmbeddingType,
     ScoreType,
 )
-from astroml.features.llm_generators import LLMFeatureGenerator, GeneratedLLMFeature
-from astroml.cache import cached_feature
+from astroml.features.llm_generators import GeneratedLLMFeature, LLMFeatureGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +35,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMFeatureConfig:
     """Configuration for LLM feature integration."""
+
     embedding_provider: str = "openai"
     score_model: str = "gpt-4"
     prompt_version: str = "v1"
@@ -60,7 +56,7 @@ class LLMFeatureIntegration:
     def __init__(
         self,
         feature_store: FeatureStore,
-        config: Optional[LLMFeatureConfig] = None,
+        config: LLMFeatureConfig | None = None,
     ):
         self.store = feature_store
         self.config = config or LLMFeatureConfig()
@@ -70,27 +66,51 @@ class LLMFeatureIntegration:
             prompt_version=self.config.prompt_version,
         )
         self.version_manager = create_version_manager()
-        self._materialized_views: Dict[str, pd.DataFrame] = {}
+        self._materialized_views: dict[str, pd.DataFrame] = {}
 
-    def register_llm_features(self) -> List[str]:
+    def register_llm_features(self) -> list[str]:
         """Register all LLM feature definitions in the feature store."""
         registered = []
 
         embedding_features = [
-            ("transaction_embeddings", "Transaction description embeddings", FeatureType.VECTOR,
-             {"embedding_type": EmbeddingType.TRANSACTION_DESCRIPTION.value}),
-            ("account_behavior_embeddings", "Account behavior embeddings", FeatureType.VECTOR,
-             {"embedding_type": EmbeddingType.ACCOUNT_BEHAVIOR.value}),
-            ("alert_embeddings", "Alert description embeddings", FeatureType.VECTOR,
-             {"embedding_type": EmbeddingType.ALERT_DESCRIPTION.value}),
+            (
+                "transaction_embeddings",
+                "Transaction description embeddings",
+                FeatureType.VECTOR,
+                {"embedding_type": EmbeddingType.TRANSACTION_DESCRIPTION.value},
+            ),
+            (
+                "account_behavior_embeddings",
+                "Account behavior embeddings",
+                FeatureType.VECTOR,
+                {"embedding_type": EmbeddingType.ACCOUNT_BEHAVIOR.value},
+            ),
+            (
+                "alert_embeddings",
+                "Alert description embeddings",
+                FeatureType.VECTOR,
+                {"embedding_type": EmbeddingType.ALERT_DESCRIPTION.value},
+            ),
         ]
         score_features = [
-            ("fraud_probability", "Fraud probability from LLM", FeatureType.NUMERIC,
-             {"score_type": ScoreType.FRAUD_PROBABILITY.value}),
-            ("explanation_confidence", "Explanation confidence score", FeatureType.NUMERIC,
-             {"score_type": ScoreType.EXPLANATION_CONFIDENCE.value}),
-            ("uncertainty_estimates", "Uncertainty estimates from LLM", FeatureType.TIME_SERIES,
-             {"score_type": ScoreType.UNCERTAINTY_ESTIMATE.value}),
+            (
+                "fraud_probability",
+                "Fraud probability from LLM",
+                FeatureType.NUMERIC,
+                {"score_type": ScoreType.FRAUD_PROBABILITY.value},
+            ),
+            (
+                "explanation_confidence",
+                "Explanation confidence score",
+                FeatureType.NUMERIC,
+                {"score_type": ScoreType.EXPLANATION_CONFIDENCE.value},
+            ),
+            (
+                "uncertainty_estimates",
+                "Uncertainty estimates from LLM",
+                FeatureType.TIME_SERIES,
+                {"score_type": ScoreType.UNCERTAINTY_ESTIMATE.value},
+            ),
         ]
         meta_features = [
             ("prompt_version", "Prompt version used for generation", FeatureType.TEXT, {}),
@@ -120,7 +140,7 @@ class LLMFeatureIntegration:
         self._create_version_snapshots(registered)
         return registered
 
-    def _create_version_snapshots(self, feature_names: List[str]) -> None:
+    def _create_version_snapshots(self, feature_names: list[str]) -> None:
         for name in feature_names:
             self.version_manager.create_version(
                 feature_name=name,
@@ -137,7 +157,7 @@ class LLMFeatureIntegration:
         data: pd.DataFrame,
         entity_col: str = "entity_id",
         timestamp_col: str = "timestamp",
-    ) -> Dict[str, GeneratedLLMFeature]:
+    ) -> dict[str, GeneratedLLMFeature]:
         """Compute LLM features and store in the feature store."""
         features = self.generator.generate_all(data, entity_col, timestamp_col)
         stored = {}
@@ -161,8 +181,8 @@ class LLMFeatureIntegration:
     def get_feature(
         self,
         name: str,
-        entity_ids: Optional[List[str]] = None,
-    ) -> Optional[pd.DataFrame]:
+        entity_ids: list[str] | None = None,
+    ) -> pd.DataFrame | None:
         """Retrieve a computed LLM feature."""
         if self.config.enable_materialized_views and name in self._materialized_views:
             view = self._materialized_views[name]
@@ -187,15 +207,15 @@ class LLMFeatureIntegration:
         historical_data: pd.DataFrame,
         entity_col: str = "entity_id",
         timestamp_col: str = "timestamp",
-        batch_size: Optional[int] = None,
-    ) -> Dict[str, int]:
+        batch_size: int | None = None,
+    ) -> dict[str, int]:
         """Backfill LLM features for historical data in batches."""
         batch_size = batch_size or self.config.backfill_batch_size
         total_batches = 0
-        feature_counts: Dict[str, int] = {}
+        feature_counts: dict[str, int] = {}
 
         for start in range(0, len(historical_data), batch_size):
-            batch = historical_data.iloc[start:start + batch_size]
+            batch = historical_data.iloc[start : start + batch_size]
             features = self.compute_and_store(batch, entity_col, timestamp_col)
             for name, feat in features.items():
                 feature_counts[name] = feature_counts.get(name, 0) + len(feat.values)
@@ -208,7 +228,7 @@ class LLMFeatureIntegration:
     def get_meta_features(
         self,
         feature_name: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Return meta features for a given LLM feature."""
         return {
             "prompt_version": self.config.prompt_version,

@@ -6,12 +6,11 @@ including link checking, example validation, completeness scoring, and
 readability metrics.
 """
 
+import ast
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
-import ast
 
 
 class ValidationSeverity(Enum):
@@ -37,7 +36,7 @@ class ValidationIssue:
     severity: ValidationSeverity
     message: str
     location: str
-    suggestion: Optional[str] = None
+    suggestion: str | None = None
 
 
 @dataclass
@@ -55,22 +54,24 @@ class ValidationResult:
     """
 
     is_valid: bool
-    issues: List[ValidationIssue] = field(default_factory=list)
+    issues: list[ValidationIssue] = field(default_factory=list)
     completeness_score: float = 0.0
     readability_score: float = 0.0
-    broken_links: List[str] = field(default_factory=list)
-    invalid_examples: List[str] = field(default_factory=list)
+    broken_links: list[str] = field(default_factory=list)
+    invalid_examples: list[str] = field(default_factory=list)
 
     def add_issue(
         self,
         severity: ValidationSeverity,
         message: str,
         location: str,
-        suggestion: Optional[str] = None,
+        suggestion: str | None = None,
     ) -> None:
         """Add a validation issue."""
         self.issues.append(
-            ValidationIssue(severity=severity, message=message, location=location, suggestion=suggestion)
+            ValidationIssue(
+                severity=severity, message=message, location=location, suggestion=suggestion
+            )
         )
 
     def get_summary(self) -> str:
@@ -79,7 +80,7 @@ class ValidationResult:
         warning_count = sum(1 for i in self.issues if i.severity == ValidationSeverity.WARNING)
         info_count = sum(1 for i in self.issues if i.severity == ValidationSeverity.INFO)
 
-        summary = f"Validation Results:\n"
+        summary = "Validation Results:\n"
         summary += f"- Valid: {self.is_valid}\n"
         summary += f"- Completeness Score: {self.completeness_score:.1f}/100\n"
         summary += f"- Readability Score: {self.readability_score:.1f}/100\n"
@@ -104,7 +105,7 @@ class DocumentationValidator:
     - Consistency checks
     """
 
-    def __init__(self, base_url: Optional[str] = None):
+    def __init__(self, base_url: str | None = None):
         """
         Initialize the validator.
 
@@ -113,9 +114,7 @@ class DocumentationValidator:
         """
         self.base_url = base_url
 
-    def validate_documentation(
-        self, doc_path: str, code_elements: List = None
-    ) -> ValidationResult:
+    def validate_documentation(self, doc_path: str, code_elements: list = None) -> ValidationResult:
         """
         Validate documentation file.
 
@@ -128,7 +127,7 @@ class DocumentationValidator:
         """
         result = ValidationResult(is_valid=True)
 
-        with open(doc_path, "r", encoding="utf-8") as f:
+        with open(doc_path, encoding="utf-8") as f:
             content = f.read()
 
         # Check for broken links
@@ -148,7 +147,7 @@ class DocumentationValidator:
         for example in invalid_examples:
             result.add_issue(
                 severity=ValidationSeverity.ERROR,
-                message=f"Invalid code example",
+                message="Invalid code example",
                 location=doc_path,
                 suggestion="Fix syntax errors in the code example",
             )
@@ -174,7 +173,7 @@ class DocumentationValidator:
 
         return result
 
-    def _check_links(self, content: str, doc_path: str) -> List[str]:
+    def _check_links(self, content: str, doc_path: str) -> list[str]:
         """
         Check for broken or invalid links in documentation.
 
@@ -188,7 +187,7 @@ class DocumentationValidator:
         broken_links = []
 
         # Extract markdown links
-        markdown_links = re.findall(r'\[([^\]]+)\]\(([^)]+)\)', content)
+        markdown_links = re.findall(r"\[([^\]]+)\]\(([^)]+)\)", content)
         for text, url in markdown_links:
             # Check for local file references
             if url.startswith("./") or url.startswith("../"):
@@ -198,12 +197,12 @@ class DocumentationValidator:
 
             # Check for http/https links (basic validation)
             elif url.startswith(("http://", "https://")):
-                if not re.match(r'^https?://[^\s/$.?#].[^\s]*$', url):
+                if not re.match(r"^https?://[^\s/$.?#].[^\s]*$", url):
                     broken_links.append(url)
 
         return broken_links
 
-    def _validate_examples(self, content: str, doc_path: str) -> List[str]:
+    def _validate_examples(self, content: str, doc_path: str) -> list[str]:
         """
         Validate code examples in documentation.
 
@@ -217,7 +216,7 @@ class DocumentationValidator:
         invalid_examples = []
 
         # Extract code blocks
-        code_blocks = re.findall(r'```python\n(.*?)\n```', content, re.DOTALL)
+        code_blocks = re.findall(r"```python\n(.*?)\n```", content, re.DOTALL)
 
         for code in code_blocks:
             try:
@@ -227,7 +226,7 @@ class DocumentationValidator:
 
         return invalid_examples
 
-    def _calculate_completeness(self, content: str, code_elements: List = None) -> float:
+    def _calculate_completeness(self, content: str, code_elements: list = None) -> float:
         """
         Calculate completeness score for documentation.
 
@@ -242,7 +241,7 @@ class DocumentationValidator:
         total_checks = 0
 
         # Check for title
-        if re.search(r'^#\s+.+$', content, re.MULTILINE):
+        if re.search(r"^#\s+.+$", content, re.MULTILINE):
             score += 10
         total_checks += 1
 
@@ -252,32 +251,32 @@ class DocumentationValidator:
         total_checks += 1
 
         # Check for code examples
-        if re.search(r'```', content):
+        if re.search(r"```", content):
             score += 20
         total_checks += 1
 
         # Check for parameter documentation
-        if re.search(r'parameter|arg|argument', content, re.IGNORECASE):
+        if re.search(r"parameter|arg|argument", content, re.IGNORECASE):
             score += 15
         total_checks += 1
 
         # Check for return value documentation
-        if re.search(r'return|returns', content, re.IGNORECASE):
+        if re.search(r"return|returns", content, re.IGNORECASE):
             score += 15
         total_checks += 1
 
         # Check for exception documentation
-        if re.search(r'raise|raises|exception', content, re.IGNORECASE):
+        if re.search(r"raise|raises|exception", content, re.IGNORECASE):
             score += 10
         total_checks += 1
 
         # Check for type information
-        if re.search(r'type|:py:class:|:py:data:', content, re.IGNORECASE):
+        if re.search(r"type|:py:class:|:py:data:", content, re.IGNORECASE):
             score += 10
         total_checks += 1
 
         # Check for links
-        if re.search(r'\[.*\]\(.*\)', content):
+        if re.search(r"\[.*\]\(.*\)", content):
             score += 10
         total_checks += 1
 
@@ -297,7 +296,7 @@ class DocumentationValidator:
         total_checks = 0
 
         # Check sentence length (average)
-        sentences = re.split(r'[.!?]+', content)
+        sentences = re.split(r"[.!?]+", content)
         sentences = [s.strip() for s in sentences if s.strip()]
         if sentences:
             avg_length = sum(len(s.split()) for s in sentences) / len(sentences)
@@ -308,7 +307,7 @@ class DocumentationValidator:
             total_checks += 1
 
         # Check paragraph length
-        paragraphs = content.split('\n\n')
+        paragraphs = content.split("\n\n")
         paragraphs = [p.strip() for p in paragraphs if p.strip()]
         if paragraphs:
             avg_para_length = sum(len(p.split()) for p in paragraphs) / len(paragraphs)
@@ -319,7 +318,7 @@ class DocumentationValidator:
             total_checks += 1
 
         # Check for excessive jargon
-        jargon_words = ['implement', 'utilize', 'leverage', 'facilitate', 'optimize']
+        jargon_words = ["implement", "utilize", "leverage", "facilitate", "optimize"]
         jargon_count = sum(1 for word in jargon_words if word in content.lower())
         if jargon_count < 3:
             score += 20
@@ -328,7 +327,7 @@ class DocumentationValidator:
         total_checks += 1
 
         # Check for active voice (simple heuristic)
-        passive_indicators = ['is used', 'are used', 'was used', 'were used']
+        passive_indicators = ["is used", "are used", "was used", "were used"]
         passive_count = sum(1 for indicator in passive_indicators if indicator in content.lower())
         if passive_count < 2:
             score += 20
@@ -337,15 +336,13 @@ class DocumentationValidator:
         total_checks += 1
 
         # Check for formatting consistency
-        if re.search(r'#{1,6}\s', content):  # Has headers
+        if re.search(r"#{1,6}\s", content):  # Has headers
             score += 20
         total_checks += 1
 
         return (score / total_checks * 100) if total_checks > 0 else 0.0
 
-    def _check_consistency(
-        self, content: str, code_elements: List, doc_path: str
-    ) -> List[Dict]:
+    def _check_consistency(self, content: str, code_elements: list, doc_path: str) -> list[dict]:
         """
         Check consistency between documentation and code.
 
@@ -363,17 +360,19 @@ class DocumentationValidator:
             return issues
 
         # Check if all public elements are documented
-        documented_names = set(re.findall(r'#{1,6}\s+([^\n]+)', content))
+        documented_names = set(re.findall(r"#{1,6}\s+([^\n]+)", content))
 
         for element in code_elements:
             if not element.name.startswith("_"):  # Public element
                 if element.name not in documented_names:
-                    issues.append({
-                        "severity": ValidationSeverity.WARNING,
-                        "message": f"Public element '{element.name}' not documented",
-                        "location": doc_path,
-                        "suggestion": f"Add documentation for {element.name}",
-                    })
+                    issues.append(
+                        {
+                            "severity": ValidationSeverity.WARNING,
+                            "message": f"Public element '{element.name}' not documented",
+                            "location": doc_path,
+                            "suggestion": f"Add documentation for {element.name}",
+                        }
+                    )
 
         # Check for outdated signatures
         for element in code_elements:
@@ -385,7 +384,7 @@ class DocumentationValidator:
 
         return issues
 
-    def validate_example_runnable(self, code: str) -> Tuple[bool, Optional[str]]:
+    def validate_example_runnable(self, code: str) -> tuple[bool, str | None]:
         """
         Validate that a code example is runnable.
 
@@ -411,9 +410,7 @@ class DocumentationValidator:
         except SyntaxError as e:
             return False, f"Syntax error: {str(e)}"
 
-    def check_outdated_docs(
-        self, doc_path: str, code_path: str
-    ) -> List[ValidationIssue]:
+    def check_outdated_docs(self, doc_path: str, code_path: str) -> list[ValidationIssue]:
         """
         Check if documentation is outdated compared to code.
 
@@ -434,7 +431,7 @@ class DocumentationValidator:
                 issues.append(
                     ValidationIssue(
                         severity=ValidationSeverity.WARNING,
-                        message=f"Documentation may be outdated (code modified since doc generation)",
+                        message="Documentation may be outdated (code modified since doc generation)",
                         location=doc_path,
                         suggestion="Regenerate documentation from latest code",
                     )

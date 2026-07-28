@@ -8,7 +8,8 @@ GraphQL schema, scheduler).
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
@@ -83,9 +84,7 @@ def healthy_pool(healthz_module: Any, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _ok_db() -> Any:
     async def _check() -> CheckResult:
-        return CheckResult(
-            name="db", status=HealthStatus.OK, details={"latency_ms": 1.0}
-        )
+        return CheckResult(name="db", status=HealthStatus.OK, details={"latency_ms": 1.0})
 
     return _check
 
@@ -104,9 +103,7 @@ def _failing(name: str, remediation: str = "Fix it.") -> Any:
 
 def _degraded(name: str) -> Any:
     async def _check() -> CheckResult:
-        return CheckResult(
-            name=name, status=HealthStatus.DEGRADED, remediation="Watch it."
-        )
+        return CheckResult(name=name, status=HealthStatus.DEGRADED, remediation="Watch it.")
 
     return _check
 
@@ -136,7 +133,7 @@ class _FakeSession:
     async def execute(self, _statement: Any) -> None:
         return None
 
-    async def __aenter__(self) -> "_FakeSession":
+    async def __aenter__(self) -> _FakeSession:
         return self
 
     async def __aexit__(self, *_exc: Any) -> None:
@@ -183,9 +180,7 @@ class TestStartupProbe:
 
 
 class TestReadiness:
-    def test_ready_when_dependencies_pass(
-        self, client: TestClient, all_healthy: None
-    ) -> None:
+    def test_ready_when_dependencies_pass(self, client: TestClient, all_healthy: None) -> None:
         response = client.get("/healthz/ready")
 
         assert response.status_code == 200
@@ -209,9 +204,7 @@ class TestReadiness:
         healthz_module: Any,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr(
-            healthz_module, "check_database", _failing("db", "Check DATABASE_URL.")
-        )
+        monkeypatch.setattr(healthz_module, "check_database", _failing("db", "Check DATABASE_URL."))
 
         response = client.get("/healthz/ready")
 
@@ -233,9 +226,7 @@ class TestReadiness:
         assert response.status_code == 200
         assert response.json()["status"] == "degraded"
 
-    def test_draining_pod_is_not_ready(
-        self, client: TestClient, all_healthy: None
-    ) -> None:
+    def test_draining_pod_is_not_ready(self, client: TestClient, all_healthy: None) -> None:
         readiness_state.set_ready(False, "Application is shutting down.")
 
         response = client.get("/healthz/ready")
@@ -245,9 +236,7 @@ class TestReadiness:
 
 
 class TestAggregateHealthz:
-    def test_aggregate_reports_every_component(
-        self, client: TestClient, all_healthy: None
-    ) -> None:
+    def test_aggregate_reports_every_component(self, client: TestClient, all_healthy: None) -> None:
         response = client.get("/healthz")
 
         assert response.status_code == 200
@@ -299,9 +288,7 @@ class TestComponentProbes:
         monkeypatch.setattr(
             healthz_module,
             "check_cache",
-            lambda: _resolved(
-                CheckResult("cache", HealthStatus.OK, {"latency_ms": 0.5})
-            ),
+            lambda: _resolved(CheckResult("cache", HealthStatus.OK, {"latency_ms": 0.5})),
         )
 
         response = client.get("/healthz/cache")
@@ -360,9 +347,7 @@ class TestProbeResilience:
 
 
 class TestDbPoolMetricsEndpoint:
-    def test_pool_snapshot_is_served(
-        self, client: TestClient, healthy_pool: None
-    ) -> None:
+    def test_pool_snapshot_is_served(self, client: TestClient, healthy_pool: None) -> None:
         response = client.get("/metrics/db-pool")
 
         assert response.status_code == 200
@@ -377,9 +362,7 @@ class TestDbPoolMetricsEndpoint:
         from astroml.db.pool_health import evaluate_pool_health
 
         stats = PoolStats(10, 2, 17, 7, 10, "QueuePool")
-        monkeypatch.setattr(
-            healthz_module, "_pool_check", lambda: evaluate_pool_health(stats)
-        )
+        monkeypatch.setattr(healthz_module, "_pool_check", lambda: evaluate_pool_health(stats))
 
         response = client.get("/metrics/db-pool")
 
@@ -395,9 +378,7 @@ class TestDbPoolMetricsEndpoint:
         from astroml.db.pool_health import evaluate_pool_health
 
         stats = PoolStats(10, 0, 20, 10, 10, "QueuePool")
-        monkeypatch.setattr(
-            healthz_module, "_pool_check", lambda: evaluate_pool_health(stats)
-        )
+        monkeypatch.setattr(healthz_module, "_pool_check", lambda: evaluate_pool_health(stats))
 
         response = client.get("/metrics/db-pool")
 
@@ -434,9 +415,7 @@ class TestDatabaseCheckImplementation:
         assert result.status is HealthStatus.DEGRADED
         assert "REDIS_URL" in result.remediation
 
-    def test_cache_ping_success(
-        self, healthz_module: Any, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_cache_ping_success(self, healthz_module: Any, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(healthz_module, "_ping_redis", lambda _url: 1.5)
 
         result = asyncio.run(healthz_module.check_cache())
@@ -509,10 +488,7 @@ class TestDatabaseCheckImplementation:
 
         assert result.status is HealthStatus.OK
         assert (
-            REGISTRY.get_sample_value(
-                "db_pool_size", {"pool": "default", "state": "in_use"}
-            )
-            == 1
+            REGISTRY.get_sample_value("db_pool_size", {"pool": "default", "state": "in_use"}) == 1
         )
 
     def test_ping_redis_uses_client_and_closes_it(

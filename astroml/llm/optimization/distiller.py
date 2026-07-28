@@ -5,13 +5,13 @@ Train small student models on large teacher model outputs.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
-from pathlib import Path
+from typing import Any
 
 
 @dataclass
 class DistillationConfig:
     """Configuration for knowledge distillation."""
+
     teacher_model: str
     student_model: str
     temperature: float = 4.0
@@ -66,9 +66,9 @@ class KnowledgeDistiller:
 
     def prepare_training_data(
         self,
-        data_paths: List[str],
+        data_paths: list[str],
         teacher_model: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Prepare training data with teacher outputs.
 
@@ -118,7 +118,7 @@ class KnowledgeDistiller:
         teacher_model: str,
         student_model: str,
         test_data_path: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Evaluate distillation quality on test data.
 
@@ -142,7 +142,7 @@ class KnowledgeDistiller:
     def compare_with_quantization(
         self,
         model_path: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compare distillation with quantization approaches.
 
@@ -174,7 +174,7 @@ class KnowledgeDistiller:
             "recommendation": "Use quantization for quick deployment, distillation for maximum efficiency",
         }
 
-    def list_suitable_teacher_models(self) -> List[str]:
+    def list_suitable_teacher_models(self) -> list[str]:
         """
         List teacher models suitable for distillation.
 
@@ -188,7 +188,7 @@ class KnowledgeDistiller:
             "mistral-large",
         ]
 
-    def list_suitable_student_architectures(self) -> List[str]:
+    def list_suitable_student_architectures(self) -> list[str]:
         """
         List student architectures suitable for distillation.
 

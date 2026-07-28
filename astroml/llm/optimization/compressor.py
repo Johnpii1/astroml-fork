@@ -5,12 +5,13 @@ Remove redundant weights to reduce model size and improve efficiency.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
 from enum import Enum
+from typing import Any
 
 
 class CompressionMethod(str, Enum):
     """Supported compression methods."""
+
     PRUNING = "pruning"
     STRUCTURED_PRUNING = "structured_pruning"
     SPARSITY = "sparsity"
@@ -20,6 +21,7 @@ class CompressionMethod(str, Enum):
 @dataclass
 class CompressionConfig:
     """Configuration for model compression."""
+
     method: CompressionMethod = CompressionMethod.PRUNING
     sparsity_level: float = 0.9  # Remove 90% of weights
     target_size_reduction: float = 0.30  # 70% smaller
@@ -34,11 +36,11 @@ class ModelCompressor:
     Methods include pruning, structured pruning, and sparsity optimization.
     """
 
-    def __init__(self, config: Optional[CompressionConfig] = None):
+    def __init__(self, config: CompressionConfig | None = None):
         """Initialize compressor."""
         self.config = config or CompressionConfig()
 
-    def analyze_model_structure(self, model_path: str) -> Dict[str, Any]:
+    def analyze_model_structure(self, model_path: str) -> dict[str, Any]:
         """
         Analyze model structure for compression opportunities.
 
@@ -64,8 +66,8 @@ class ModelCompressor:
         self,
         model_path: str,
         output_path: str,
-        method: Optional[CompressionMethod] = None,
-    ) -> Dict[str, Any]:
+        method: CompressionMethod | None = None,
+    ) -> dict[str, Any]:
         """
         Compress model using specified method.
 
@@ -94,7 +96,7 @@ class ModelCompressor:
         model_path: str,
         target_size: int,
         max_iterations: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Iteratively compress model to target size.
 
@@ -118,7 +120,7 @@ class ModelCompressor:
         self,
         compressed_model: str,
         training_data_path: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Fine-tune model after compression to recover quality.
 
@@ -139,7 +141,7 @@ class ModelCompressor:
     def compare_compression_methods(
         self,
         model_path: str,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """
         Compare different compression methods on model.
 

@@ -5,17 +5,18 @@ Validates that optimized models meet quality and performance requirements.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 
 @dataclass
 class ValidationMetrics:
     """Metrics from model validation."""
+
     quality_score: float
     size_reduction: float
     speed_improvement: float
     meets_requirements: bool
-    issues: List[str]
+    issues: list[str]
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -84,8 +85,8 @@ class QualityValidator:
         self,
         model_path: str,
         test_data_path: str,
-        batch_sizes: Optional[List[int]] = None,
-    ) -> Dict[str, Any]:
+        batch_sizes: list[int] | None = None,
+    ) -> dict[str, Any]:
         """
         Benchmark model performance across different batch sizes.
 
@@ -114,7 +115,7 @@ class QualityValidator:
         baseline_model: str,
         test_model: str,
         test_cases_path: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Test for regression in model quality.
 
@@ -137,8 +138,8 @@ class QualityValidator:
     def validate_on_edge_hardware(
         self,
         model_path: str,
-        hardware_targets: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        hardware_targets: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Validate model compatibility with edge hardware.
 
@@ -169,7 +170,7 @@ class QualityValidator:
     def create_validation_report(
         self,
         validation_results: ValidationMetrics,
-        benchmark_results: Dict[str, Any],
+        benchmark_results: dict[str, Any],
     ) -> str:
         """
         Create a validation report.

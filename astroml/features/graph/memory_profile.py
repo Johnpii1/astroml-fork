@@ -14,8 +14,9 @@ import logging
 import os
 import time
 import tracemalloc
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import psutil
 

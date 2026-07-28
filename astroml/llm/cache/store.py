@@ -1,4 +1,5 @@
 """Storage backends for cache."""
+
 import json
 import logging
 import os
@@ -7,7 +8,7 @@ import sqlite3
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,12 @@ class CacheStore(ABC):
     """Abstract base class for cache storage backends."""
 
     @abstractmethod
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Retrieve value by key."""
         pass
 
     @abstractmethod
-    def set(self, key: str, value: str, ttl: int = 3600, metadata: Dict[str, Any] = None) -> None:
+    def set(self, key: str, value: str, ttl: int = 3600, metadata: dict[str, Any] = None) -> None:
         """Store value with optional TTL and metadata."""
         pass
 
@@ -31,12 +32,12 @@ class CacheStore(ABC):
         pass
 
     @abstractmethod
-    def scan_prefix(self, prefix: str) -> List[Tuple[str, str]]:
+    def scan_prefix(self, prefix: str) -> list[tuple[str, str]]:
         """Scan all keys with given prefix."""
         pass
 
     @abstractmethod
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str) -> dict[str, Any] | None:
         """Get metadata for a key."""
         pass
 
@@ -58,7 +59,7 @@ class RedisStore(CacheStore):
         self.redis_url = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0")
         self.client = redis.Redis.from_url(self.redis_url, decode_responses=True)
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Retrieve value from Redis."""
         try:
             return self.client.get(key)
@@ -66,7 +67,7 @@ class RedisStore(CacheStore):
             logger.error(f"Redis get error: {e}")
             return None
 
-    def set(self, key: str, value: str, ttl: int = 3600, metadata: Dict[str, Any] = None) -> None:
+    def set(self, key: str, value: str, ttl: int = 3600, metadata: dict[str, Any] = None) -> None:
         """Store value in Redis with TTL."""
         try:
             self.client.setex(key, ttl, value)
@@ -85,7 +86,7 @@ class RedisStore(CacheStore):
             logger.error(f"Redis delete error: {e}")
             return False
 
-    def scan_prefix(self, prefix: str) -> List[Tuple[str, str]]:
+    def scan_prefix(self, prefix: str) -> list[tuple[str, str]]:
         """Scan keys matching prefix."""
         try:
             keys = []
@@ -99,7 +100,7 @@ class RedisStore(CacheStore):
             logger.error(f"Redis scan error: {e}")
             return []
 
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str) -> dict[str, Any] | None:
         """Get metadata for key."""
         try:
             meta_key = f"{key}:meta"
@@ -127,18 +128,20 @@ class SQLiteStore(CacheStore):
 
     def _init_db(self):
         """Initialize database schema."""
-        self.conn.execute("""
+        self.conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS cache (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 metadata TEXT,
                 expires_at INTEGER NOT NULL
             )
-        """)
+        """
+        )
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_expires ON cache(expires_at)")
         self.conn.commit()
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Retrieve value from SQLite."""
         now = int(time.time())
         cursor = self.conn.execute(
@@ -148,7 +151,7 @@ class SQLiteStore(CacheStore):
         row = cursor.fetchone()
         return row[0] if row else None
 
-    def set(self, key: str, value: str, ttl: int = 3600, metadata: Dict[str, Any] = None) -> None:
+    def set(self, key: str, value: str, ttl: int = 3600, metadata: dict[str, Any] = None) -> None:
         """Store value in SQLite."""
         expires_at = int(time.time()) + ttl
         meta_json = json.dumps(metadata) if metadata else None
@@ -165,7 +168,7 @@ class SQLiteStore(CacheStore):
         self.conn.commit()
         return cursor.rowcount > 0
 
-    def scan_prefix(self, prefix: str) -> List[Tuple[str, str]]:
+    def scan_prefix(self, prefix: str) -> list[tuple[str, str]]:
         """Scan keys matching prefix."""
         now = int(time.time())
         cursor = self.conn.execute(
@@ -174,7 +177,7 @@ class SQLiteStore(CacheStore):
         )
         return cursor.fetchall()
 
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str) -> dict[str, Any] | None:
         """Get metadata for key."""
         cursor = self.conn.execute("SELECT metadata FROM cache WHERE key = ?", (key,))
         row = cursor.fetchone()
@@ -205,10 +208,11 @@ class DiskStore(CacheStore):
         """Convert cache key to file path."""
         # Use first 2 chars for directory sharding
         import hashlib
+
         h = hashlib.md5(key.encode()).hexdigest()
         return self.cache_dir / h[:2] / f"{h}.pkl"
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         """Retrieve value from disk."""
         path = self._key_to_path(key)
         if not path.exists():
@@ -228,7 +232,7 @@ class DiskStore(CacheStore):
             logger.error(f"Disk read error: {e}")
             return None
 
-    def set(self, key: str, value: str, ttl: int = 3600, metadata: Dict[str, Any] = None) -> None:
+    def set(self, key: str, value: str, ttl: int = 3600, metadata: dict[str, Any] = None) -> None:
         """Store value on disk."""
         path = self._key_to_path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -253,13 +257,13 @@ class DiskStore(CacheStore):
             return True
         return False
 
-    def scan_prefix(self, prefix: str) -> List[Tuple[str, str]]:
+    def scan_prefix(self, prefix: str) -> list[tuple[str, str]]:
         """Scan files (slow, not recommended for disk store)."""
         # Not efficiently implemented for disk store
         logger.warning("scan_prefix is slow for DiskStore")
         return []
 
-    def get_metadata(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, key: str) -> dict[str, Any] | None:
         """Get metadata from disk."""
         path = self._key_to_path(key)
         if not path.exists():

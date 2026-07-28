@@ -71,12 +71,19 @@ def test_ingest_stream_processes_before_fetching_next_ledger(service: IngestionS
     def process_fn(ledger_id: int, payload: dict) -> None:
         events.append(("process", ledger_id))
 
-    list(service.ingest_stream(start_ledger=1, end_ledger=3, fetch_fn=fetch_fn, process_fn=process_fn))
+    list(
+        service.ingest_stream(
+            start_ledger=1, end_ledger=3, fetch_fn=fetch_fn, process_fn=process_fn
+        )
+    )
 
     assert events == [
-        ("fetch", 1), ("process", 1),
-        ("fetch", 2), ("process", 2),
-        ("fetch", 3), ("process", 3),
+        ("fetch", 1),
+        ("process", 1),
+        ("fetch", 2),
+        ("process", 2),
+        ("fetch", 3),
+        ("process", 3),
     ]
 
 
@@ -130,7 +137,9 @@ def test_ingest_stream_memory_bounded_for_large_range(service: IngestionService)
         tracemalloc.reset_peak()
         count = 0
         for _ledger_id, _outcome in service.ingest_stream(
-            start_ledger=1, end_ledger=50_000, batch_size=2000,
+            start_ledger=1,
+            end_ledger=50_000,
+            batch_size=2000,
         ):
             count += 1
         _current, peak = tracemalloc.get_traced_memory()
@@ -142,7 +151,9 @@ def test_ingest_stream_memory_bounded_for_large_range(service: IngestionService)
     assert peak_mb < 25.0, f"ingest_stream over 50k ledgers used {peak_mb:.2f}MB traced peak"
 
 
-def test_ingest_stream_flushes_state_once_per_batch(service: IngestionService, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ingest_stream_flushes_state_once_per_batch(
+    service: IngestionService, monkeypatch: pytest.MonkeyPatch
+) -> None:
     save_calls = []
     original_save = service.state.save
 

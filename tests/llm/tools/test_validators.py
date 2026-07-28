@@ -1,8 +1,8 @@
 """Tests for tool validators."""
 
 import pytest
-from astroml.llm.tools.validators import validate_parameters, ValidationError
 
+from astroml.llm.tools.validators import ValidationError, validate_parameters
 
 SIMPLE_SCHEMA = {
     "type": "object",

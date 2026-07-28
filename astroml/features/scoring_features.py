@@ -7,13 +7,11 @@ fraud probability, explanation confidence, and uncertainty estimates.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from astroml.features.feature_engine import BaseFeatureComputer, FeatureDependencyType
-from astroml.features.feature_store import FeatureType
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +39,7 @@ class FraudProbabilityComputer(BaseFeatureComputer):
         self.validate_input(data, entity_col, timestamp_col)
         try:
             from astroml.llm.features.compute import compute_fraud_scores
+
             scores = compute_fraud_scores(
                 data=data,
                 entity_col=entity_col,
@@ -80,6 +79,7 @@ class ExplanationConfidenceComputer(BaseFeatureComputer):
         self.validate_input(data, entity_col, timestamp_col)
         try:
             from astroml.llm.features.compute import compute_confidence_scores
+
             confidence = compute_confidence_scores(
                 data=data,
                 entity_col=entity_col,
@@ -119,6 +119,7 @@ class UncertaintyEstimatorComputer(BaseFeatureComputer):
         self.validate_input(data, entity_col, timestamp_col)
         try:
             from astroml.llm.features.compute import compute_uncertainty
+
             uncertainty = compute_uncertainty(
                 data=data,
                 entity_col=entity_col,

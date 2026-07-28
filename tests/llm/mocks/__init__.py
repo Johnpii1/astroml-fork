@@ -3,12 +3,13 @@
 Resolves #458: Full mock provider with deterministic responses, latency
 simulation, error injection, streaming simulation, and token counting.
 """
+
 from __future__ import annotations
 
 import asyncio
 import hashlib
 import time
-from typing import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable
 
 from astroml.llm.provider import LLMProvider, StreamingResponse
 

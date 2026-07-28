@@ -5,10 +5,10 @@ import logging
 import time
 from typing import Any
 
-from .registry import ToolRegistry
-from .validators import validate_parameters, validate_output_size, ValidationError
-from .permissions import PermissionChecker
 from .audit import ToolAuditLog
+from .permissions import PermissionChecker
+from .registry import ToolRegistry
+from .validators import ValidationError, validate_output_size, validate_parameters
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ MAX_RETRIES = 2
 
 class ToolExecutionError(Exception):
     """Raised when a tool execution fails."""
+
     pass
 
 

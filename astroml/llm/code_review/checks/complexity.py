@@ -6,7 +6,6 @@ including cyclomatic complexity, function length, and nesting depth.
 """
 
 import ast
-from typing import List
 
 from astroml.llm.code_review.checks.security import BaseCheck
 from astroml.llm.code_review.suggestions import (
@@ -34,7 +33,7 @@ class ComplexityCheck(BaseCheck):
         self.max_nesting_depth = 4
         self.max_parameters = 7
 
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform complexity checks on the given content.
 
@@ -59,7 +58,7 @@ class ComplexityCheck(BaseCheck):
 
         return suggestions
 
-    def _check_complexity(self, tree: ast.AST, file_path: str) -> List[Suggestion]:
+    def _check_complexity(self, tree: ast.AST, file_path: str) -> list[Suggestion]:
         """Check cyclomatic complexity of functions."""
         suggestions = []
 
@@ -104,7 +103,7 @@ class ComplexityCheck(BaseCheck):
 
         return complexity
 
-    def _check_function_length(self, tree: ast.AST, file_path: str) -> List[Suggestion]:
+    def _check_function_length(self, tree: ast.AST, file_path: str) -> list[Suggestion]:
         """Check function length in lines."""
         suggestions = []
 
@@ -126,7 +125,7 @@ class ComplexityCheck(BaseCheck):
 
         return suggestions
 
-    def _check_nesting_depth(self, tree: ast.AST, file_path: str) -> List[Suggestion]:
+    def _check_nesting_depth(self, tree: ast.AST, file_path: str) -> list[Suggestion]:
         """Check nesting depth of code blocks."""
         suggestions = []
 
@@ -192,7 +191,7 @@ class ComplexityCheck(BaseCheck):
 
         return visitor.suggestions
 
-    def _check_parameter_count(self, tree: ast.AST, file_path: str) -> List[Suggestion]:
+    def _check_parameter_count(self, tree: ast.AST, file_path: str) -> list[Suggestion]:
         """Check parameter count of functions."""
         suggestions = []
 

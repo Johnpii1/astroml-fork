@@ -85,9 +85,7 @@ class TestPoolStats:
 
     def test_saturation_threshold(self) -> None:
         assert _stats(checked_out=16).saturated is True
-        assert _stats(checked_out=16).utilization == pytest.approx(
-            POOL_UTILIZATION_ALERT_THRESHOLD
-        )
+        assert _stats(checked_out=16).utilization == pytest.approx(POOL_UTILIZATION_ALERT_THRESHOLD)
         assert _stats(checked_out=15).saturated is False
 
     def test_exhaustion(self) -> None:
@@ -177,9 +175,7 @@ class TestEvaluatePoolHealth:
         assert "pool_timeout" in result.remediation
 
     def test_zero_capacity_pool_is_ok(self) -> None:
-        result = evaluate_pool_health(
-            _stats(pool_size=0, max_overflow=0, checked_out=0)
-        )
+        result = evaluate_pool_health(_stats(pool_size=0, max_overflow=0, checked_out=0))
         assert result.status is HealthStatus.OK
 
 
@@ -197,9 +193,7 @@ class TestCheckPool:
 
 
 class TestSessionHelpers:
-    def test_session_module_exposes_pool_helpers(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_session_module_exposes_pool_helpers(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from astroml.db import session as session_module
 
         engine = _FakeEngine(_FakePool(checked_out=1))

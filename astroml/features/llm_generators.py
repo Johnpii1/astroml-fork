@@ -9,20 +9,23 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import pandas as pd
 
-from astroml.features.llm_features import LLMFeatureMeta, LLMFeatureCategory, EmbeddingType, ScoreType
 from astroml.features.embedding_features import (
-    TransactionEmbeddingComputer,
     AccountBehaviorEmbeddingComputer,
     AlertEmbeddingComputer,
+    TransactionEmbeddingComputer,
+)
+from astroml.features.llm_features import (
+    EmbeddingType,
+    LLMFeatureCategory,
+    LLMFeatureMeta,
+    ScoreType,
 )
 from astroml.features.scoring_features import (
-    FraudProbabilityComputer,
     ExplanationConfidenceComputer,
+    FraudProbabilityComputer,
     UncertaintyEstimatorComputer,
 )
 
@@ -32,6 +35,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GeneratedLLMFeature:
     """Container for a generated LLM feature with metadata."""
+
     name: str
     category: LLMFeatureCategory
     values: pd.DataFrame
@@ -54,7 +58,7 @@ class LLMFeatureGenerator:
         self.prompt_version = prompt_version
         self._computers = self._init_computers()
 
-    def _init_computers(self) -> Dict[str, object]:
+    def _init_computers(self) -> dict[str, object]:
         return {
             "transaction_embeddings": TransactionEmbeddingComputer(
                 provider=self.embedding_provider,
@@ -151,20 +155,16 @@ class LLMFeatureGenerator:
         data: pd.DataFrame,
         entity_col: str,
         timestamp_col: str,
-    ) -> List[GeneratedLLMFeature]:
+    ) -> list[GeneratedLLMFeature]:
         features = []
         for emb_type in EmbeddingType:
             try:
-                features.append(
-                    self.generate_embeddings(data, entity_col, timestamp_col, emb_type)
-                )
+                features.append(self.generate_embeddings(data, entity_col, timestamp_col, emb_type))
             except Exception as e:
                 logger.warning(f"Failed to generate {emb_type.value} embeddings: {e}")
         for score_type in ScoreType:
             try:
-                features.append(
-                    self.generate_scores(data, entity_col, timestamp_col, score_type)
-                )
+                features.append(self.generate_scores(data, entity_col, timestamp_col, score_type))
             except Exception as e:
                 logger.warning(f"Failed to generate {score_type.value} scores: {e}")
         return features

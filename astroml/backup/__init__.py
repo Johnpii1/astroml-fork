@@ -7,10 +7,11 @@ Provides automated backup and restore for:
 - Backup integrity verification
 - One-click restore functionality
 """
+
 from __future__ import annotations
 
-from .service import BackupService, BackupConfig
 from .restore import RestoreService
+from .service import BackupConfig, BackupService
 from .verification import BackupVerifier
 
 __all__ = [

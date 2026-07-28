@@ -1,13 +1,17 @@
 """Schema-aware prompt augmentation."""
+
 import json
-from typing import Any, Dict, List, Type
+from typing import Any
+
 from pydantic import BaseModel
 
 
 class PromptAugmenter:
     """Augments prompts with schema information for better structured outputs."""
 
-    def augment(self, prompt: str, schema: Type[BaseModel], examples: List[Dict[str, Any]] = None) -> str:
+    def augment(
+        self, prompt: str, schema: type[BaseModel], examples: list[dict[str, Any]] = None
+    ) -> str:
         """Add schema information to prompt.
 
         Args:
@@ -41,7 +45,7 @@ Please respond with valid JSON matching the following schema:
 
         return augmented
 
-    def _format_schema_description(self, schema: Dict[str, Any]) -> str:
+    def _format_schema_description(self, schema: dict[str, Any]) -> str:
         """Format schema into readable description."""
         lines = []
         lines.append("```json")
@@ -49,7 +53,7 @@ Please respond with valid JSON matching the following schema:
         lines.append("```")
         return "\n".join(lines)
 
-    def _format_examples(self, examples: List[Dict[str, Any]]) -> str:
+    def _format_examples(self, examples: list[dict[str, Any]]) -> str:
         """Format few-shot examples."""
         lines = []
         for i, example in enumerate(examples, 1):

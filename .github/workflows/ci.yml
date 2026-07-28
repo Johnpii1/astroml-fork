@@ -7,7 +7,7 @@ on:
     branches: ["main", "master"]
 
 jobs:
-  test:
+  lint-and-test:
     name: lint-and-test
     runs-on: ubuntu-latest
     steps:
@@ -27,10 +27,13 @@ jobs:
           python -m pip install -r requirements-cpu.txt -r requirements-api.txt -r requirements-dev.txt
           python -m pip install -e . --no-deps
 
-      - name: Check formatting
+      - name: Check formatting with Black
         run: black --check astroml api tests
 
-      - name: Run linting
+      - name: Check import sorting with ruff
+        run: ruff check --select I astroml api tests
+
+      - name: Run linting with ruff
         run: ruff check astroml api tests
 
       - name: Run tests

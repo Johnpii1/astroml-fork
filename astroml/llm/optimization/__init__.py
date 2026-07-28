@@ -5,11 +5,11 @@ This module provides quantization, distillation, and compression techniques
 to enable local execution and reduce API costs.
 """
 
+from .compressor import CompressionConfig, ModelCompressor
+from .distiller import DistillationConfig, KnowledgeDistiller
 from .quantizer import ModelQuantizer, QuantizationConfig, QuantizationType
-from .distiller import KnowledgeDistiller, DistillationConfig
-from .compressor import ModelCompressor, CompressionConfig
-from .validator import QualityValidator, ValidationMetrics
 from .registry import OptimizedModelRegistry
+from .validator import QualityValidator, ValidationMetrics
 
 __all__ = [
     "ModelQuantizer",

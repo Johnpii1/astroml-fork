@@ -1,4 +1,5 @@
 """Tests for contributor activity notifications."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -46,9 +47,11 @@ def test_get_unread_count(client: TestClient, db_session, seeded_notifications):
 def test_mark_notification_as_read(client: TestClient, db_session, seeded_notifications):
     """Test marking notification as read."""
     # Get first unread notification
-    notif_result = db_session.query(Notification).filter(
-        Notification.user_id == 1, Notification.is_read == False
-    ).first()
+    notif_result = (
+        db_session.query(Notification)
+        .filter(Notification.user_id == 1, Notification.is_read == False)
+        .first()
+    )
 
     response = client.put(f"/api/v1/notifications/{notif_result.id}/read")
     assert response.status_code == 200

@@ -1,6 +1,7 @@
 """Embedding backfill job — generate embeddings for historical data."""
 
 from typing import Any
+
 from astroml.llm.providers.base import LLMProvider
 
 

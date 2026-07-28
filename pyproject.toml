@@ -42,6 +42,22 @@ omit = [
     "*/__init__.py",
 ]
 
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["I"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["astroml", "api"]
+force-single-line = false
+
 [tool.coverage.report]
 precision = 2
 show_missing = true

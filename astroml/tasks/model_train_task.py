@@ -5,6 +5,7 @@ PyTorch Lightning trainer, and persist model weights and MLflow metrics.
 The current implementation is a placeholder that validates the config dict
 and returns a training summary without touching the GPU.
 """
+
 from __future__ import annotations
 
 import logging
