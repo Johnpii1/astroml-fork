@@ -1,6 +1,31 @@
-"""Feature modules for AstroML.
+"""Feature computation and management for AstroML.
 
-Expose feature computation utilities and Feature Store here."""
+This module provides feature engineering capabilities including:
+- Graph-based feature computation (centrality, structural importance)
+- Temporal feature extraction (frequency, burstiness)
+- Feature Store for centralized feature management
+- LLM-based feature generation and embeddings
+- Feature caching, versioning, and transformation
+
+Key components:
+- frequency: Transaction frequency and burstiness metrics
+- structural_importance: Graph centrality measures
+- node_features: Basic node-level features
+- asset_diversity: Asset diversity metrics
+- feature_store: Centralized feature storage and retrieval
+- llm_features: LLM-generated features and embeddings
+
+Exports:
+- FeatureStore: Main feature store interface
+- FeatureDefinition: Feature metadata and configuration
+- FeatureType: Supported feature data types
+- Various feature computation functions
+
+Dependencies:
+- pandas: Data manipulation
+- networkx: Graph algorithms
+- scikit-learn: Feature transformations
+"""
 from . import frequency
 from . import imbalance
 from . import memo
