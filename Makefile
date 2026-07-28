@@ -26,6 +26,7 @@ help:
 	@echo "make llm-safety-scan      Run LLM safety scan"
 	@echo "make security-audit       Run pip-audit to check for vulnerable dependencies"
 	@echo "make secrets-scan         Run detect-secrets to scan for leaked credentials"
+	@echo "make benchmark            Run performance regression tests"
 	@echo ""
 
 quickstart:
@@ -153,3 +154,8 @@ security-audit:
 secrets-scan:
 	@echo "🔍 Running detect-secrets to scan for leaked credentials..."
 	detect-secrets scan --baseline .secrets.baseline
+
+.PHONY: benchmark
+benchmark:
+	@echo "📊 Running performance regression tests..."
+	pytest tests/performance/test_benchmarks.py --benchmark-only --benchmark-autosave --benchmark-json=benchmark_results/latest.json

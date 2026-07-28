@@ -80,8 +80,36 @@ async def _require_account(public_key: str, db: AsyncSession):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
-
-@router.get("", response_model=AccountsResponse)
+@router.get(
+    "",
+    response_model=AccountsResponse,
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "data": [
+                            {
+                                "account_id": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                                "balance": 1000.5,
+                                "sequence": 12345,
+                                "home_domain": "example.com",
+                                "flags": 0,
+                                "last_modified_ledger": 67890,
+                                "created_at": "2024-01-01T00:00:00Z",
+                                "updated_at": "2024-01-02T00:00:00Z",
+                            }
+                        ],
+                        "page": 1,
+                        "pageSize": 20,
+                        "total": 1,
+                    }
+                }
+            },
+        }
+    },
+)
 async def list_accounts(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -116,14 +144,66 @@ async def list_accounts(
     )
 
 
-@router.get("/{public_key}", response_model=AccountOut)
+@router.get(
+    "/{public_key}",
+    response_model=AccountOut,
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "account_id": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                        "balance": 1000.5,
+                        "sequence": 12345,
+                        "home_domain": "example.com",
+                        "flags": 0,
+                        "last_modified_ledger": 67890,
+                        "created_at": "2024-01-01T00:00:00Z",
+                        "updated_at": "2024-01-02T00:00:00Z",
+                    }
+                }
+            },
+        }
+    },
+)
 async def get_account(public_key: str, db: AsyncSession = Depends(get_db)):
     """Get a single account by public key."""
     acc = await _require_account(public_key, db)
     return AccountOut.model_validate(acc)
 
 
-@router.get("/{public_key}/transactions", response_model=TransactionsResponse)
+@router.get(
+    "/{public_key}/transactions",
+    response_model=TransactionsResponse,
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "data": [
+                            {
+                                "hash": "abc123def456789",
+                                "ledger_sequence": 12345,
+                                "source_account": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                                "created_at": "2024-01-01T00:00:00Z",
+                                "fee": 100,
+                                "operation_count": 2,
+                                "successful": True,
+                                "memo_type": "text",
+                                "memo": "Payment memo",
+                            }
+                        ],
+                        "page": 1,
+                        "pageSize": 20,
+                        "total": 1,
+                    }
+                }
+            },
+        }
+    },
+)
 async def get_account_transactions(
     public_key: str,
     page: int = Query(1, ge=1),
@@ -155,7 +235,27 @@ async def get_account_transactions(
     )
 
 
-@router.get("/{public_key}/fraud-summary", response_model=FraudSummaryOut)
+@router.get(
+    "/{public_key}/fraud-summary",
+    response_model=FraudSummaryOut,
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "account_id": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                        "total_alerts": 5,
+                        "high_risk": 2,
+                        "medium_risk": 2,
+                        "low_risk": 1,
+                        "latest_score": 0.85,
+                    }
+                }
+            },
+        }
+    },
+)
 async def get_account_fraud_summary(public_key: str, db: AsyncSession = Depends(get_db)):
     """Return fraud alert summary for an account.
 
@@ -213,7 +313,25 @@ async def get_account_fraud_summary(public_key: str, db: AsyncSession = Depends(
     return result
 
 
-@router.get("/{public_key}/loyalty", response_model=LoyaltySummaryOut)
+@router.get(
+    "/{public_key}/loyalty",
+    response_model=LoyaltySummaryOut,
+    responses={
+        200: {
+            "description": "Successful response",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "account_id": "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                        "points_balance": 5000,
+                        "tier_id": "bronze",
+                        "tier_name": "Bronze",
+                    }
+                }
+            },
+        }
+    },
+)
 async def get_account_loyalty(public_key: str, db: AsyncSession = Depends(get_db)):
     """Return loyalty tier and points balance for an account.
 
