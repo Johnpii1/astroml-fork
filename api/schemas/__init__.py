@@ -29,11 +29,11 @@ def _validate_stellar_account(value: str, field_name: str = "account") -> str:
 # ─── Fraud ────────────────────────────────────────────────────────────────────
 
 class EdgeInput(BaseModel):
-    src: str = Field(..., min_length=56, max_length=56)
-    dst: str = Field(..., min_length=56, max_length=56)
-    amount: float = Field(default=0.0, ge=0.0, le=1e15)
-    timestamp: float = Field(default=0.0, ge=0.0)
-    asset: str = Field(default="XLM", min_length=1, max_length=12)
+    src: str = Field(..., min_length=56, max_length=56, examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    dst: str = Field(..., min_length=56, max_length=56, examples=["GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    amount: float = Field(default=0.0, ge=0.0, le=1e15, examples=[100.5])
+    timestamp: float = Field(default=0.0, ge=0.0, examples=[1640995200.0])
+    asset: str = Field(default="XLM", min_length=1, max_length=12, examples=["XLM", "USDC"])
 
     @field_validator("src", "dst")
     @classmethod
@@ -49,8 +49,8 @@ class EdgeInput(BaseModel):
 
 
 class ScoreRequest(BaseModel):
-    accounts: List[str] = Field(..., min_length=1, max_length=50)
-    edges: List[EdgeInput] = Field(default_factory=list, max_length=500)
+    accounts: List[str] = Field(..., min_length=1, max_length=50, examples=[["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890", "GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"]])
+    edges: List[EdgeInput] = Field(default_factory=list, max_length=500, examples=[[]])
 
     @field_validator("accounts", mode="before")
     @classmethod
@@ -142,14 +142,14 @@ class FraudStatsResponse(BaseModel):
 # ─── Accounts ─────────────────────────────────────────────────────────────────
 
 class AccountOut(BaseModel):
-    account_id: str
-    balance: Optional[float] = None
-    sequence: Optional[int] = None
-    home_domain: Optional[str] = Field(default=None, max_length=253)
-    flags: int = 0
-    last_modified_ledger: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    account_id: str = Field(..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    balance: Optional[float] = Field(None, examples=[1000.5])
+    sequence: Optional[int] = Field(None, examples=[12345])
+    home_domain: Optional[str] = Field(default=None, max_length=253, examples=["example.com"])
+    flags: int = Field(0, examples=[0])
+    last_modified_ledger: Optional[int] = Field(None, examples=[67890])
+    created_at: Optional[datetime] = Field(None, examples=["2024-01-01T00:00:00Z"])
+    updated_at: Optional[datetime] = Field(None, examples=["2024-01-02T00:00:00Z"])
 
     @field_validator("account_id")
     @classmethod
@@ -175,15 +175,15 @@ class AccountsResponse(BaseModel):
 
 
 class TransactionOut(BaseModel):
-    hash: str = Field(..., min_length=1, max_length=128)
-    ledger_sequence: int = Field(..., ge=0)
-    source_account: str
-    created_at: datetime
-    fee: int = Field(..., ge=0)
-    operation_count: int = Field(..., ge=0)
-    successful: bool
-    memo_type: Optional[str] = Field(default=None, max_length=32)
-    memo: Optional[str] = Field(default=None, max_length=256)
+    hash: str = Field(..., min_length=1, max_length=128, examples=["abc123def456789"])
+    ledger_sequence: int = Field(..., ge=0, examples=[12345])
+    source_account: str = Field(..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    created_at: datetime = Field(..., examples=["2024-01-01T00:00:00Z"])
+    fee: int = Field(..., ge=0, examples=[100])
+    operation_count: int = Field(..., ge=0, examples=[2])
+    successful: bool = Field(..., examples=[True])
+    memo_type: Optional[str] = Field(default=None, max_length=32, examples=["text"])
+    memo: Optional[str] = Field(default=None, max_length=256, examples=["Payment memo"])
 
     @field_validator("source_account")
     @classmethod
@@ -202,19 +202,19 @@ class TransactionsResponse(BaseModel):
 
 
 class FraudSummaryOut(BaseModel):
-    account_id: str
-    total_alerts: int
-    high_risk: int
-    medium_risk: int
-    low_risk: int
-    latest_score: Optional[float] = None
+    account_id: str = Field(..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    total_alerts: int = Field(..., examples=[5])
+    high_risk: int = Field(..., examples=[2])
+    medium_risk: int = Field(..., examples=[2])
+    low_risk: int = Field(..., examples=[1])
+    latest_score: Optional[float] = Field(None, examples=[0.85])
 
 
 class LoyaltySummaryOut(BaseModel):
-    account_id: str
-    points_balance: int
-    tier_id: str
-    tier_name: str
+    account_id: str = Field(..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    points_balance: int = Field(..., examples=[5000])
+    tier_id: str = Field(..., examples=["bronze"])
+    tier_name: str = Field(..., examples=["Bronze"])
 
 
 # ─── Monitoring ───────────────────────────────────────────────────────────────
@@ -590,11 +590,11 @@ class FAQOut(BaseModel):
 
 
 class FAQIn(BaseModel):
-    category: str = Field(..., min_length=1, max_length=64)
-    question: str = Field(..., min_length=1, max_length=512)
-    answer: str = Field(..., min_length=1)
-    order: int = Field(default=0, ge=0)
-    is_published: bool = True
+    category: str = Field(..., min_length=1, max_length=64, examples=["general"])
+    question: str = Field(..., min_length=1, max_length=512, examples=["How do I get started?"])
+    answer: str = Field(..., min_length=1, examples=["To get started, follow the quickstart guide."])
+    order: int = Field(default=0, ge=0, examples=[0])
+    is_published: bool = Field(True, examples=[True])
 
 
 class FAQUpdateIn(BaseModel):
@@ -658,12 +658,12 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class ContactFormIn(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    email: str = Field(min_length=3, max_length=254)
-    subject: str = Field(min_length=1, max_length=200)
-    message: str = Field(min_length=1, max_length=5000)
+    name: str = Field(min_length=1, max_length=120, examples=["John Doe"])
+    email: str = Field(min_length=3, max_length=254, examples=["john@example.com"])
+    subject: str = Field(min_length=1, max_length=200, examples=["Support request"])
+    message: str = Field(min_length=1, max_length=5000, examples=["I need help with the API."])
     # reCAPTCHA token from the frontend widget; optional when verification is off.
-    recaptcha_token: Optional[str] = None
+    recaptcha_token: Optional[str] = Field(None, examples=["abc123def456"])
 
     @field_validator("name", "subject", "message")
     @classmethod
@@ -698,10 +698,10 @@ ROADMAP_STATUSES = ("planned", "in_progress", "completed")
 
 
 class FeedbackIn(BaseModel):
-    category: str = Field(min_length=1, max_length=16)
-    message: str = Field(min_length=1, max_length=5000)
-    email: Optional[str] = Field(default=None, max_length=254)
-    screenshot: Optional[str] = None  # data URL: data:image/png;base64,...
+    category: str = Field(min_length=1, max_length=16, examples=["feature"])
+    message: str = Field(min_length=1, max_length=5000, examples=["Please add dark mode."])
+    email: Optional[str] = Field(default=None, max_length=254, examples=["user@example.com"])
+    screenshot: Optional[str] = Field(None, examples=["data:image/png;base64,iVBORw0KGgo="])
 
     @field_validator("category")
     @classmethod
@@ -836,10 +836,10 @@ class LLMPromptImprovement(BaseModel):
 # ─── Translation (Issue 1) ──────────────────────────────────────────────────────────
 
 class TranslationRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=10000)
-    target_language: str = Field(..., min_length=2, max_length=10)
-    source_language: str = Field(default="auto", min_length=2, max_length=10)
-    context: Optional[str] = Field(default=None, max_length=500)
+    text: str = Field(..., min_length=1, max_length=10000, examples=["Hello, world!"])
+    target_language: str = Field(..., min_length=2, max_length=10, examples=["es"])
+    source_language: str = Field(default="auto", min_length=2, max_length=10, examples=["en"])
+    context: Optional[str] = Field(default=None, max_length=500, examples=["Greeting"])
 
 
 class TranslationResponse(BaseModel):
@@ -910,9 +910,9 @@ class SuggestionResponse(BaseModel):
     corrected_query: Optional[str] = None
 
 class SearchRequest(BaseModel):
-    query: str
-    filters: Optional[Dict[str, Any]] = None
-    top_k: int = 5
+    query: str = Field(..., examples=["fraud detection"])
+    filters: Optional[Dict[str, Any]] = Field(None, examples=[{"category": "security"}])
+    top_k: int = Field(5, examples=[5])
 
 class SearchResult(BaseModel):
     id: str
