@@ -7,6 +7,7 @@ Endpoints:
   GET /api/v1/monitoring/prediction-stats     — prediction volume/distribution
   GET /api/v1/monitoring/latency              — API latency percentiles
 """
+
 from __future__ import annotations
 
 import time
@@ -38,7 +39,10 @@ def record_latency(latency_ms: float) -> None:
 
 def _load_latest_metrics() -> ModelMetricsOut:
     """Try to load the most recent benchmark result from disk."""
-    import json, os, glob  # noqa: PLC0415
+    import glob
+    import json  # noqa: PLC0415
+    import os
+
     pattern = "benchmark_results/**/*.json"
     files = sorted(glob.glob(pattern, recursive=True), key=os.path.getmtime, reverse=True)
     for path in files:
@@ -67,6 +71,7 @@ def _load_latest_metrics() -> ModelMetricsOut:
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
+
 @router.get("/metrics", response_model=ModelMetricsOut)
 def get_metrics():
     """Return the latest model performance metrics."""
@@ -76,13 +81,17 @@ def get_metrics():
 @router.get("/performance-history", response_model=list[PerformancePoint])
 def get_performance_history(days: int = Query(30, ge=1, le=365)):
     """Return time-series of model metrics over the last N days."""
-    import json, os, glob  # noqa: PLC0415
+    import glob
+    import json  # noqa: PLC0415
+    import os
     from datetime import timedelta  # noqa: PLC0415
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     points: list[PerformancePoint] = []
 
-    for path in sorted(glob.glob("benchmark_results/**/*.json", recursive=True), key=os.path.getmtime):
+    for path in sorted(
+        glob.glob("benchmark_results/**/*.json", recursive=True), key=os.path.getmtime
+    ):
         mtime = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
         if mtime < cutoff:
             continue
@@ -91,20 +100,25 @@ def get_performance_history(days: int = Query(30, ge=1, le=365)):
                 data = json.load(f)
             metrics = data.get("metrics") or data.get("best_metrics") or {}
             if metrics:
-                points.append(PerformancePoint(
-                    date=mtime.date().isoformat(),
-                    accuracy=metrics.get("accuracy"),
-                    f1=metrics.get("f1"),
-                    auc=metrics.get("auc"),
-                ))
+                points.append(
+                    PerformancePoint(
+                        date=mtime.date().isoformat(),
+                        accuracy=metrics.get("accuracy"),
+                        f1=metrics.get("f1"),
+                        auc=metrics.get("auc"),
+                    )
+                )
         except Exception:  # noqa: BLE001
             continue
 
     # Pad with empty points if fewer than requested days
     if not points:
         from datetime import timedelta  # noqa: PLC0415, F811
+
         points = [
-            PerformancePoint(date=(datetime.now(timezone.utc) - timedelta(days=i)).date().isoformat())
+            PerformancePoint(
+                date=(datetime.now(timezone.utc) - timedelta(days=i)).date().isoformat()
+            )
             for i in range(days - 1, -1, -1)
         ]
     return points
@@ -115,11 +129,20 @@ def get_drift_report():
     """Return feature drift analysis. Uses validation module if available."""
     try:
         from astroml.validation.data_quality import DataQualityValidator  # noqa: PLC0415
+
         # Return informative defaults — real drift requires a reference dataset
-        features = {col: 0.0 for col in [
-            "in_degree", "out_degree", "total_received", "total_sent",
-            "account_age", "unique_asset_count", "asset_entropy",
-        ]}
+        features = {
+            col: 0.0
+            for col in [
+                "in_degree",
+                "out_degree",
+                "total_received",
+                "total_sent",
+                "account_age",
+                "unique_asset_count",
+                "asset_entropy",
+            ]
+        }
     except ImportError:
         features = {}
 
@@ -134,15 +157,17 @@ def get_drift_report():
 def get_prediction_stats():
     """Return prediction volume and distribution statistics."""
     try:
+        from sqlalchemy import func, select  # noqa: PLC0415
+
         from astroml.api.models import FraudAlert  # noqa: PLC0415
         from astroml.db.session import SessionLocal  # noqa: PLC0415
-        from sqlalchemy import select, func  # noqa: PLC0415
 
         with SessionLocal() as db:
             total = db.scalar(select(func.count(FraudAlert.id))) or 0
-            high = db.scalar(
-                select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "high")
-            ) or 0
+            high = (
+                db.scalar(select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "high"))
+                or 0
+            )
             avg_score = db.scalar(select(func.avg(FraudAlert.score))) or 0.0
         return PredictionStats(
             total_predictions=total,

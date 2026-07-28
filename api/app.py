@@ -15,6 +15,7 @@ Usage
 -----
     uvicorn api.app:app --host 0.0.0.0 --port 8000
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,19 +26,21 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from strawberry.fastapi import GraphQLRouter
 
-from api.auth.middleware import AuthMiddleware
 from api.audit_middleware import AuditLoggingMiddleware
+from api.auth.middleware import AuthMiddleware
 from api.config import settings
 from api.database import get_async_session_factory
+from api.graphql.context import get_graphql_context
+from api.graphql.schema import schema
 from api.middleware.csp import CSPMiddleware
 from api.middleware.https import HSTSMiddleware, HTTPSRedirectMiddleware
-from api.tracing import setup_tracing
-from api.validation_middleware import ValidationMiddleware
-from api.versioning import VersionMiddleware
-from astroml.utils.logging import set_correlation_id, get_correlation_id, clear_correlation_id
 from api.routers import (
     accounts_router,
+    admin,
+    agents_router,
+    alerts_router,
     audit_router,
     auth_router,
     backup_router,
@@ -45,61 +48,47 @@ from api.routers import (
     compliance_router,
     contact_router,
     contributors_router,
+    cost_router,
     discussions_router,
     errors_router,
+    explanations_router,
     faq_router,
     feedback_router,
     fraud_router,
-    loyalty_router,
+    health,
+    healthz,
+    llm_cache_metrics_router,
     llm_health_router,
+    llm_metrics_router,
+    llm_router,
+    llm_usage_router,
+    loyalty_router,
     mentorship_router,
     models_router,
     monitoring_router,
     notifications_router,
     onboarding_router,
+    query_router,
     rate_limit_router,
+    reports_router,
+    search_router,
+    stream_router,
+    streaming_router,
     transactions_router,
     validation_router,
     voice_router,
     ws_router,
-    streaming_router,
-    cost_router,
-    llm_usage_router,
-    llm_cache_metrics_router,
-    llm_router,
-    llm_metrics_router,
-    search_router,
-    stream_router,
-    reports_router,
-    alerts_router,
-    query_router,
 )
-from api.routers import (
-    llm_router,
-    query_router,
-    explanations_router,
-    agents_router,
-)
-
-
-
 from api.routers.monitoring import record_latency
-
-
 from api.routers.ws import poll_and_broadcast_transactions
+from api.tracing import setup_tracing
+from api.validation_middleware import ValidationMiddleware
+from api.versioning import VersionMiddleware
 from api.websocket.llm import router as ws_llm_router
 from astroml.llm import metrics as _llm_metrics
-from api.routers import health
-from api.routers import healthz
-from api.routers import admin
 from astroml.observability.health import readiness_state
 from astroml.observability.metrics import observe_http_request, render_latest
-
-from strawberry.fastapi import GraphQLRouter
-from api.graphql.schema import schema
-from api.graphql.context import get_graphql_context
-
-
+from astroml.utils.logging import clear_correlation_id, get_correlation_id, set_correlation_id
 
 # Setup distributed tracing (issue #336)
 _tracer_provider = setup_tracing()
@@ -236,9 +225,7 @@ async def _latency_middleware(request: Request, call_next):
         elapsed = time.perf_counter() - start
         record_latency(elapsed * 1000)
         # Prometheus HTTP latency + request count (issue #567).
-        observe_http_request(
-            request.method, _route_template(request), status_code, elapsed
-        )
+        observe_http_request(request.method, _route_template(request), status_code, elapsed)
 
 
 # Include all routers from both branches
@@ -294,14 +281,15 @@ app.include_router(query_router)
 
 # Add GraphQL playground endpoint (for development)
 if os.environ.get("ENV", "development") == "development":
+
     @app.get("/graphql/playground")
     async def graphql_playground():
         from strawberry.fastapi import GraphQLPlayground
+
         return GraphQLPlayground()
 
 
 @app.get("/health", tags=["ops"])
-
 async def health():
     return {"status": "ok"}
 

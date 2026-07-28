@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,26 +19,27 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FineTuneModelRecord:
     """Record for a fine-tuned model in the registry."""
+
     model_id: str
     target: str
     base_model: str
     trainer_type: str
     dataset_name: str
     status: str = "registered"
-    metrics: Dict[str, float] = field(default_factory=dict)
-    config: Dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    deployed_at: Optional[str] = None
+    deployed_at: str | None = None
     version: int = 1
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FineTuneModelRecord:
+    def from_dict(cls, data: dict[str, Any]) -> FineTuneModelRecord:
         return cls(**data)
 
 
@@ -52,7 +53,7 @@ class FineTuneRegistry:
     def __init__(self, storage_path: str = "./fine_tune_registry"):
         self.storage_path = storage_path
         os.makedirs(storage_path, exist_ok=True)
-        self._records: Dict[str, FineTuneModelRecord] = {}
+        self._records: dict[str, FineTuneModelRecord] = {}
         self._load_records()
 
     def _load_records(self) -> None:
@@ -83,8 +84,8 @@ class FineTuneRegistry:
         base_model: str,
         trainer_type: str,
         dataset_name: str,
-        metrics: Optional[Dict[str, float]] = None,
-        config: Optional[object] = None,
+        metrics: dict[str, float] | None = None,
+        config: object | None = None,
     ) -> FineTuneModelRecord:
         """Register a fine-tuned model in the registry."""
         record = FineTuneModelRecord(
@@ -104,16 +105,14 @@ class FineTuneRegistry:
 
         self._records[model_id] = record
         self._save_records()
-        logger.info(
-            f"Registered model {model_id} (v{record.version}) for target '{target}'"
-        )
+        logger.info(f"Registered model {model_id} (v{record.version}) for target '{target}'")
         return record
 
     def update_metrics(
         self,
         model_id: str,
-        metrics: Dict[str, float],
-    ) -> Optional[FineTuneModelRecord]:
+        metrics: dict[str, float],
+    ) -> FineTuneModelRecord | None:
         """Update metrics for a registered model."""
         record = self._records.get(model_id)
         if not record:
@@ -124,7 +123,7 @@ class FineTuneRegistry:
         self._save_records()
         return record
 
-    def deploy_model(self, model_id: str) -> Optional[FineTuneModelRecord]:
+    def deploy_model(self, model_id: str) -> FineTuneModelRecord | None:
         """Mark a model as deployed."""
         record = self._records.get(model_id)
         if not record:
@@ -136,7 +135,7 @@ class FineTuneRegistry:
         self._save_records()
         return record
 
-    def rollback(self, model_id: str, version: int) -> Optional[FineTuneModelRecord]:
+    def rollback(self, model_id: str, version: int) -> FineTuneModelRecord | None:
         """Rollback to a previous version of a model."""
         record = self._records.get(model_id)
         if not record:
@@ -159,15 +158,15 @@ class FineTuneRegistry:
         self._save_records()
         return rollback_record
 
-    def get_model(self, model_id: str) -> Optional[FineTuneModelRecord]:
+    def get_model(self, model_id: str) -> FineTuneModelRecord | None:
         """Get a registered model by ID."""
         return self._records.get(model_id)
 
     def list_models(
         self,
-        target: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> List[FineTuneModelRecord]:
+        target: str | None = None,
+        status: str | None = None,
+    ) -> list[FineTuneModelRecord]:
         """List registered models with optional filtering."""
         records = list(self._records.values())
         if target:
@@ -176,7 +175,7 @@ class FineTuneRegistry:
             records = [r for r in records if r.status == status]
         return sorted(records, key=lambda r: r.created_at, reverse=True)
 
-    def get_cost_summary(self) -> Dict[str, Any]:
+    def get_cost_summary(self) -> dict[str, Any]:
         """Return cost tracking summary per fine-tuning run."""
         summary = {
             "total_models": len(self._records),
@@ -184,10 +183,6 @@ class FineTuneRegistry:
             "by_status": {},
         }
         for record in self._records.values():
-            summary["by_target"][record.target] = (
-                summary["by_target"].get(record.target, 0) + 1
-            )
-            summary["by_status"][record.status] = (
-                summary["by_status"].get(record.status, 0) + 1
-            )
+            summary["by_target"][record.target] = summary["by_target"].get(record.target, 0) + 1
+            summary["by_status"][record.status] = summary["by_status"].get(record.status, 0) + 1
         return summary

@@ -1,16 +1,20 @@
 import asyncio
-from typing import AsyncGenerator, List, Dict, Any
+from collections.abc import AsyncGenerator
+from typing import Any
+
 
 class MultiSourceAggregator:
     def __init__(self):
         pass
 
-    async def aggregate_streams(self, streams: List[AsyncGenerator[Dict[str, Any], None]]) -> AsyncGenerator[Dict[str, Any], None]:
+    async def aggregate_streams(
+        self, streams: list[AsyncGenerator[dict[str, Any], None]]
+    ) -> AsyncGenerator[dict[str, Any], None]:
         # Reads from multiple generators and outputs them as a combined stream tagged by source
         queue = asyncio.Queue()
         active_generators = len(streams)
 
-        async def worker(index: int, gen: AsyncGenerator[Dict[str, Any], None]):
+        async def worker(index: int, gen: AsyncGenerator[dict[str, Any], None]):
             nonlocal active_generators
             try:
                 async for item in gen:
@@ -18,7 +22,7 @@ class MultiSourceAggregator:
             finally:
                 active_generators -= 1
                 if active_generators == 0:
-                    await queue.put(None) # Sentinel
+                    await queue.put(None)  # Sentinel
 
         # Start tasks
         for idx, s in enumerate(streams):

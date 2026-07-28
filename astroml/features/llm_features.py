@@ -9,11 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class LLMFeatureCategory(Enum):
     """Categories of LLM-generated features."""
+
     EMBEDDING = "embedding"
     SCORE = "score"
     EXPLANATION = "explanation"
@@ -22,6 +23,7 @@ class LLMFeatureCategory(Enum):
 
 class EmbeddingType(Enum):
     """Types of embeddings supported."""
+
     TRANSACTION_DESCRIPTION = "transaction_description"
     ACCOUNT_BEHAVIOR = "account_behavior"
     ALERT_DESCRIPTION = "alert_description"
@@ -29,6 +31,7 @@ class EmbeddingType(Enum):
 
 class ScoreType(Enum):
     """Types of LLM-generated scores."""
+
     FRAUD_PROBABILITY = "fraud_probability"
     EXPLANATION_CONFIDENCE = "explanation_confidence"
     UNCERTAINTY_ESTIMATE = "uncertainty_estimate"
@@ -37,6 +40,7 @@ class ScoreType(Enum):
 @dataclass
 class LLMFeatureMeta:
     """Metadata for an LLM-generated feature."""
+
     prompt_version: str
     model_name: str
     provider: str
@@ -49,17 +53,18 @@ class LLMFeatureMeta:
 @dataclass
 class LLMFeatureDefinition:
     """Definition of an LLM-generated feature."""
+
     name: str
     category: LLMFeatureCategory
     description: str
-    dimension: Optional[int] = None
-    embedding_type: Optional[EmbeddingType] = None
-    score_type: Optional[ScoreType] = None
-    tags: List[str] = field(default_factory=list)
+    dimension: int | None = None
+    embedding_type: EmbeddingType | None = None
+    score_type: ScoreType | None = None
+    tags: list[str] = field(default_factory=list)
     version: int = 1
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "category": self.category.value,

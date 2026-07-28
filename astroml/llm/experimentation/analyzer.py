@@ -4,14 +4,15 @@ Statistical analysis for A/B test results.
 Performs t-tests, chi-square tests, and confidence interval calculations.
 """
 
-from dataclasses import dataclass
-from typing import Dict, Any, List, Tuple
-from enum import Enum
 import math
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 
 class StatisticalTest(str, Enum):
     """Types of statistical tests."""
+
     T_TEST = "t_test"
     CHI_SQUARE = "chi_square"
     MANN_WHITNEY = "mann_whitney"
@@ -20,6 +21,7 @@ class StatisticalTest(str, Enum):
 @dataclass
 class ConfidenceInterval:
     """Confidence interval for a metric."""
+
     lower: float
     upper: float
     point_estimate: float
@@ -72,9 +74,9 @@ class StatisticalAnalyzer:
 
     def t_test(
         self,
-        control_values: List[float],
-        treatment_values: List[float],
-    ) -> Dict[str, Any]:
+        control_values: list[float],
+        treatment_values: list[float],
+    ) -> dict[str, Any]:
         """
         Perform t-test on two samples.
 
@@ -108,7 +110,7 @@ class StatisticalAnalyzer:
         control_total: int,
         treatment_success: int,
         treatment_total: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Perform chi-square test on success rates.
 
@@ -140,7 +142,7 @@ class StatisticalAnalyzer:
 
     def calculate_confidence_interval(
         self,
-        values: List[float],
+        values: list[float],
         confidence_level: float = 0.95,
     ) -> ConfidenceInterval:
         """
@@ -154,7 +156,9 @@ class StatisticalAnalyzer:
             ConfidenceInterval
         """
         mean = sum(values) / len(values) if values else 0
-        std_dev = math.sqrt(sum((x - mean) ** 2 for x in values) / len(values)) if len(values) > 1 else 0
+        std_dev = (
+            math.sqrt(sum((x - mean) ** 2 for x in values) / len(values)) if len(values) > 1 else 0
+        )
 
         # Approximate confidence interval
         margin = 1.96 * std_dev / math.sqrt(len(values))
@@ -193,7 +197,7 @@ class StatisticalAnalyzer:
         effect_size: float,
         sample_size: int,
         alpha: float = 0.05,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate statistical power for given parameters.
 

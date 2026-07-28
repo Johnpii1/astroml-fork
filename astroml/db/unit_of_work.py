@@ -1,21 +1,27 @@
 """Unit of Work pattern for transaction management (issue #571)."""
+
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, Optional
 
 from sqlalchemy.orm import Session
 
-from astroml.db.repositories import AccountRepository, LedgerRepository, ProcessedLedgerRepository, TransactionRepository
+from astroml.db.repositories import (
+    AccountRepository,
+    LedgerRepository,
+    ProcessedLedgerRepository,
+    TransactionRepository,
+)
 
 
 class UnitOfWork:
     def __init__(self, session: Session) -> None:
         self._session = session
-        self._ledgers: Optional[LedgerRepository] = None
-        self._transactions: Optional[TransactionRepository] = None
-        self._accounts: Optional[AccountRepository] = None
-        self._processed_ledgers: Optional[ProcessedLedgerRepository] = None
+        self._ledgers: LedgerRepository | None = None
+        self._transactions: TransactionRepository | None = None
+        self._accounts: AccountRepository | None = None
+        self._processed_ledgers: ProcessedLedgerRepository | None = None
 
     @property
     def ledgers(self) -> LedgerRepository:
@@ -53,7 +59,9 @@ class UnitOfWork:
     def __enter__(self) -> UnitOfWork:
         return self
 
-    def __exit__(self, exc_type: Optional[type], exc_val: Optional[Exception], exc_tb: Optional[object]) -> None:
+    def __exit__(
+        self, exc_type: type | None, exc_val: Exception | None, exc_tb: object | None
+    ) -> None:
         if exc_type is not None:
             self.rollback()
         self.close()

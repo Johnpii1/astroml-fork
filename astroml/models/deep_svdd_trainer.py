@@ -5,20 +5,22 @@ optimization strategies, and evaluation metrics for fraud detection.
 """
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Callable
-from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
+from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
-import seaborn as sns
+
+from astroml.artifacts import get_artifact_store
+from astroml.tracking import MLflowTracker
 
 from .deep_svdd import DeepSVDD, DeepSVDDNetwork
-from astroml.tracking import MLflowTracker
-from astroml.artifacts import get_artifact_store
 
 
 class DeepSVDDTrainer:

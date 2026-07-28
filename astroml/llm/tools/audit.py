@@ -38,7 +38,10 @@ class ToolAuditLog:
         self._entries.append(entry)
         logger.info(
             "Tool call: %s by %s (duration=%.2fs, error=%s)",
-            tool_name, user_id, duration, error or "none",
+            tool_name,
+            user_id,
+            duration,
+            error or "none",
         )
 
     def get_entries(self, limit: int = 100) -> list[dict[str, Any]]:

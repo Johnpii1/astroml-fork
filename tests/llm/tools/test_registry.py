@@ -1,6 +1,7 @@
 """Tests for tool registry."""
 
 import pytest
+
 from astroml.llm.tools import ToolRegistry, get_global_registry, reset_registry
 from astroml.llm.tools.definitions import BaseTool
 

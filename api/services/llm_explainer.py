@@ -2,6 +2,7 @@ import asyncio
 
 from astroml.llm.metrics import LLM_COST_USD_TOTAL, LLM_REQUEST_LATENCY_SECONDS, LLM_REQUESTS_TOTAL
 
+
 class TransactionExplainer:
     def __init__(self):
         self.prompt_template = (
@@ -25,7 +26,9 @@ class TransactionExplainer:
         latency = (asyncio.get_event_loop().time() - start) * 1000.0
         try:
             LLM_REQUESTS_TOTAL.labels(provider="transaction-explainer", status="success").inc()
-            LLM_REQUEST_LATENCY_SECONDS.labels(provider="transaction-explainer").observe(latency / 1000.0)
+            LLM_REQUEST_LATENCY_SECONDS.labels(provider="transaction-explainer").observe(
+                latency / 1000.0
+            )
             LLM_COST_USD_TOTAL.labels(provider="transaction-explainer").inc(0.0)
         except Exception:
             pass

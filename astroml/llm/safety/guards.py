@@ -2,6 +2,7 @@
 
 Resolves #455: Input/output safety guardrails with configurable strictness levels.
 """
+
 from __future__ import annotations
 
 import logging
@@ -9,9 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from astroml.llm.safety.classifier import ContentClassifier, ContentCategory
-from astroml.llm.safety.filters import InputFilter, OutputFilter
 from astroml.llm.safety.audit import SafetyAuditLog
+from astroml.llm.safety.classifier import ContentCategory, ContentClassifier
+from astroml.llm.safety.filters import InputFilter, OutputFilter
 
 logger = logging.getLogger(__name__)
 
@@ -139,9 +140,7 @@ class SafetyGuard:
         if category in (ContentCategory.PROMPT_INJECTION, ContentCategory.JAILBREAK):
             if confidence >= warn_thresh:
                 decision = (
-                    SafetyDecision.BLOCK
-                    if confidence >= block_thresh
-                    else SafetyDecision.WARN
+                    SafetyDecision.BLOCK if confidence >= block_thresh else SafetyDecision.WARN
                 )
                 result = GuardrailResult(
                     decision=decision,
@@ -154,11 +153,7 @@ class SafetyGuard:
                 return result
 
         if category == ContentCategory.TOXIC and confidence >= warn_thresh:
-            decision = (
-                SafetyDecision.BLOCK
-                if confidence >= block_thresh
-                else SafetyDecision.WARN
-            )
+            decision = SafetyDecision.BLOCK if confidence >= block_thresh else SafetyDecision.WARN
             result = GuardrailResult(
                 decision=decision,
                 category=ContentCategory.TOXIC,
@@ -200,11 +195,7 @@ class SafetyGuard:
         warn_thresh = self._WARN_THRESHOLD[self.strictness]
 
         if category == ContentCategory.HARMFUL and confidence >= warn_thresh:
-            decision = (
-                SafetyDecision.BLOCK
-                if confidence >= block_thresh
-                else SafetyDecision.WARN
-            )
+            decision = SafetyDecision.BLOCK if confidence >= block_thresh else SafetyDecision.WARN
             result = GuardrailResult(
                 decision=decision,
                 category=ContentCategory.HARMFUL,

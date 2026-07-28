@@ -3,14 +3,16 @@
 Resolves #457: All request/response models for the LLM API gateway
 with idempotency keys, pagination, and consistent error shapes.
 """
+
 from __future__ import annotations
 
-from typing import Any
-from pydantic import BaseModel, Field
 import uuid
+from typing import Any
 
+from pydantic import BaseModel, Field
 
 # ─── Shared ─────────────────────────────────────────────────────────────────
+
 
 class UsageInfo(BaseModel):
     prompt_tokens: int = Field(0, description="Tokens in the prompt")
@@ -29,6 +31,7 @@ class ErrorResponse(BaseModel):
 
 
 # ─── Generation ─────────────────────────────────────────────────────────────
+
 
 class GenerateRequest(BaseModel):
     """Request body for POST /api/v1/llm/generate."""
@@ -59,6 +62,7 @@ class GenerateResponse(BaseModel):
 
 # ─── Embeddings ─────────────────────────────────────────────────────────────
 
+
 class EmbedRequest(BaseModel):
     """Request body for POST /api/v1/llm/embed."""
 
@@ -77,6 +81,7 @@ class EmbedResponse(BaseModel):
 
 
 # ─── Chat ────────────────────────────────────────────────────────────────────
+
 
 class ChatMessage(BaseModel):
     role: str = Field(..., pattern="^(system|user|assistant|tool)$")
@@ -107,6 +112,7 @@ class ChatResponse(BaseModel):
 
 
 # ─── RAG Query ───────────────────────────────────────────────────────────────
+
 
 class RAGQueryRequest(BaseModel):
     """Request body for POST /api/v1/llm/rag/query."""
@@ -139,6 +145,7 @@ class RAGQueryResponse(BaseModel):
 
 # ─── Models list ─────────────────────────────────────────────────────────────
 
+
 class ModelInfo(BaseModel):
     id: str
     provider: str
@@ -156,6 +163,7 @@ class ModelsListResponse(BaseModel):
 
 # ─── Cost / Usage ─────────────────────────────────────────────────────────────
 
+
 class CostUsageResponse(BaseModel):
     """Response body for GET /api/v1/llm/cost/usage."""
 
@@ -169,6 +177,7 @@ class CostUsageResponse(BaseModel):
 
 
 # ─── WebSocket streaming ──────────────────────────────────────────────────────
+
 
 class StreamChunk(BaseModel):
     """A single chunk in a streaming response."""

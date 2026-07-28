@@ -1,7 +1,9 @@
 """Semantic similarity cache using embeddings."""
+
 import logging
+from typing import Optional
+
 import numpy as np
-from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,7 @@ class SemanticCache:
         """
         if store is None:
             from astroml.llm.cache.store import DiskStore
+
             store = DiskStore()
         self.store = store
         self.embedding_provider = embedding_provider
@@ -39,7 +42,7 @@ class SemanticCache:
 
         if self.embedding_provider is None:
             # Fallback: use simple bag-of-words representation
-            from collections import Counter
+
             words = text.lower().split()
             vocab_size = 1000
             vec = np.zeros(vocab_size)
@@ -63,7 +66,7 @@ class SemanticCache:
             return 0.0
         return float(np.dot(a, b) / (norm_a * norm_b))
 
-    def get(self, prompt: str, **kwargs) -> Optional[str]:
+    def get(self, prompt: str, **kwargs) -> str | None:
         """Retrieve cached response for similar prompt.
 
         Args:
@@ -122,6 +125,7 @@ class SemanticCache:
 
         # Use hash as key (same as exact match)
         import hashlib
+
         prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
         cache_key = f"semantic:{prompt_hash}"
 
@@ -133,33 +137,37 @@ class SemanticCache:
 
         self.store.set(cache_key, response, ttl=ttl, metadata=metadata)
         logger.debug(f"Cached semantic entry: {cache_key[:16]}...")
-from typing import Optional, Dict, Tuple, List
+
+
+from typing import Optional
+
 from astroml.search.embedders import get_embedder
+
 
 class SemanticCache:
     def __init__(self, similarity_threshold: float = 0.85, ttl: int = 86400, **kwargs):
         self.threshold = similarity_threshold
         self.ttl = ttl
         # Stores: query_text -> (response_text, embedding_vector)
-        self.cache: Dict[str, Tuple[str, List[float]]] = {}
+        self.cache: dict[str, tuple[str, list[float]]] = {}
 
-    def get(self, query: str) -> Optional[str]:
+    def get(self, query: str) -> str | None:
         if not self.cache:
             return None
-            
+
         embedder = get_embedder()
         query_vec = embedder.generate_embedding(query)
-        
+
         best_query = None
         best_score = -1.0
-        
+
         for cached_query, (response, cached_vec) in self.cache.items():
             # Cosine similarity
             dot = sum(a * b for a, b in zip(query_vec, cached_vec))
             if dot > best_score:
                 best_score = dot
                 best_query = cached_query
-                
+
         if best_score >= self.threshold and best_query:
             return self.cache[best_query][0]
         return None

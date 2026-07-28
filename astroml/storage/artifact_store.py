@@ -1,11 +1,11 @@
 """Configurable artifact store with fsspec support for S3, GCS, and local storage."""
+
 from __future__ import annotations
 
 import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Optional, Union
 
 import fsspec
 from fsspec.spec import AbstractFileSystem
@@ -17,7 +17,7 @@ class ArtifactStore(ABC):
     """Abstract base class for artifact storage backends."""
 
     @abstractmethod
-    def save(self, local_path: Union[str, Path], remote_path: str) -> str:
+    def save(self, local_path: str | Path, remote_path: str) -> str:
         """Save a local file to the artifact store.
 
         Args:
@@ -30,7 +30,7 @@ class ArtifactStore(ABC):
         pass
 
     @abstractmethod
-    def load(self, remote_path: str, local_path: Union[str, Path]) -> Path:
+    def load(self, remote_path: str, local_path: str | Path) -> Path:
         """Load an artifact from the store to local filesystem.
 
         Args:
@@ -91,7 +91,7 @@ class ArtifactStore(ABC):
 class LocalArtifactStore(ArtifactStore):
     """Local filesystem artifact store."""
 
-    def __init__(self, base_path: Union[str, Path]):
+    def __init__(self, base_path: str | Path):
         """Initialize local artifact store.
 
         Args:
@@ -102,7 +102,7 @@ class LocalArtifactStore(ArtifactStore):
         self.fs: AbstractFileSystem = fsspec.filesystem("file")
         logger.info(f"Initialized local artifact store at {self.base_path}")
 
-    def save(self, local_path: Union[str, Path], remote_path: str) -> str:
+    def save(self, local_path: str | Path, remote_path: str) -> str:
         """Save a local file to the artifact store."""
         local_path = Path(local_path)
         if not local_path.exists():
@@ -115,7 +115,7 @@ class LocalArtifactStore(ArtifactStore):
         logger.info(f"Saved artifact: {local_path} -> {dest_path}")
         return self.get_uri(remote_path)
 
-    def load(self, remote_path: str, local_path: Union[str, Path]) -> Path:
+    def load(self, remote_path: str, local_path: str | Path) -> Path:
         """Load an artifact from the store to local filesystem."""
         local_path = Path(local_path)
         src_path = self.base_path / remote_path
@@ -166,9 +166,9 @@ class S3ArtifactStore(ArtifactStore):
         self,
         bucket: str,
         prefix: str = "",
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        region_name: Optional[str] = None,
+        aws_access_key_id: str | None = None,
+        aws_secret_access_key: str | None = None,
+        region_name: str | None = None,
     ):
         """Initialize S3 artifact store.
 
@@ -181,7 +181,7 @@ class S3ArtifactStore(ArtifactStore):
         """
         self.bucket = bucket
         self.prefix = prefix.rstrip("/")
-        
+
         # Prepare S3 credentials
         s3_kwargs = {}
         if aws_access_key_id:
@@ -200,7 +200,7 @@ class S3ArtifactStore(ArtifactStore):
             return f"{self.bucket}/{self.prefix}/{remote_path}".lstrip("/")
         return f"{self.bucket}/{remote_path}".lstrip("/")
 
-    def save(self, local_path: Union[str, Path], remote_path: str) -> str:
+    def save(self, local_path: str | Path, remote_path: str) -> str:
         """Save a local file to S3."""
         local_path = Path(local_path)
         if not local_path.exists():
@@ -211,7 +211,7 @@ class S3ArtifactStore(ArtifactStore):
         logger.info(f"Saved artifact to S3: {local_path} -> s3://{s3_path}")
         return self.get_uri(remote_path)
 
-    def load(self, remote_path: str, local_path: Union[str, Path]) -> Path:
+    def load(self, remote_path: str, local_path: str | Path) -> Path:
         """Load an artifact from S3 to local filesystem."""
         local_path = Path(local_path)
         s3_path = self._get_s3_path(remote_path)
@@ -270,8 +270,8 @@ class GCSArtifactStore(ArtifactStore):
         self,
         bucket: str,
         prefix: str = "",
-        project_id: Optional[str] = None,
-        credentials_path: Optional[str] = None,
+        project_id: str | None = None,
+        credentials_path: str | None = None,
     ):
         """Initialize GCS artifact store.
 
@@ -300,7 +300,7 @@ class GCSArtifactStore(ArtifactStore):
             return f"{self.bucket}/{self.prefix}/{remote_path}".lstrip("/")
         return f"{self.bucket}/{remote_path}".lstrip("/")
 
-    def save(self, local_path: Union[str, Path], remote_path: str) -> str:
+    def save(self, local_path: str | Path, remote_path: str) -> str:
         """Save a local file to GCS."""
         local_path = Path(local_path)
         if not local_path.exists():
@@ -311,7 +311,7 @@ class GCSArtifactStore(ArtifactStore):
         logger.info(f"Saved artifact to GCS: {local_path} -> gs://{gcs_path}")
         return self.get_uri(remote_path)
 
-    def load(self, remote_path: str, local_path: Union[str, Path]) -> Path:
+    def load(self, remote_path: str, local_path: str | Path) -> Path:
         """Load an artifact from GCS to local filesystem."""
         local_path = Path(local_path)
         gcs_path = self._get_gcs_path(remote_path)

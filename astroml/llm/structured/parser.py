@@ -1,9 +1,11 @@
 """Output parsers for structured LLM responses."""
+
 import json
-import re
 import logging
+import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, TypeVar
+
 from pydantic import BaseModel, ValidationError
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,7 @@ class OutputParser(ABC):
     """Base class for output parsers."""
 
     @abstractmethod
-    def parse(self, text: str, schema: Type[T]) -> T:
+    def parse(self, text: str, schema: type[T]) -> T:
         """Parse text into structured output."""
         pass
 
@@ -23,7 +25,7 @@ class OutputParser(ABC):
 class JSONParser(OutputParser):
     """Parser for JSON-formatted LLM outputs."""
 
-    def parse(self, text: str, schema: Type[T]) -> T:
+    def parse(self, text: str, schema: type[T]) -> T:
         """Extract and parse JSON from text.
 
         Args:
@@ -51,7 +53,7 @@ class JSONParser(OutputParser):
             logger.error(f"Schema validation error: {e}")
             raise
 
-    def _extract_json(self, text: str) -> Optional[str]:
+    def _extract_json(self, text: str) -> str | None:
         """Extract JSON from text, handling markdown code blocks."""
         # Try to find JSON in code blocks first
         code_block_pattern = r"```(?:json)?\s*(\{[\s\S]*?\})\s*```"
@@ -75,7 +77,7 @@ class PydanticParser(OutputParser):
         self.enable_coercion = enable_coercion
         self.json_parser = JSONParser()
 
-    def parse(self, text: str, schema: Type[T]) -> T:
+    def parse(self, text: str, schema: type[T]) -> T:
         """Parse with type coercion support.
 
         Args:
@@ -100,7 +102,7 @@ class PydanticParser(OutputParser):
 
         return schema(**data)
 
-    def _coerce_types(self, data: Dict[str, Any], schema: Type[BaseModel]) -> Dict[str, Any]:
+    def _coerce_types(self, data: dict[str, Any], schema: type[BaseModel]) -> dict[str, Any]:
         """Apply type coercion to match schema.
 
         Handles:
@@ -123,7 +125,11 @@ class PydanticParser(OutputParser):
             target_type = field.annotation
 
             # Handle Optional types
-            if hasattr(target_type, "__origin__") and target_type.__origin__ is type(None) or "Optional" in str(target_type):
+            if (
+                hasattr(target_type, "__origin__")
+                and target_type.__origin__ is type(None)
+                or "Optional" in str(target_type)
+            ):
                 if hasattr(target_type, "__args__"):
                     target_type = target_type.__args__[0]
 

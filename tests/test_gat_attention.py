@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import os
-import sys
-import types
-
 import pytest
 
 try:
     import torch  # type: ignore
+
     TORCH_AVAILABLE = True
 except Exception:
     TORCH_AVAILABLE = False
@@ -34,7 +31,7 @@ def test_gat_multihead_shapes_and_attention_sum():
     # Verify attention sums to 1 over incoming edges for each head at each dst node present in edges
     dst = edge_index[1]
     for v in dst.unique():
-        mask = (dst == v)
+        mask = dst == v
         a = attn[mask]  # [E_v, H]
         colsum = a.sum(dim=0)
         assert torch.allclose(colsum, torch.ones_like(colsum), atol=1e-5)

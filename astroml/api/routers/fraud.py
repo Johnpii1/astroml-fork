@@ -3,18 +3,19 @@
 Provides real-time fraud scoring, paginated alert listing, and
 aggregated statistics.
 """
+
 from __future__ import annotations
 
 import logging
+import os
 import time
-from typing import AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-import os
 
 from astroml.api.models import FraudAlert
 
@@ -29,9 +30,7 @@ _DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://astroml:astroml@localhost/astroml",
 )
 _engine = create_async_engine(_DATABASE_URL, pool_pre_ping=True)
-_session_factory: async_sessionmaker = async_sessionmaker(
-    _engine, expire_on_commit=False
-)
+_session_factory: async_sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
 
 _SLOW_REQUEST_THRESHOLD_MS = 500
 
@@ -50,12 +49,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 class ScoreRequest(BaseModel):
     """Request body for the fraud scoring endpoint."""
 
-    accounts: List[str] = Field(..., description="List of Stellar public keys to score")
-    edges: List[dict] = Field(default_factory=list, description="Transaction edges for graph context")
+    accounts: list[str] = Field(..., description="List of Stellar public keys to score")
+    edges: list[dict] = Field(
+        default_factory=list, description="Transaction edges for graph context"
+    )
 
     @field_validator("accounts")
     @classmethod
-    def accounts_not_empty(cls, v: List[str]) -> List[str]:
+    def accounts_not_empty(cls, v: list[str]) -> list[str]:
         if not v:
             raise ValueError("accounts must be a non-empty list")
         if len(v) > 50:
@@ -66,7 +67,7 @@ class ScoreRequest(BaseModel):
 class ScoreResponse(BaseModel):
     """Response body for the fraud scoring endpoint."""
 
-    scores: Dict[str, float]
+    scores: dict[str, float]
 
 
 class FraudAlertItem(BaseModel):
@@ -78,7 +79,7 @@ class FraudAlertItem(BaseModel):
     risk_level: str
     batch_run_at: str
     created_at: str
-    notes: Optional[str]
+    notes: str | None
 
     model_config = {"from_attributes": True}
 
@@ -86,7 +87,7 @@ class FraudAlertItem(BaseModel):
 class FraudAlertListResponse(BaseModel):
     """Paginated list of fraud alerts."""
 
-    items: List[FraudAlertItem]
+    items: list[FraudAlertItem]
     total: int
     page: int
     page_size: int
@@ -99,7 +100,7 @@ class FraudStatsResponse(BaseModel):
     high: int
     medium: int
     low: int
-    risk_over_time: List
+    risk_over_time: list
 
 
 # ---------------------------------------------------------------------------
@@ -133,8 +134,8 @@ async def score_accounts(body: ScoreRequest) -> JSONResponse:
 
     # Attempt to load a scorer; surface missing/corrupted checkpoints as 503.
     try:
-        from astroml.pipeline.inductive import InductiveGraphSAGE
         from astroml.models.deep_svdd import DeepSVDD
+        from astroml.pipeline.inductive import InductiveGraphSAGE
 
         # We only produce scores if a trained scorer can be instantiated.
         # Constructors may raise FileNotFoundError / RuntimeError for missing
@@ -144,6 +145,7 @@ async def score_accounts(body: ScoreRequest) -> JSONResponse:
         scorer = InductiveAnomalyScorer(pipeline=pipeline, svdd=svdd)
 
         import time as _time
+
         scores = scorer.score_new_accounts(
             edges=body.edges,
             account_ids=body.accounts,
@@ -161,7 +163,9 @@ async def score_accounts(body: ScoreRequest) -> JSONResponse:
 
     elapsed_ms = (time.monotonic() - start) * 1000
     if elapsed_ms > _SLOW_REQUEST_THRESHOLD_MS:
-        logger.warning("Fraud scoring took %.1f ms (threshold %d ms)", elapsed_ms, _SLOW_REQUEST_THRESHOLD_MS)
+        logger.warning(
+            "Fraud scoring took %.1f ms (threshold %d ms)", elapsed_ms, _SLOW_REQUEST_THRESHOLD_MS
+        )
 
     return JSONResponse(content={"scores": scores})
 
@@ -174,7 +178,7 @@ async def score_accounts(body: ScoreRequest) -> JSONResponse:
 async def list_fraud_alerts(
     page: int = Query(default=1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    risk_level: Optional[str] = Query(
+    risk_level: str | None = Query(
         default=None,
         description="Filter by risk level: low, medium, or high",
     ),
@@ -190,9 +194,7 @@ async def list_fraud_alerts(
     total: int = (await db.execute(count_stmt)).scalar_one()
 
     offset = (page - 1) * page_size
-    paged_stmt = (
-        base_stmt.order_by(FraudAlert.created_at.desc()).offset(offset).limit(page_size)
-    )
+    paged_stmt = base_stmt.order_by(FraudAlert.created_at.desc()).offset(offset).limit(page_size)
     rows = (await db.execute(paged_stmt)).scalars().all()
 
     items = [
@@ -217,21 +219,15 @@ async def fraud_stats(db: AsyncSession = Depends(get_db)) -> FraudStatsResponse:
     total: int = (await db.execute(select(func.count(FraudAlert.id)))).scalar_one()
 
     high_count: int = (
-        await db.execute(
-            select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "high")
-        )
+        await db.execute(select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "high"))
     ).scalar_one()
 
     medium_count: int = (
-        await db.execute(
-            select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "medium")
-        )
+        await db.execute(select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "medium"))
     ).scalar_one()
 
     low_count: int = (
-        await db.execute(
-            select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "low")
-        )
+        await db.execute(select(func.count(FraudAlert.id)).where(FraudAlert.risk_level == "low"))
     ).scalar_one()
 
     return FraudStatsResponse(

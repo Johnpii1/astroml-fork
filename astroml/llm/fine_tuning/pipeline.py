@@ -10,20 +10,21 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
-from .dataset import FineTuneDataset, DatasetConfig
-from .trainer import FineTuneTrainer, TrainerConfig, TrainerType
-from .evaluator import FineTuneEvaluator, EvaluationResult
+from .dataset import DatasetConfig, FineTuneDataset
+from .evaluator import EvaluationResult, FineTuneEvaluator
 from .registry import FineTuneRegistry
+from .trainer import FineTuneTrainer, TrainerConfig, TrainerType
 
 logger = logging.getLogger(__name__)
 
 
 class FineTuneTarget(Enum):
     """Supported fine-tuning targets."""
+
     FRAUD_EXPLANATION = "fraud_explanation"
     SQL_GENERATION = "sql_generation"
     TRANSACTION_CLASSIFICATION = "transaction_classification"
@@ -33,14 +34,15 @@ class FineTuneTarget(Enum):
 @dataclass
 class FineTuneConfig:
     """Configuration for a fine-tuning run."""
+
     target: FineTuneTarget
     base_model: str = "gpt-3.5-turbo"
     trainer_type: TrainerType = TrainerType.OPENAI
-    dataset_config: Optional[DatasetConfig] = None
-    trainer_config: Optional[TrainerConfig] = None
+    dataset_config: DatasetConfig | None = None
+    trainer_config: TrainerConfig | None = None
     description: str = ""
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class FineTuningPipeline:
@@ -57,17 +59,17 @@ class FineTuningPipeline:
     ):
         self.registry = registry
         self.config = config
-        self.dataset: Optional[FineTuneDataset] = None
-        self.trainer: Optional[FineTuneTrainer] = None
-        self.evaluator: Optional[FineTuneEvaluator] = None
+        self.dataset: FineTuneDataset | None = None
+        self.trainer: FineTuneTrainer | None = None
+        self.evaluator: FineTuneEvaluator | None = None
         self.run_id: str = ""
-        self._start_time: Optional[datetime] = None
+        self._start_time: datetime | None = None
 
     def prepare_data(
         self,
         data: pd.DataFrame,
         text_column: str = "text",
-        label_column: Optional[str] = None,
+        label_column: str | None = None,
     ) -> FineTuneDataset:
         """Prepare and validate training data."""
         dataset_config = self.config.dataset_config or DatasetConfig(
@@ -137,7 +139,7 @@ class FineTuningPipeline:
         self,
         data: pd.DataFrame,
         text_column: str = "text",
-        label_column: Optional[str] = None,
+        label_column: str | None = None,
     ) -> EvaluationResult:
         """Run the full fine-tuning pipeline end-to-end."""
         self.prepare_data(data, text_column, label_column)

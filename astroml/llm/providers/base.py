@@ -1,10 +1,14 @@
 """Base LLM Provider interface and unified response structures."""
+
 import json
-import time
 import logging
+import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Iterator
+from collections.abc import Iterator
+from typing import Any
+
 from pydantic import BaseModel, Field
+
 from ..exceptions import ProviderAPIError
 
 logger = logging.getLogger(__name__)
@@ -12,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class LLMResponse(BaseModel):
     """Unified response format wrapper."""
+
     text: str
     prompt_tokens: int = Field(default=0, description="Tokens in the prompt")
     completion_tokens: int = Field(default=0, description="Tokens in the completion")
@@ -29,7 +34,7 @@ class LLMProvider(ABC):
         self.api_key = api_key
         self.model = model
         self.last_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-        self.fallback_providers: List['LLMProvider'] = []
+        self.fallback_providers: list[LLMProvider] = []
 
     @abstractmethod
     def _generate_raw(self, prompt: str, tools: list[dict] | None = None, **kwargs: Any) -> str:
@@ -80,17 +85,22 @@ class LLMProvider(ABC):
                 else:
                     try:
                         import asyncio
+
                         tool_result = asyncio.run(
-                            tool_executor.execute(tc["function"]["name"], tc["function"]["arguments"])
+                            tool_executor.execute(
+                                tc["function"]["name"], tc["function"]["arguments"]
+                            )
                         )
                     except Exception as e:
                         tool_result = {"error": str(e)}
 
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", ""),
-                    "content": json.dumps(tool_result),
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", ""),
+                        "content": json.dumps(tool_result),
+                    }
+                )
 
             current_tools = None
 
@@ -98,13 +108,13 @@ class LLMProvider(ABC):
 
     def generate_detailed(self, prompt: str, **kwargs: Any) -> LLMResponse:
         """Generate response with unified response format, cost tracking, rate limits, budgets, retries."""
-        from ..rate_limiter import get_rate_limiter, get_budget_manager
-        from ..secrets import get_api_key
         from ..config import llm_settings
+        from ..rate_limiter import get_budget_manager, get_rate_limiter
+        from ..secrets import get_api_key
 
         provider_name = self.__class__.__name__.lower().replace("provider", "")
         model_name = kwargs.get("model", self.model)
-        
+
         # Resolve config settings
         p_settings = llm_settings.providers.get(provider_name)
         req_limit = p_settings.rate_limits.requests_per_minute if p_settings else 0
@@ -126,55 +136,64 @@ class LLMProvider(ABC):
         max_retries = 3
         delay = 1.0
         backoff_factor = 2.0
-        
+
         start_time = time.time()
         text = ""
-        
+
         for attempt in range(max_retries + 1):
             try:
                 # Decrypt keys on-the-fly (audit logged)
                 _ = get_api_key(provider_name)
-                
+
                 text = self._generate_raw(prompt, **kwargs)
                 break
             except Exception as e:
                 err_str = str(e)
                 # Check for transient errors
-                is_transient = any(code in err_str for code in ["429", "500", "502", "503", "504"]) or "rate limit" in err_str.lower()
+                is_transient = (
+                    any(code in err_str for code in ["429", "500", "502", "503", "504"])
+                    or "rate limit" in err_str.lower()
+                )
                 if not is_transient or attempt == max_retries:
                     # Check fallback before raising error
                     if self.fallback_providers:
-                        logger.warning(f"Primary provider {provider_name} failed. Trying fallbacks...")
+                        logger.warning(
+                            f"Primary provider {provider_name} failed. Trying fallbacks..."
+                        )
                         for fb in self.fallback_providers:
                             try:
                                 return fb.generate_detailed(prompt, **kwargs)
                             except Exception as fb_err:
                                 logger.warning(f"Fallback provider failed: {fb_err}")
-                    
+
                     # API keys are never logged or exposed in error messages
-                    logger.error(f"LLM Provider API error. Secrets are never exposed. Detail: {err_str[:100]}")
+                    logger.error(
+                        f"LLM Provider API error. Secrets are never exposed. Detail: {err_str[:100]}"
+                    )
                     raise ProviderAPIError(f"LLM API Error: {err_str[:100]}") from None
-                
+
                 # Exponential backoff
-                sleep_time = delay + (time.time() % 0.1) # small jitter
-                logger.warning(f"Transient error on {provider_name} (attempt {attempt+1}/{max_retries}). Retrying in {sleep_time:.2f}s...")
+                sleep_time = delay + (time.time() % 0.1)  # small jitter
+                logger.warning(
+                    f"Transient error on {provider_name} (attempt {attempt+1}/{max_retries}). Retrying in {sleep_time:.2f}s..."
+                )
                 time.sleep(sleep_time)
                 delay *= backoff_factor
 
         latency = time.time() - start_time
-        
+
         # Token usage and cost calculation
         usage = self.get_token_usage()
         prompt_tokens = usage.get("prompt_tokens", 0)
         completion_tokens = usage.get("completion_tokens", 0)
         total_tokens = usage.get("total_tokens", prompt_tokens + completion_tokens)
-        
+
         # Update rate limiter with actual tokens used
         rate_limiter.update_actual_tokens(total_tokens)
-        
+
         # Cost calculation
         cost = self._calculate_cost(prompt_tokens, completion_tokens, model_name)
-        
+
         # Update budget spend
         budget_manager.record_spend(cost)
 
@@ -192,7 +211,7 @@ class LLMProvider(ABC):
             cost=cost,
             latency=latency,
             provider=provider_name,
-            model=model_name
+            model=model_name,
         )
 
     def _calculate_cost(self, prompt_tokens: int, completion_tokens: int, model: str) -> float:
@@ -204,7 +223,7 @@ class LLMProvider(ABC):
         return 0.0
 
     @abstractmethod
-    def get_token_usage(self) -> Dict[str, int]:
+    def get_token_usage(self) -> dict[str, int]:
         """Return the token usage for the last generation."""
         pass
 
@@ -214,7 +233,7 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def embed(self, text: str, **kwargs: Any) -> List[float]:
+    def embed(self, text: str, **kwargs: Any) -> list[float]:
         """Generate text embedding."""
         pass
 

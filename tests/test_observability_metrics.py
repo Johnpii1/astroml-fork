@@ -7,6 +7,7 @@ import asyncio
 import pytest
 from prometheus_client import REGISTRY
 
+from astroml.db.pool_health import PoolStats
 from astroml.observability.metrics import (
     ACTIVE_JOBS,
     DB_POOL_SIZE,
@@ -23,7 +24,6 @@ from astroml.observability.metrics import (
     track_time,
     update_db_pool_metrics,
 )
-from astroml.db.pool_health import PoolStats
 
 
 def _sample(name: str, **labels: str) -> float:
@@ -100,9 +100,7 @@ class TestDbPoolMetrics:
         assert _sample("db_pool_size", pool="test-pool", state="idle") == 3
         assert _sample("db_pool_size", pool="test-pool", state="overflow") == 1
         assert _sample("db_pool_size", pool="test-pool", state="capacity") == 20
-        assert _sample("db_pool_utilization_ratio", pool="test-pool") == pytest.approx(
-            0.4
-        )
+        assert _sample("db_pool_utilization_ratio", pool="test-pool") == pytest.approx(0.4)
 
 
 class TestTrackTime:
@@ -194,16 +192,14 @@ class TestTrackActiveJob:
         assert _sample("active_jobs", job_type="ingestion") == 0
 
     def test_gauge_is_balanced_on_exception(self) -> None:
-        with pytest.raises(ValueError):
-            with track_active_job("training"):
-                raise ValueError("job failed")
+        with pytest.raises(ValueError), track_active_job("training"):
+            raise ValueError("job failed")
 
         assert _sample("active_jobs", job_type="training") == 0
 
     def test_nested_jobs_accumulate(self) -> None:
-        with track_active_job("backfill"):
-            with track_active_job("backfill"):
-                assert _sample("active_jobs", job_type="backfill") == 2
+        with track_active_job("backfill"), track_active_job("backfill"):
+            assert _sample("active_jobs", job_type="backfill") == 2
         assert _sample("active_jobs", job_type="backfill") == 0
 
 

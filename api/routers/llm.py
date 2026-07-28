@@ -14,33 +14,43 @@ Endpoints:
   WS   /api/v1/llm/chat/ws           — Streaming chat over WebSocket
   WS   /api/v1/llm/stream            — Generic streaming over WebSocket
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import StreamingResponse
 
+from api.schemas.llm import ChatMessage as SchemaChatMessage
 from api.schemas.llm import (
-    GenerateRequest,
-    GenerateResponse,
-    EmbedRequest,
-    EmbedResponse,
     ChatRequest,
     ChatResponse,
-    ChatMessage as SchemaChatMessage,
+    CostUsageResponse,
+    EmbedRequest,
+    EmbedResponse,
+    ErrorDetail,
+    ErrorResponse,
+    GenerateRequest,
+    GenerateResponse,
+    ModelInfo,
+    ModelsListResponse,
+    RAGDocument,
     RAGQueryRequest,
     RAGQueryResponse,
-    RAGDocument,
-    ModelsListResponse,
-    ModelInfo,
-    CostUsageResponse,
-    UsageInfo,
     StreamChunk,
-    ErrorResponse,
-    ErrorDetail,
+    UsageInfo,
 )
 from api.services.llm import LLMService
 
@@ -62,6 +72,7 @@ def _get_user_id(request: Request) -> str | None:
 
 
 # ─── REST: Generate ─────────────────────────────────────────────────────────
+
 
 @router.post(
     "/generate",
@@ -141,6 +152,7 @@ async def generate_stream(
 
 # ─── REST: Embed ─────────────────────────────────────────────────────────────
 
+
 @router.post(
     "/embed",
     response_model=EmbedResponse,
@@ -163,6 +175,7 @@ async def generate_embeddings(
 
 
 # ─── REST: Chat ───────────────────────────────────────────────────────────────
+
 
 @router.post(
     "/chat",
@@ -200,6 +213,7 @@ async def chat_completion(
 
 # ─── REST: RAG Query ──────────────────────────────────────────────────────────
 
+
 @router.post(
     "/rag/query",
     response_model=RAGQueryResponse,
@@ -232,6 +246,7 @@ async def rag_query(
 
 # ─── REST: Models list ────────────────────────────────────────────────────────
 
+
 @router.get(
     "/models",
     response_model=ModelsListResponse,
@@ -250,6 +265,7 @@ async def list_models(
 
 
 # ─── REST: Cost usage ────────────────────────────────────────────────────────
+
 
 @router.get(
     "/cost/usage",
@@ -277,6 +293,7 @@ async def cost_usage(
 
 
 # ─── WebSocket: Streaming chat ───────────────────────────────────────────────
+
 
 @router.websocket("/chat/ws")
 async def websocket_chat(
@@ -307,9 +324,7 @@ async def websocket_chat(
             )
 
             try:
-                async for chunk in service.generate_stream(
-                    prompt=last_user, model=model
-                ):
+                async for chunk in service.generate_stream(prompt=last_user, model=model):
                     await websocket.send_json({"delta": chunk, "finish_reason": None})
                 await websocket.send_json({"delta": "", "finish_reason": "stop"})
             except ValueError:
@@ -349,6 +364,8 @@ async def websocket_stream(
                 await websocket.send_json({"error": "Invalid request"})
     except WebSocketDisconnect:
         logger.debug("WebSocket stream client disconnected")
+
+
 import hashlib
 import os
 import time
@@ -364,23 +381,23 @@ from api.auth.dependencies import AuthContext, get_current_auth
 from api.database import get_db
 from api.models.orm import LLMFeedback
 from api.schemas import (
+    BatchTranslationRequest,
+    BatchTranslationResponse,
     CostDashboardResponse,
     LLMFeedbackDashboard,
     LLMFeedbackIn,
     LLMFeedbackOut,
     LLMFeedbackTrend,
     LLMPromptImprovement,
+    LocaleFormatRequest,
+    LocaleFormatResponse,
     SearchRequest,
     SearchResponse,
     SuggestionResponse,
+    SupportedLanguagesResponse,
+    TranslationCacheStatsResponse,
     TranslationRequest,
     TranslationResponse,
-    BatchTranslationRequest,
-    BatchTranslationResponse,
-    SupportedLanguagesResponse,
-    LocaleFormatRequest,
-    LocaleFormatResponse,
-    TranslationCacheStatsResponse,
 )
 from api.services.llm_context import MultiModalContextHandler
 from api.services.llm_cost import CostMonitoringService
@@ -473,20 +490,23 @@ async def log_llm_interaction(
         pass
 
 
-
-
 class ExplainRequest(BaseModel):
     tx_details: str
+
 
 class ExplainResponse(BaseModel):
     explanation: str
 
+
 @router.get("/suggest", response_model=SuggestionResponse)
-async def suggest_query(q: str, max_results: int = 5, auth: AuthContext = Depends(get_current_auth)):
+async def suggest_query(
+    q: str, max_results: int = 5, auth: AuthContext = Depends(get_current_auth)
+):
     try:
         return suggest_service.suggest(q, max_results)
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.post("/search", response_model=SearchResponse)
 async def semantic_search(request: SearchRequest, auth: AuthContext = Depends(get_current_auth)):
@@ -495,12 +515,14 @@ async def semantic_search(request: SearchRequest, auth: AuthContext = Depends(ge
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 @router.get("/costs/dashboard", response_model=CostDashboardResponse)
 async def get_cost_dashboard(auth: AuthContext = Depends(get_current_auth)):
     try:
         return cost_service.get_dashboard()
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @router.post("/explain", response_model=ExplainResponse)
 async def explain_transaction(
@@ -540,11 +562,14 @@ async def explain_transaction(
         )
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 class QueryRequest(BaseModel):
     query: str
 
+
 class QueryResponse(BaseModel):
     sql: str
+
 
 @router.post("/query", response_model=QueryResponse)
 async def translate_query(
@@ -599,14 +624,17 @@ async def translate_query(
         )
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 class ContextRequest(BaseModel):
     edges: List[Dict[str, Any]] = []
     data_points: List[float] = []
+
 
 class ContextResponse(BaseModel):
     graph_summary: str
     time_series_trend: str
     mermaid: str
+
 
 @router.post("/context", response_model=ContextResponse)
 async def get_multimodal_context(
@@ -632,11 +660,7 @@ async def get_multimodal_context(
             request=http_request,
             latency_ms=latency_ms,
         )
-        return ContextResponse(
-            graph_summary=summary,
-            time_series_trend=trend,
-            mermaid=mermaid
-        )
+        return ContextResponse(graph_summary=summary, time_series_trend=trend, mermaid=mermaid)
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000)
         context_str = f"edges: {len(request.edges)}, data_points: {len(request.data_points)}"
@@ -654,12 +678,15 @@ async def get_multimodal_context(
         )
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
 class ValidateRequest(BaseModel):
     raw_response: Dict[str, Any]
     context: str
 
+
 class ValidateResponse(BaseModel):
     validated_response: Dict[str, Any]
+
 
 @router.post("/validate", response_model=ValidateResponse)
 async def validate_response(
@@ -673,6 +700,7 @@ async def validate_response(
         validated = validator.validate_and_guard(request.raw_response, request.context)
         latency_ms = int((time.time() - start_time) * 1000)
         import json
+
         response_str = json.dumps(validated)
         await log_llm_interaction(
             db,
@@ -785,16 +813,11 @@ class StreamRequest(BaseModel):
 
 async def generate_stream_response(prompt: str) -> AsyncGenerator[str, None]:
     """Example streaming response generator."""
-    response_chunks = [
-        "This is",
-        " a streaming",
-        " response",
-        " from the",
-        " LLM service."
-    ]
+    response_chunks = ["This is", " a streaming", " response", " from the", " LLM service."]
     for chunk in response_chunks:
         yield chunk + "\n"
         import asyncio
+
         await asyncio.sleep(0.1)
 
 
@@ -806,6 +829,7 @@ async def stream_response(
     http_request: Request = None,
 ):
     """Streaming endpoint for LLM responses."""
+
     async def logged_stream_response(prompt: str) -> AsyncGenerator[str, None]:
         start_time = time.time()
         try:
@@ -840,10 +864,7 @@ async def stream_response(
             )
             raise
 
-    return StreamingResponse(
-        logged_stream_response(request.prompt),
-        media_type="text/plain"
-    )
+    return StreamingResponse(logged_stream_response(request.prompt), media_type="text/plain")
 
 
 # Feedback collection for LLM outputs (#402)
@@ -906,8 +927,8 @@ async def llm_feedback_dashboard(db: AsyncSession = Depends(get_db)) -> LLMFeedb
 async def llm_prompt_improvements(db: AsyncSession = Depends(get_db)) -> list[LLMPromptImprovement]:
     """Summarize feedback into prompt-improvement recommendations."""
     low_rows = (
-        await db.execute(select(LLMFeedback).where(LLMFeedback.rating <= 3))
-    ).scalars().all()
+        (await db.execute(select(LLMFeedback).where(LLMFeedback.rating <= 3))).scalars().all()
+    )
     by_feature: dict[str, list[LLMFeedback]] = {}
     for row in low_rows:
         by_feature.setdefault(row.feature, []).append(row)
@@ -926,6 +947,7 @@ async def llm_prompt_improvements(db: AsyncSession = Depends(get_db)) -> list[LL
 
 
 # ─── Translation endpoints (Issue 1) ────────────────────────────────────────
+
 
 class TranslationRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=50000)
@@ -1069,7 +1091,10 @@ async def invalidate_translation_cache(
     """Invalidate translation cache (specific text or all)."""
     if text:
         translation_service.invalidate_cache(text)
-        return {"message": "Cache entry invalidated", "text_hash": hashlib.sha256(text.encode()).hexdigest()[:16]}
+        return {
+            "message": "Cache entry invalidated",
+            "text_hash": hashlib.sha256(text.encode()).hexdigest()[:16],
+        }
     else:
         count = translation_service.invalidate_all_cache()
         return {"message": f"Invalidated {count} cache entries"}

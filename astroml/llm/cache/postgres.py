@@ -1,11 +1,9 @@
-from typing import Optional, Dict
-
 class PostgresCacheBackend:
-    def __init__(self, connection_string: Optional[str] = None):
+    def __init__(self, connection_string: str | None = None):
         self.connection_string = connection_string
-        self._store: Dict[str, str] = {}
+        self._store: dict[str, str] = {}
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         return self._store.get(key)
 
     def set(self, key: str, value: str) -> bool:

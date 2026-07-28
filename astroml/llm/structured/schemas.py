@@ -1,6 +1,7 @@
 """Common Pydantic schema definitions for structured outputs."""
+
 from datetime import datetime
-from typing import List, Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -9,9 +10,9 @@ class FraudExplanation(BaseModel):
 
     account_id: str = Field(..., description="Stellar account ID")
     risk_score: float = Field(..., ge=0.0, le=1.0, description="Risk score between 0 and 1")
-    reasons: List[str] = Field(..., min_length=1, description="List of fraud indicators")
+    reasons: list[str] = Field(..., min_length=1, description="List of fraud indicators")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence in the assessment")
-    recommended_action: Optional[str] = Field(None, description="Suggested next steps")
+    recommended_action: str | None = Field(None, description="Suggested next steps")
 
     @field_validator("account_id")
     @classmethod
@@ -26,8 +27,10 @@ class ModelPrediction(BaseModel):
 
     prediction: str = Field(..., description="Prediction label or value")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Model confidence")
-    top_features: List[str] = Field(..., description="Most important features")
-    feature_contributions: dict = Field(default_factory=dict, description="Feature importance scores")
+    top_features: list[str] = Field(..., description="Most important features")
+    feature_contributions: dict = Field(
+        default_factory=dict, description="Feature importance scores"
+    )
     explanation: str = Field(..., description="Human-readable explanation")
 
 
@@ -38,7 +41,7 @@ class AnomalyAlert(BaseModel):
     anomaly_score: float = Field(..., ge=0.0, description="Anomaly score")
     anomaly_type: str = Field(..., description="Type of anomaly detected")
     context: str = Field(..., description="Historical context")
-    graph_patterns: List[str] = Field(default_factory=list, description="Relevant graph patterns")
+    graph_patterns: list[str] = Field(default_factory=list, description="Relevant graph patterns")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -49,5 +52,5 @@ class AccountSummary(BaseModel):
     transaction_count: int = Field(..., ge=0)
     total_volume: float = Field(..., ge=0.0)
     active_days: int = Field(..., ge=0)
-    risk_indicators: List[str] = Field(default_factory=list)
+    risk_indicators: list[str] = Field(default_factory=list)
     summary: str = Field(..., description="Natural language summary")

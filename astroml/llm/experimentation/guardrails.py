@@ -1,12 +1,13 @@
 """Safety guardrails for experiments to prevent negative impacts."""
 
-from typing import Dict, Any, List
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
 class SafetyMetrics:
     """Safety metrics for an experiment variant."""
+
     hallucination_rate: float
     toxicity_score: float
     anomaly_count: int
@@ -16,7 +17,7 @@ class SafetyMetrics:
 class SafetyGuardrails:
     """
     Monitor and enforce safety constraints during experiments.
-    
+
     Prevents deploying models with safety regressions.
     """
 
@@ -34,7 +35,7 @@ class SafetyGuardrails:
         variant_name: str,
         safety_metrics: SafetyMetrics,
         baseline_metrics: SafetyMetrics = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check if variant meets safety constraints.
 
@@ -59,9 +60,8 @@ class SafetyGuardrails:
         # Check latency regression if baseline provided
         if baseline_metrics:
             latency_increase = (
-                (safety_metrics.latency_p99_ms - baseline_metrics.latency_p99_ms) 
-                / baseline_metrics.latency_p99_ms
-            )
+                safety_metrics.latency_p99_ms - baseline_metrics.latency_p99_ms
+            ) / baseline_metrics.latency_p99_ms
             if latency_increase > self.thresholds["max_latency_increase"]:
                 issues.append(f"Latency increased {latency_increase:.1%}")
 
@@ -80,7 +80,7 @@ class SafetyGuardrails:
     def should_rollback(
         self,
         variant_name: str,
-        safety_check: Dict[str, Any],
+        safety_check: dict[str, Any],
     ) -> bool:
         """
         Determine if experiment should rollback.
@@ -105,15 +105,15 @@ class SafetyGuardrails:
         if f"max_{metric_name}" in self.thresholds:
             self.thresholds[f"max_{metric_name}"] = value
 
-    def get_thresholds(self) -> Dict[str, float]:
+    def get_thresholds(self) -> dict[str, float]:
         """Get all safety thresholds."""
         return self.thresholds.copy()
 
     def monitor_continuous(
         self,
-        observations: List[Dict[str, Any]],
+        observations: list[dict[str, Any]],
         window_size: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Continuously monitor safety during experiment.
 

@@ -5,13 +5,12 @@ This module provides functionality to update documentation when code changes,
 detecting outdated docs and applying updates while preserving manual edits.
 """
 
+import difflib
 import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Set
-import difflib
 
 from astroml.llm.docs.code_analyzer import CodeAnalyzer, CodeElement
 
@@ -32,14 +31,14 @@ class DocMetadata:
     """
 
     file_path: str
-    source_files: List[str] = field(default_factory=list)
+    source_files: list[str] = field(default_factory=list)
     hash: str = ""
     generated_at: str = ""
     last_updated: str = ""
     manual_edits: bool = False
     checksum: str = ""
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "file_path": self.file_path,
@@ -52,7 +51,7 @@ class DocMetadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "DocMetadata":
+    def from_dict(cls, data: dict) -> "DocMetadata":
         """Create from dictionary."""
         return cls(**data)
 
@@ -71,9 +70,9 @@ class UpdateResult:
     """
 
     success: bool
-    updated_files: List[str] = field(default_factory=list)
-    skipped_files: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    updated_files: list[str] = field(default_factory=list)
+    skipped_files: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     changes_made: str = ""
 
 
@@ -103,7 +102,7 @@ class DocumentationUpdater:
     def update_documentation(
         self,
         doc_path: str,
-        source_paths: List[str],
+        source_paths: list[str],
         preserve_manual_edits: bool = True,
     ) -> UpdateResult:
         """
@@ -141,7 +140,7 @@ class DocumentationUpdater:
             # Read existing documentation if it exists
             existing_doc = ""
             if Path(doc_path).exists():
-                with open(doc_path, "r", encoding="utf-8") as f:
+                with open(doc_path, encoding="utf-8") as f:
                     existing_doc = f.read()
 
             # Generate new documentation
@@ -177,7 +176,7 @@ class DocumentationUpdater:
 
         return result
 
-    def detect_outdated_docs(self, doc_dir: str) -> List[str]:
+    def detect_outdated_docs(self, doc_dir: str) -> list[str]:
         """
         Detect documentation files that are outdated.
 
@@ -191,7 +190,7 @@ class DocumentationUpdater:
 
         for metadata_file in self.metadata_dir.glob("*.json"):
             try:
-                with open(metadata_file, "r") as f:
+                with open(metadata_file) as f:
                     metadata = DocMetadata.from_dict(json.load(f))
 
                 # Check if source files still exist
@@ -212,7 +211,7 @@ class DocumentationUpdater:
 
     def batch_update(
         self,
-        mappings: Dict[str, List[str]],
+        mappings: dict[str, list[str]],
         preserve_manual_edits: bool = True,
     ) -> UpdateResult:
         """
@@ -228,16 +227,16 @@ class DocumentationUpdater:
         result = UpdateResult(success=True)
 
         for doc_path, source_paths in mappings.items():
-            update_result = self.update_documentation(
-                doc_path, source_paths, preserve_manual_edits
-            )
+            update_result = self.update_documentation(doc_path, source_paths, preserve_manual_edits)
 
             result.updated_files.extend(update_result.updated_files)
             result.skipped_files.extend(update_result.skipped_files)
             result.errors.extend(update_result.errors)
 
         result.success = len(result.errors) == 0
-        result.changes_made = f"Updated {len(result.updated_files)} file(s), skipped {len(result.skipped_files)}"
+        result.changes_made = (
+            f"Updated {len(result.updated_files)} file(s), skipped {len(result.skipped_files)}"
+        )
 
         return result
 
@@ -252,12 +251,10 @@ class DocumentationUpdater:
         if metadata:
             metadata.manual_edits = True
             metadata.last_updated = datetime.now().isoformat()
-            metadata.checksum = self._calculate_checksum(
-                Path(doc_path).read_text(encoding="utf-8")
-            )
+            metadata.checksum = self._calculate_checksum(Path(doc_path).read_text(encoding="utf-8"))
             self._save_metadata(metadata)
 
-    def _load_metadata(self, doc_path: str) -> Optional[DocMetadata]:
+    def _load_metadata(self, doc_path: str) -> DocMetadata | None:
         """Load metadata for a documentation file."""
         metadata_file = self.metadata_dir / f"{Path(doc_path).stem}.json"
 
@@ -265,7 +262,7 @@ class DocumentationUpdater:
             return None
 
         try:
-            with open(metadata_file, "r") as f:
+            with open(metadata_file) as f:
                 return DocMetadata.from_dict(json.load(f))
         except Exception:
             return None
@@ -277,7 +274,7 @@ class DocumentationUpdater:
         with open(metadata_file, "w") as f:
             json.dump(metadata.to_dict(), f, indent=2)
 
-    def _calculate_source_hash(self, source_paths: List[str]) -> str:
+    def _calculate_source_hash(self, source_paths: list[str]) -> str:
         """Calculate hash of source files."""
         hasher = hashlib.sha256()
 
@@ -292,9 +289,7 @@ class DocumentationUpdater:
         """Calculate checksum of content."""
         return hashlib.md5(content.encode()).hexdigest()
 
-    def _generate_documentation(
-        self, elements: List[CodeElement], existing_doc: str = ""
-    ) -> str:
+    def _generate_documentation(self, elements: list[CodeElement], existing_doc: str = "") -> str:
         """
         Generate documentation from code elements.
 
@@ -384,9 +379,7 @@ class DocumentationUpdater:
         old_lines = old_doc.split("\n")
         new_lines = new_doc.split("\n")
 
-        diff = difflib.unified_diff(
-            old_lines, new_lines, lineterm="", fromfile="old", tofile="new"
-        )
+        diff = difflib.unified_diff(old_lines, new_lines, lineterm="", fromfile="old", tofile="new")
 
         return "\n".join(diff)
 

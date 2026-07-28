@@ -2,6 +2,7 @@
 
 Resolves #455: Pre-built safety instructions to embed in every system prompt.
 """
+
 from __future__ import annotations
 
 from astroml.llm.safety.guards import StrictnessLevel

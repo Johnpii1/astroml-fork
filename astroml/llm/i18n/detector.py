@@ -1,13 +1,12 @@
 """Language detection for automatic locale identification."""
 
-from typing import Dict, Tuple
 import re
 
 
 class LanguageDetector:
     """
     Detect language from text input.
-    
+
     Targets >95% accuracy for supported languages.
     """
 
@@ -22,7 +21,7 @@ class LanguageDetector:
             "ar": r"(شكرا|مرحبا|ك|و)",
         }
 
-    def detect_language(self, text: str) -> Tuple[str, float]:
+    def detect_language(self, text: str) -> tuple[str, float]:
         """
         Detect language from text.
 
@@ -65,7 +64,7 @@ class LanguageDetector:
         """
         return [self.detect_language(text) for text in texts]
 
-    def get_confidence_score(self, text: str) -> Dict[str, float]:
+    def get_confidence_score(self, text: str) -> dict[str, float]:
         """
         Get confidence scores for all languages.
 

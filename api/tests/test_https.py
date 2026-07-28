@@ -1,11 +1,12 @@
 """Tests for HTTPS enforcement middleware."""
+
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from api.middleware.https import HTTPSRedirectMiddleware, HSTSMiddleware
+from api.middleware.https import HSTSMiddleware, HTTPSRedirectMiddleware
 
 
 @pytest.fixture
@@ -139,7 +140,9 @@ def test_https_redirect_allowed_hosts_match(app_with_https_redirect_allowed_host
     assert "location" in response.headers
 
 
-def test_https_redirect_allowed_hosts_no_match(app_with_https_redirect_allowed_hosts: FastAPI) -> None:
+def test_https_redirect_allowed_hosts_no_match(
+    app_with_https_redirect_allowed_hosts: FastAPI,
+) -> None:
     """Test that HTTPS redirect is skipped for non-allowed hosts."""
     client = TestClient(app_with_https_redirect_allowed_hosts, base_url="http://other.com")
     response = client.get("/")

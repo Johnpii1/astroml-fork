@@ -6,12 +6,10 @@ docstrings, type hints, and other metadata for documentation generation.
 """
 
 import ast
-import inspect
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Optional, Any, Set
-import importlib.util
+from typing import Any, Optional
 
 
 class ElementType(Enum):
@@ -52,21 +50,21 @@ class CodeElement:
 
     name: str
     element_type: ElementType
-    docstring: Optional[str] = None
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    signature: Optional[str] = None
-    type_hints: Dict[str, str] = field(default_factory=dict)
-    decorators: List[str] = field(default_factory=list)
-    parameters: List[Dict[str, Any]] = field(default_factory=list)
-    returns: Optional[str] = None
-    raises: List[str] = field(default_factory=list)
-    examples: List[str] = field(default_factory=list)
+    docstring: str | None = None
+    file_path: str | None = None
+    line_number: int | None = None
+    signature: str | None = None
+    type_hints: dict[str, str] = field(default_factory=dict)
+    decorators: list[str] = field(default_factory=list)
+    parameters: list[dict[str, Any]] = field(default_factory=list)
+    returns: str | None = None
+    raises: list[str] = field(default_factory=list)
+    examples: list[str] = field(default_factory=list)
     parent: Optional["CodeElement"] = None
-    children: List["CodeElement"] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    children: list["CodeElement"] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "name": self.name,
@@ -101,11 +99,11 @@ class CodeAnalyzer:
 
     def __init__(self):
         """Initialize the code analyzer."""
-        self.elements: List[CodeElement] = []
-        self.current_module: Optional[CodeElement] = None
-        self.current_class: Optional[CodeElement] = None
+        self.elements: list[CodeElement] = []
+        self.current_module: CodeElement | None = None
+        self.current_class: CodeElement | None = None
 
-    def analyze_file(self, file_path: str) -> List[CodeElement]:
+    def analyze_file(self, file_path: str) -> list[CodeElement]:
         """
         Analyze a Python file and extract code elements.
 
@@ -115,12 +113,12 @@ class CodeAnalyzer:
         Returns:
             List of CodeElement objects
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         return self.analyze_content(content, file_path)
 
-    def analyze_content(self, content: str, file_path: str = None) -> List[CodeElement]:
+    def analyze_content(self, content: str, file_path: str = None) -> list[CodeElement]:
         """
         Analyze Python code content and extract code elements.
 
@@ -159,8 +157,8 @@ class CodeAnalyzer:
         return self.elements
 
     def analyze_directory(
-        self, directory_path: str, patterns: List[str] = None
-    ) -> List[CodeElement]:
+        self, directory_path: str, patterns: list[str] = None
+    ) -> list[CodeElement]:
         """
         Analyze all Python files in a directory.
 
@@ -185,7 +183,7 @@ class CodeAnalyzer:
 
         return all_elements
 
-    def extract_api_endpoints(self, file_path: str) -> List[Dict[str, Any]]:
+    def extract_api_endpoints(self, file_path: str) -> list[dict[str, Any]]:
         """
         Extract FastAPI endpoint information from a file.
 
@@ -195,7 +193,7 @@ class CodeAnalyzer:
         Returns:
             List of endpoint information dictionaries
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         endpoints = []
@@ -240,7 +238,7 @@ class CodeAnalyzer:
                         return str(decorator.args[0].value)
                 return "/"
 
-            def _extract_parameters(self, node: ast.FunctionDef) -> List[Dict[str, str]]:
+            def _extract_parameters(self, node: ast.FunctionDef) -> list[dict[str, str]]:
                 """Extract function parameters."""
                 params = []
                 for arg in node.args.args:
@@ -250,7 +248,7 @@ class CodeAnalyzer:
                     params.append(param_info)
                 return params
 
-            def _extract_return_type(self, node: ast.FunctionDef) -> Optional[str]:
+            def _extract_return_type(self, node: ast.FunctionDef) -> str | None:
                 """Extract return type."""
                 if node.returns:
                     return ast.unparse(node.returns)
@@ -261,9 +259,7 @@ class CodeAnalyzer:
 
         return endpoints
 
-    def extract_examples_from_tests(
-        self, test_file_path: str, source_file_path: str
-    ) -> List[str]:
+    def extract_examples_from_tests(self, test_file_path: str, source_file_path: str) -> list[str]:
         """
         Extract code examples from test files.
 
@@ -277,7 +273,7 @@ class CodeAnalyzer:
         examples = []
 
         try:
-            with open(test_file_path, "r", encoding="utf-8") as f:
+            with open(test_file_path, encoding="utf-8") as f:
                 content = f.read()
 
             tree = ast.parse(content)
@@ -301,7 +297,7 @@ class CodeAnalyzer:
 
         return examples
 
-    def get_import_structure(self, file_path: str) -> Dict[str, List[str]]:
+    def get_import_structure(self, file_path: str) -> dict[str, list[str]]:
         """
         Extract import structure from a file.
 
@@ -311,7 +307,7 @@ class CodeAnalyzer:
         Returns:
             Dictionary with 'standard', 'third_party', and 'local' imports
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         imports = {"standard": [], "third_party": [], "local": []}
@@ -374,9 +370,9 @@ class DocumentationVisitor(ast.NodeVisitor):
             name=node.name,
             element_type=ElementType.CLASS,
             docstring=ast.get_docstring(node),
-            file_path=self.analyzer.current_module.file_path
-            if self.analyzer.current_module
-            else None,
+            file_path=(
+                self.analyzer.current_module.file_path if self.analyzer.current_module else None
+            ),
             line_number=node.lineno,
             decorators=[ast.unparse(d) for d in node.decorator_list],
             metadata={
@@ -404,11 +400,7 @@ class DocumentationVisitor(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Visit function definition."""
-        element_type = (
-            ElementType.METHOD
-            if self.analyzer.current_class
-            else ElementType.FUNCTION
-        )
+        element_type = ElementType.METHOD if self.analyzer.current_class else ElementType.FUNCTION
 
         # Extract parameters
         parameters = []
@@ -417,9 +409,7 @@ class DocumentationVisitor(ast.NodeVisitor):
             if arg.annotation:
                 param_info["type"] = ast.unparse(arg.annotation)
             if arg.arg in node.args.defaults:
-                param_info["default"] = ast.unparse(
-                    node.args.defaults[node.args.args.index(arg)]
-                )
+                param_info["default"] = ast.unparse(node.args.defaults[node.args.args.index(arg)])
             parameters.append(param_info)
 
         # Extract return type
@@ -435,9 +425,9 @@ class DocumentationVisitor(ast.NodeVisitor):
             name=node.name,
             element_type=element_type,
             docstring=docstring,
-            file_path=self.analyzer.current_module.file_path
-            if self.analyzer.current_module
-            else None,
+            file_path=(
+                self.analyzer.current_module.file_path if self.analyzer.current_module else None
+            ),
             line_number=node.lineno,
             signature=ast.unparse(node),
             decorators=[ast.unparse(d) for d in node.decorator_list],
@@ -446,9 +436,7 @@ class DocumentationVisitor(ast.NodeVisitor):
             examples=examples,
             metadata={
                 "is_async": isinstance(node, ast.AsyncFunctionDef),
-                "is_property": any(
-                    "property" in ast.unparse(d) for d in node.decorator_list
-                ),
+                "is_property": any("property" in ast.unparse(d) for d in node.decorator_list),
             },
         )
 
@@ -473,7 +461,7 @@ class DocumentationVisitor(ast.NodeVisitor):
         """Visit async function definition."""
         self.visit_FunctionDef(node)
 
-    def _extract_examples(self, docstring: str) -> List[str]:
+    def _extract_examples(self, docstring: str) -> list[str]:
         """Extract code examples from docstring."""
         examples = []
         lines = docstring.split("\n")

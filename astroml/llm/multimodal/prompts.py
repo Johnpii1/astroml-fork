@@ -5,12 +5,12 @@ Provides templates for receipt analysis, document verification, fraud detection,
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, List
 from enum import Enum
 
 
 class PromptTemplate(str, Enum):
     """Predefined prompt templates."""
+
     RECEIPT_ANALYSIS = "receipt_analysis"
     KYC_VERIFICATION = "kyc_verification"
     FRAUD_DETECTION = "fraud_detection"
@@ -22,9 +22,10 @@ class PromptTemplate(str, Enum):
 @dataclass
 class MultimodalPrompt:
     """A multimodal prompt with text and image components."""
+
     text: str
-    image_paths: List[str]
-    template: Optional[PromptTemplate] = None
+    image_paths: list[str]
+    template: PromptTemplate | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -54,7 +55,6 @@ class MultimodalPromptBuilder:
 6. Any loyalty points or discounts applied
 
 Provide the response in a structured JSON format with high confidence scores.""",
-
         PromptTemplate.KYC_VERIFICATION: """Verify this identity document for KYC purposes. Extract:
 1. Document type (passport, driver's license, ID card)
 2. Full name
@@ -64,7 +64,6 @@ Provide the response in a structured JSON format with high confidence scores."""
 6. Any security features or holograms visible
 
 Assess document quality and authenticity. Provide confidence scores for each field.""",
-
         PromptTemplate.FRAUD_DETECTION: """Analyze this image for fraud indicators. Identify:
 1. Suspicious elements or anomalies
 2. Signs of tampering or manipulation
@@ -73,7 +72,6 @@ Assess document quality and authenticity. Provide confidence scores for each fie
 5. Overall risk level (low, medium, high, critical)
 
 Provide reasoning for each finding.""",
-
         PromptTemplate.CHART_ANALYSIS: """Analyze this chart and provide:
 1. Chart type and title
 2. Axis labels and scale ranges
@@ -83,7 +81,6 @@ Provide reasoning for each finding.""",
 6. Insights about the data
 
 Format values as a structured table if possible.""",
-
         PromptTemplate.DOCUMENT_SUMMARY: """Read and summarize this document. Provide:
 1. Document type and purpose
 2. Key findings or conclusions
@@ -92,7 +89,6 @@ Format values as a structured table if possible.""",
 5. Any tables or structured data present
 
 Keep summary concise but comprehensive.""",
-
         PromptTemplate.TEXT_EXTRACTION: """Extract all visible text from this image. Preserve:
 1. Original formatting (headers, paragraphs, lists)
 2. Table structure if present
@@ -134,7 +130,7 @@ Output as clean, readable text.""",
     def build_kyc_verification_prompt(
         self,
         image_path: str,
-        country: Optional[str] = None,
+        country: str | None = None,
     ) -> MultimodalPrompt:
         """
         Build a prompt for KYC document verification.
@@ -159,7 +155,7 @@ Output as clean, readable text.""",
     def build_fraud_detection_prompt(
         self,
         image_path: str,
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> MultimodalPrompt:
         """
         Build a prompt for fraud detection.
@@ -208,8 +204,8 @@ Output as clean, readable text.""",
 
     def build_document_summary_prompt(
         self,
-        image_paths: List[str],
-        focus_areas: Optional[List[str]] = None,
+        image_paths: list[str],
+        focus_areas: list[str] | None = None,
     ) -> MultimodalPrompt:
         """
         Build a prompt for document summarization.
@@ -251,7 +247,7 @@ Output as clean, readable text.""",
     def build_custom_prompt(
         self,
         text: str,
-        image_paths: List[str],
+        image_paths: list[str],
     ) -> MultimodalPrompt:
         """
         Build a custom multimodal prompt.
@@ -281,7 +277,7 @@ Output as clean, readable text.""",
         """
         return self.TEMPLATES.get(template_name, "")
 
-    def list_templates(self) -> List[str]:
+    def list_templates(self) -> list[str]:
         """
         List all available templates.
 

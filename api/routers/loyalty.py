@@ -7,18 +7,20 @@ Endpoints:
   GET  /api/v1/loyalty/tiers                  — all tiers with thresholds
   GET  /api/v1/loyalty/{account_id}/referral  — referral link + stats
 """
+
 from __future__ import annotations
 
 import hashlib
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone, date
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import cast, Date, func, select
+from sqlalchemy import Date, cast, func, select
 from sqlalchemy.orm import Session
 
+from api.graphql import publish_loyalty_points
 from api.schemas import (
     BenefitOut,
     LoyaltySummaryFull,
@@ -30,30 +32,37 @@ from api.schemas import (
     RedeemResponse,
     ReferralOut,
 )
-from api.graphql import publish_loyalty_points
 
 router = APIRouter(prefix="/api/v1/loyalty", tags=["loyalty"])
 
 # ─── Static tier definitions ─────────────────────────────────────────────────
 
 _TIERS = [
-    LoyaltyTierOut(id="bronze",   name="Bronze",   threshold=0,    multiplier=1.0,  color="#cd7f32"),
-    LoyaltyTierOut(id="silver",   name="Silver",   threshold=1500, multiplier=1.1,  color="#c0c0c0"),
-    LoyaltyTierOut(id="gold",     name="Gold",     threshold=3000, multiplier=1.25, color="#d4af37"),
-    LoyaltyTierOut(id="platinum", name="Platinum", threshold=6000, multiplier=1.5,  color="#e5e4e2"),
+    LoyaltyTierOut(id="bronze", name="Bronze", threshold=0, multiplier=1.0, color="#cd7f32"),
+    LoyaltyTierOut(id="silver", name="Silver", threshold=1500, multiplier=1.1, color="#c0c0c0"),
+    LoyaltyTierOut(id="gold", name="Gold", threshold=3000, multiplier=1.25, color="#d4af37"),
+    LoyaltyTierOut(id="platinum", name="Platinum", threshold=6000, multiplier=1.5, color="#e5e4e2"),
 ]
 
 _BENEFITS = {
-    "bronze":   [BenefitOut(id="b1", title="Basic Access", description="Access to standard features.")],
-    "silver":   [BenefitOut(id="b1", title="Free Shipping", description="No shipping fees."),
-                 BenefitOut(id="b2", title="Birthday Bonus", description="500 bonus points on birthday.")],
-    "gold":     [BenefitOut(id="b1", title="Free Shipping", description="No shipping fees."),
-                 BenefitOut(id="b2", title="Birthday Bonus", description="500 bonus points on birthday."),
-                 BenefitOut(id="b3", title="Priority Support", description="Skip the queue.")],
-    "platinum": [BenefitOut(id="b1", title="Free Shipping", description="No shipping fees."),
-                 BenefitOut(id="b2", title="Birthday Bonus", description="1000 bonus points on birthday."),
-                 BenefitOut(id="b3", title="Priority Support", description="Skip the queue."),
-                 BenefitOut(id="b4", title="Dedicated Manager", description="Personal account manager.")],
+    "bronze": [
+        BenefitOut(id="b1", title="Basic Access", description="Access to standard features.")
+    ],
+    "silver": [
+        BenefitOut(id="b1", title="Free Shipping", description="No shipping fees."),
+        BenefitOut(id="b2", title="Birthday Bonus", description="500 bonus points on birthday."),
+    ],
+    "gold": [
+        BenefitOut(id="b1", title="Free Shipping", description="No shipping fees."),
+        BenefitOut(id="b2", title="Birthday Bonus", description="500 bonus points on birthday."),
+        BenefitOut(id="b3", title="Priority Support", description="Skip the queue."),
+    ],
+    "platinum": [
+        BenefitOut(id="b1", title="Free Shipping", description="No shipping fees."),
+        BenefitOut(id="b2", title="Birthday Bonus", description="1000 bonus points on birthday."),
+        BenefitOut(id="b3", title="Priority Support", description="Skip the queue."),
+        BenefitOut(id="b4", title="Dedicated Manager", description="Personal account manager."),
+    ],
 }
 
 
@@ -81,9 +90,11 @@ def _next_tier(balance: int) -> Optional[NextTierInfo]:
 
 # ─── DB dependency + ORM models ───────────────────────────────────────────────
 
+
 def _get_db():
     try:
         from astroml.db.session import SessionLocal  # noqa: PLC0415
+
         db = SessionLocal()
         try:
             yield db
@@ -97,6 +108,7 @@ def _get_loyalty_models():
     """Lazy-import loyalty ORM models. Returns (LoyaltyAccount, PointsLedger) or (None, None)."""
     try:
         from api.loyalty_models import LoyaltyAccount, PointsLedger  # noqa: PLC0415
+
         return LoyaltyAccount, PointsLedger
     except ImportError:
         return None, None
@@ -115,6 +127,7 @@ def _get_or_create_account(account_id: str, db: Session):
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
+
 
 @router.get("/tiers", response_model=list[LoyaltyTierOut])
 def list_tiers():
@@ -207,13 +220,16 @@ def redeem_points(
             raise HTTPException(status_code=400, detail="Minimum redemption is 100 points")
 
         # One redemption per day
-        today_count = db.scalar(
-            select(func.count(PointsLedger.id)).where(
-                PointsLedger.account_id == account_id,
-                PointsLedger.txn_type == "redeem",
-                cast(PointsLedger.created_at, Date) == date.today(),
+        today_count = (
+            db.scalar(
+                select(func.count(PointsLedger.id)).where(
+                    PointsLedger.account_id == account_id,
+                    PointsLedger.txn_type == "redeem",
+                    cast(PointsLedger.created_at, Date) == date.today(),
+                )
             )
-        ) or 0
+            or 0
+        )
         if today_count >= 1:
             raise HTTPException(status_code=400, detail="One redemption allowed per day")
 
@@ -257,17 +273,21 @@ def get_referral(account_id: str, db: Optional[Session] = Depends(_get_db)):
     if db is not None:
         _, PointsLedger = _get_loyalty_models()
         if PointsLedger is not None:
-            rewards = db.scalar(
-                select(func.count(PointsLedger.id)).where(
-                    PointsLedger.account_id == account_id,
-                    PointsLedger.source == f"referral:{code}",
+            rewards = (
+                db.scalar(
+                    select(func.count(PointsLedger.id)).where(
+                        PointsLedger.account_id == account_id,
+                        PointsLedger.source == f"referral:{code}",
+                    )
                 )
-            ) or 0
+                or 0
+            )
 
     return ReferralOut(url=f"{base_url}?code={code}", invited=invited, rewards=rewards)
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────
+
 
 @contextmanager
 def _noop_ctx():
@@ -275,6 +295,7 @@ def _noop_ctx():
 
 
 # ─── Loyalty Points Update ──────────────────────────────────────────────────
+
 
 async def update_loyalty_points(
     account_id: str,
@@ -342,14 +363,20 @@ async def update_loyalty_points(
         db.refresh(acc)
 
         # Publish to GraphQL subscription
-        await publish_loyalty_points({
-            "id": acc.id,
-            "account_id": acc.account_id,
-            "balance": acc.points_balance,
-            "tier": acc.tier_id,
-            "multiplier": _tier_for(acc.points_balance).multiplier,
-            "updated_at": acc.updated_at.isoformat() if hasattr(acc, 'updated_at') else datetime.now(timezone.utc).isoformat(),
-        })
+        await publish_loyalty_points(
+            {
+                "id": acc.id,
+                "account_id": acc.account_id,
+                "balance": acc.points_balance,
+                "tier": acc.tier_id,
+                "multiplier": _tier_for(acc.points_balance).multiplier,
+                "updated_at": (
+                    acc.updated_at.isoformat()
+                    if hasattr(acc, "updated_at")
+                    else datetime.now(timezone.utc).isoformat()
+                ),
+            }
+        )
 
         return {
             "success": True,

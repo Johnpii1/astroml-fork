@@ -1,4 +1,5 @@
 """Integration tests for the LLM router."""
+
 from __future__ import annotations
 
 
@@ -31,6 +32,4 @@ def test_llm_ask_includes_router_context(client):
     assert response.status_code == 200
 
     data = response.json()
-    assert any(
-        citation["source_id"] == "api/routers/llm.py" for citation in data["citations"]
-    )
+    assert any(citation["source_id"] == "api/routers/llm.py" for citation in data["citations"])

@@ -8,6 +8,7 @@ Standardized log fields:
 - request_id (from context)
 - feature_name / ledger_id / etc. (contextual fields)
 """
+
 from __future__ import annotations
 
 import contextvars
@@ -16,14 +17,15 @@ import logging
 import os
 import sys
 import uuid
-from typing import Any, Optional
-
+from typing import Any
 
 _DEFAULT_LEVEL = "INFO"
 _DEFAULT_FORMAT = "json"
 _TEXT_FORMAT = "%(asctime)s %(levelname)-7s %(name)s - %(message)s"
 
-_correlation_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("correlation_id", default=None)
+_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "correlation_id", default=None
+)
 _module_log_levels: dict[str, str] = {}
 _CONFIGURED = False
 
@@ -44,7 +46,30 @@ class StructuredJsonFormatter(logging.Formatter):
         for key, value in record.__dict__.items():
             if key in payload:
                 continue
-            if key in {"args", "asctime", "created", "exc_info", "exc_text", "filename", "funcName", "levelname", "levelno", "lineno", "module", "msecs", "msg", "name", "pathname", "process", "processName", "relativeCreated", "stack_info", "thread", "threadName", "taskName"}:
+            if key in {
+                "args",
+                "asctime",
+                "created",
+                "exc_info",
+                "exc_text",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "msg",
+                "name",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "thread",
+                "threadName",
+                "taskName",
+            }:
                 continue
             try:
                 json.dumps(value)
@@ -54,7 +79,9 @@ class StructuredJsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def configure_logging(level: Optional[str] = None, format: Optional[str] = None, force: bool = False) -> None:
+def configure_logging(
+    level: str | None = None, format: str | None = None, force: bool = False
+) -> None:
     global _CONFIGURED
     if _CONFIGURED and not force:
         return
@@ -73,14 +100,14 @@ def configure_logging(level: Optional[str] = None, format: Optional[str] = None,
     _CONFIGURED = True
 
 
-def set_correlation_id(correlation_id: Optional[str] = None) -> str:
+def set_correlation_id(correlation_id: str | None = None) -> str:
     if correlation_id is None:
         correlation_id = str(uuid.uuid4())
     _correlation_id.set(correlation_id)
     return correlation_id
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     return _correlation_id.get()
 
 
@@ -93,7 +120,7 @@ def set_module_log_level(module_name: str, level: str) -> None:
     logging.getLogger(module_name).setLevel(level.upper())
 
 
-def get_module_log_level(module_name: str) -> Optional[str]:
+def get_module_log_level(module_name: str) -> str | None:
     return _module_log_levels.get(module_name)
 
 
@@ -112,8 +139,8 @@ def configure_module_levels_from_env() -> None:
             set_module_log_level(module, level)
 
 
-class correlation_id:
-    def __init__(self, correlation_id: Optional[str] = None):
+class CorrelationId:
+    def __init__(self, correlation_id: str | None = None):
         self.correlation_id = correlation_id or str(uuid.uuid4())
         self.token = None
 
@@ -134,7 +161,17 @@ def sanitize_log_value(value: str, max_length: int = 1000) -> str:
 
 
 __all__ = [
-    "configure_logging", "set_correlation_id", "get_correlation_id",
-    "clear_correlation_id", "set_module_log_level", "get_module_log_level",
-    "configure_module_levels_from_env", "correlation_id", "sanitize_log_value",
+    "configure_logging",
+    "set_correlation_id",
+    "get_correlation_id",
+    "clear_correlation_id",
+    "set_module_log_level",
+    "get_module_log_level",
+    "configure_module_levels_from_env",
+    "CorrelationId",
+    "correlation_id",
+    "sanitize_log_value",
 ]
+
+# Backward-compatible alias
+correlation_id = CorrelationId

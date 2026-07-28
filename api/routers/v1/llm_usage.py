@@ -38,4 +38,3 @@ def usage_summary():
         "total_tokens": total_tokens,
         "window": "in-memory-recent (up to last 5000 events)",
     }
-

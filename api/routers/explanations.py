@@ -3,15 +3,17 @@
 Resolves #457: Generate human-readable explanations for model predictions,
 transactions, and fraud decisions using LLM.
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from api.services.llm import LLMService
 from api.routers.llm import get_llm_service
+from api.services.llm import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +21,13 @@ router = APIRouter(prefix="/api/v1/llm/explanations", tags=["llm", "explanations
 
 
 class ExplainRequest(BaseModel):
-    subject: str = Field(..., description="What to explain: 'fraud_decision', 'model_prediction', 'transaction'")
+    subject: str = Field(
+        ..., description="What to explain: 'fraud_decision', 'model_prediction', 'transaction'"
+    )
     context: dict[str, Any] = Field(..., description="Contextual data for the explanation")
-    audience: str = Field("user", pattern="^(user|analyst|regulator)$", description="Target audience")
+    audience: str = Field(
+        "user", pattern="^(user|analyst|regulator)$", description="Target audience"
+    )
     model: str = Field("gpt-4-turbo")
     max_words: int = Field(150, ge=20, le=500)
 

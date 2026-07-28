@@ -6,7 +6,7 @@ including pattern matching for common SQL issues.
 """
 
 import re
-from typing import List, Dict, Any
+from typing import Any
 
 from astroml.llm.code_review.suggestions import (
     Suggestion,
@@ -27,11 +27,11 @@ class SQLAnalyzer:
         """Initialize the SQL analyzer."""
         self.patterns = self._init_patterns()
 
-    def _init_patterns(self) -> Dict[str, Dict[str, Any]]:
+    def _init_patterns(self) -> dict[str, dict[str, Any]]:
         """Initialize SQL analysis patterns."""
         return {
             "select_star": {
-                "pattern": re.compile(r'SELECT\s+\*\s+FROM', re.IGNORECASE),
+                "pattern": re.compile(r"SELECT\s+\*\s+FROM", re.IGNORECASE),
                 "severity": SuggestionSeverity.MEDIUM,
                 "category": SuggestionCategory.PERFORMANCE,
                 "message": "SELECT * can impact performance",
@@ -39,7 +39,7 @@ class SQLAnalyzer:
             },
             "missing_where": {
                 "pattern": re.compile(
-                    r'(DELETE\s+FROM|UPDATE\s+\w+\s+SET)\s+\w+\s*(?!WHERE)',
+                    r"(DELETE\s+FROM|UPDATE\s+\w+\s+SET)\s+\w+\s*(?!WHERE)",
                     re.IGNORECASE,
                 ),
                 "severity": SuggestionSeverity.HIGH,
@@ -48,16 +48,14 @@ class SQLAnalyzer:
                 "suggested_fix": "Add a WHERE clause to limit the scope",
             },
             "n_plus_one": {
-                "pattern": re.compile(r'IN\s*\(\s*SELECT', re.IGNORECASE),
+                "pattern": re.compile(r"IN\s*\(\s*SELECT", re.IGNORECASE),
                 "severity": SuggestionSeverity.MEDIUM,
                 "category": SuggestionCategory.PERFORMANCE,
                 "message": "Potential N+1 query pattern detected",
                 "suggested_fix": "Consider using JOINs instead of subqueries",
             },
             "implicit_join": {
-                "pattern": re.compile(
-                    r'FROM\s+\w+\s*,\s*\w+', re.IGNORECASE
-                ),
+                "pattern": re.compile(r"FROM\s+\w+\s*,\s*\w+", re.IGNORECASE),
                 "severity": SuggestionSeverity.LOW,
                 "category": SuggestionCategory.STYLE,
                 "message": "Implicit JOIN syntax used",
@@ -72,9 +70,7 @@ class SQLAnalyzer:
             },
         }
 
-    def analyze_diff(
-        self, diff_content: str, file_path: str
-    ) -> List[Suggestion]:
+    def analyze_diff(self, diff_content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze a git diff for SQL code issues.
 
@@ -93,9 +89,7 @@ class SQLAnalyzer:
 
         return suggestions
 
-    def analyze_code(
-        self, content: str, file_path: str
-    ) -> List[Suggestion]:
+    def analyze_code(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Analyze SQL code content for issues.
 
@@ -114,7 +108,7 @@ class SQLAnalyzer:
 
         return suggestions
 
-    def _extract_added_lines(self, diff_content: str) -> List[tuple]:
+    def _extract_added_lines(self, diff_content: str) -> list[tuple]:
         """
         Extract added lines from a git diff.
 
@@ -129,7 +123,7 @@ class SQLAnalyzer:
 
         for line in diff_content.split("\n"):
             if line.startswith("@@"):
-                match = re.search(r'\+(\d+)', line)
+                match = re.search(r"\+(\d+)", line)
                 if match:
                     current_line_num = int(match.group(1))
             elif line.startswith("+") and not line.startswith("+++"):
@@ -142,7 +136,7 @@ class SQLAnalyzer:
 
     def _analyze_line(
         self, line_content: str, file_path: str, line_number: int
-    ) -> List[Suggestion]:
+    ) -> list[Suggestion]:
         """
         Analyze a single line of SQL code.
 

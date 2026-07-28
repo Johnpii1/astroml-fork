@@ -4,6 +4,7 @@ Integration tests — fraud detection (issue #244).
 Covers: ORM model creation, risk-level classification, alert filtering,
 stats aggregation, and score/alert endpoint shapes.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -48,11 +49,13 @@ class TestFraudAlertModel:
 
     def test_multiple_alerts_query(self, db_session):
         for score in [0.9, 0.6, 0.3]:
-            db_session.add(FraudAlert(
-                account_id="GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPGZWXNBFNKKZ4YH67FQJG2FZT",
-                risk_score=score,
-                risk_level=FraudAlert.risk_level_for_score(score),
-            ))
+            db_session.add(
+                FraudAlert(
+                    account_id="GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPGZWXNBFNKKZ4YH67FQJG2FZT",
+                    risk_score=score,
+                    risk_level=FraudAlert.risk_level_for_score(score),
+                )
+            )
         db_session.flush()
 
         results = db_session.execute(select(FraudAlert)).scalars().all()
@@ -60,16 +63,20 @@ class TestFraudAlertModel:
 
     def test_filter_by_risk_level(self, db_session):
         for score, level in [(0.9, "high"), (0.6, "medium"), (0.2, "low")]:
-            db_session.add(FraudAlert(
-                account_id="GCKFBEIYV2U22IO2BJ4KVJOIP7XPWQGQFKKWXR6DOSJBV5SG3B3ORJF",
-                risk_score=score,
-                risk_level=level,
-            ))
+            db_session.add(
+                FraudAlert(
+                    account_id="GCKFBEIYV2U22IO2BJ4KVJOIP7XPWQGQFKKWXR6DOSJBV5SG3B3ORJF",
+                    risk_score=score,
+                    risk_level=level,
+                )
+            )
         db_session.flush()
 
-        high = db_session.execute(
-            select(FraudAlert).where(FraudAlert.risk_level == "high")
-        ).scalars().all()
+        high = (
+            db_session.execute(select(FraudAlert).where(FraudAlert.risk_level == "high"))
+            .scalars()
+            .all()
+        )
         assert len(high) == 1
         assert high[0].risk_score == pytest.approx(0.9)
 

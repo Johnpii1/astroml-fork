@@ -3,6 +3,7 @@
 Resolves #456: Searchable audit log of every LLM call with user attribution,
 timestamps, and compliance reporting. Storage overhead target: <1KB/request.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,9 +23,7 @@ class LLMAuditEntry:
     """Immutable audit record for a single LLM call."""
 
     audit_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     user_id: str | None = None
     session_id: str | None = None
     operation: str = ""

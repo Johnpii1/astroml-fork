@@ -5,13 +5,13 @@ Handles resizing, format conversion, quality optimization for various inputs.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
 from enum import Enum
 from pathlib import Path
 
 
 class ImageFormat(str, Enum):
     """Supported image formats."""
+
     PNG = "png"
     JPEG = "jpeg"
     WEBP = "webp"
@@ -22,6 +22,7 @@ class ImageFormat(str, Enum):
 @dataclass
 class ImageConfig:
     """Configuration for image preprocessing."""
+
     max_width: int = 1920
     max_height: int = 1080
     target_format: ImageFormat = ImageFormat.JPEG
@@ -37,11 +38,11 @@ class ImagePreprocessor:
     Handles resizing, format conversion, quality optimization.
     """
 
-    def __init__(self, config: Optional[ImageConfig] = None):
+    def __init__(self, config: ImageConfig | None = None):
         """Initialize image preprocessor."""
         self.config = config or ImageConfig()
 
-    def resize_image(self, image_path: str, max_size: Optional[Tuple[int, int]] = None) -> dict:
+    def resize_image(self, image_path: str, max_size: tuple[int, int] | None = None) -> dict:
         """
         Resize image to maximum dimensions.
 
@@ -59,8 +60,8 @@ class ImagePreprocessor:
         if not path.exists():
             raise FileNotFoundError(f"Image not found: {image_path}")
 
-        max_width = (max_size[0] if max_size else self.config.max_width)
-        max_height = (max_size[1] if max_size else self.config.max_height)
+        max_width = max_size[0] if max_size else self.config.max_width
+        max_height = max_size[1] if max_size else self.config.max_height
 
         # Simulate resize
         original_size = (2048, 1536)
@@ -73,7 +74,7 @@ class ImagePreprocessor:
             "scale_factor": scale_factor,
         }
 
-    def convert_format(self, image_path: str, target_format: Optional[ImageFormat] = None) -> str:
+    def convert_format(self, image_path: str, target_format: ImageFormat | None = None) -> str:
         """
         Convert image to target format.
 
@@ -94,7 +95,7 @@ class ImagePreprocessor:
         # Simulate conversion
         return str(output_path)
 
-    def optimize_quality(self, image_path: str, quality: Optional[int] = None) -> dict:
+    def optimize_quality(self, image_path: str, quality: int | None = None) -> dict:
         """
         Optimize image quality and file size.
 
@@ -174,7 +175,7 @@ class ImagePreprocessor:
             True if format is supported
         """
         path = Path(image_path)
-        suffix = path.suffix.lstrip('.').lower()
+        suffix = path.suffix.lstrip(".").lower()
 
         supported = [fmt.value for fmt in ImageFormat]
         return suffix in supported

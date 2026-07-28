@@ -1,11 +1,12 @@
 """Audit logging service for sensitive API operations (issue #332)."""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models.orm import AuditLog

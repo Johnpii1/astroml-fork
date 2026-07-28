@@ -9,6 +9,7 @@ def test_parse_command_line_seed_sets_astroml_seed(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["train.py", "--seed", "123", "experiment=debug"])
 
     import train
+
     reload(train)
 
     train._parse_command_line_seed()

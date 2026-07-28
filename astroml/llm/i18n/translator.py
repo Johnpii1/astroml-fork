@@ -5,12 +5,12 @@ Handles translation between 10+ languages with caching.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, List
 from enum import Enum
 
 
 class SupportedLanguage(str, Enum):
     """Supported languages."""
+
     ENGLISH = "en"
     SPANISH = "es"
     FRENCH = "fr"
@@ -27,6 +27,7 @@ class SupportedLanguage(str, Enum):
 @dataclass
 class TranslationResult:
     """Result of a translation operation."""
+
     original_text: str
     translated_text: str
     source_language: str
@@ -60,7 +61,7 @@ class TranslationService:
         Args:
             cache_size: Maximum cache entries
         """
-        self._cache: Dict[str, str] = {}
+        self._cache: dict[str, str] = {}
         self.cache_size = cache_size
 
     def translate(
@@ -112,10 +113,10 @@ class TranslationService:
 
     def batch_translate(
         self,
-        texts: List[str],
+        texts: list[str],
         source_language: SupportedLanguage,
         target_language: SupportedLanguage,
-    ) -> List[TranslationResult]:
+    ) -> list[TranslationResult]:
         """
         Translate multiple texts.
 
@@ -127,10 +128,7 @@ class TranslationService:
         Returns:
             List of TranslationResults
         """
-        return [
-            self.translate(text, source_language, target_language)
-            for text in texts
-        ]
+        return [self.translate(text, source_language, target_language) for text in texts]
 
     def translate_prompt_template(
         self,
@@ -156,7 +154,7 @@ class TranslationService:
 
         return translations.get(target_language.value, template)
 
-    def get_supported_languages(self) -> List[str]:
+    def get_supported_languages(self) -> list[str]:
         """
         Get list of supported languages.
 
@@ -169,7 +167,7 @@ class TranslationService:
         """Clear translation cache."""
         self._cache.clear()
 
-    def get_cache_stats(self) -> Dict[str, int]:
+    def get_cache_stats(self) -> dict[str, int]:
         """Get cache statistics."""
         return {
             "cache_entries": len(self._cache),

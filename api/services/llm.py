@@ -3,19 +3,20 @@
 Resolves #457: Stateless service that wraps LLM providers with caching,
 cost calculation, observability hooks, and safety guardrail integration.
 """
+
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 import uuid
-import logging
-from typing import AsyncGenerator, Any
+from typing import Any, AsyncGenerator
 
-from astroml.llm.provider import LLMProvider, MockLLMProvider
-from astroml.llm.observability.tracer import LLMTracer
-from astroml.llm.observability.metrics import LLMMetrics
 from astroml.llm.observability.audit import LLMAuditLog
-from astroml.llm.safety.guards import SafetyGuard, SafetyDecision
+from astroml.llm.observability.metrics import LLMMetrics
+from astroml.llm.observability.tracer import LLMTracer
+from astroml.llm.provider import LLMProvider, MockLLMProvider
+from astroml.llm.safety.guards import SafetyDecision, SafetyGuard
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +77,7 @@ def _estimate_tokens(text: str) -> int:
 def _compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     """Compute estimated USD cost for a request."""
     table = _COST_TABLE.get(model, _COST_TABLE["gpt-3.5-turbo"])
-    return (
-        prompt_tokens / 1000 * table["prompt"]
-        + completion_tokens / 1000 * table["completion"]
-    )
+    return prompt_tokens / 1000 * table["prompt"] + completion_tokens / 1000 * table["completion"]
 
 
 class LLMService:
@@ -209,6 +207,7 @@ class LLMService:
         """Return mock embeddings (list of float vectors)."""
         # In production replace with real embedding provider
         import hashlib
+
         result = []
         for text in texts:
             seed = int(hashlib.md5(text.encode()).hexdigest(), 16)  # noqa: S324

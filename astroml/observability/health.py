@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import shutil
 import time
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Final, Iterable, Mapping
+from typing import Any, Final
 
 
 class HealthStatus(str, Enum):
@@ -224,9 +225,7 @@ class ReadinessState:
     def set_ready(self, ready: bool, detail: str = "") -> None:
         """Manually gate readiness, e.g. to drain traffic before shutdown."""
         self._ready = ready
-        self._detail = detail or (
-            "Ready." if ready else "Readiness disabled by operator."
-        )
+        self._detail = detail or ("Ready." if ready else "Readiness disabled by operator.")
 
     def reset(self) -> None:
         """Return to the pre-startup state (used by tests)."""

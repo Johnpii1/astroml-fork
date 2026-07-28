@@ -11,13 +11,13 @@ This package contains various checks for code review:
 - Complexity checks
 """
 
-from astroml.llm.code_review.checks.security import SecurityCheck
-from astroml.llm.code_review.checks.performance import PerformanceCheck
-from astroml.llm.code_review.checks.style import StyleCheck
-from astroml.llm.code_review.checks.correctness import CorrectnessCheck
-from astroml.llm.code_review.checks.testing import TestingCheck
-from astroml.llm.code_review.checks.documentation import DocumentationCheck
 from astroml.llm.code_review.checks.complexity import ComplexityCheck
+from astroml.llm.code_review.checks.correctness import CorrectnessCheck
+from astroml.llm.code_review.checks.documentation import DocumentationCheck
+from astroml.llm.code_review.checks.performance import PerformanceCheck
+from astroml.llm.code_review.checks.security import SecurityCheck
+from astroml.llm.code_review.checks.style import StyleCheck
+from astroml.llm.code_review.checks.testing import TestingCheck
 
 __all__ = [
     "SecurityCheck",

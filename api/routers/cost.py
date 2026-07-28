@@ -1,20 +1,22 @@
 """Cost API Endpoints."""
+
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from typing import Any, Dict, List, Optional
 
-from api.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from api.auth.dependencies import AuthContext, get_current_auth, require_scopes
+from api.database import get_db
+from astroml.db.models.cost import LLMBudget
 from astroml.llm.cost import (
-    get_cost_summary,
-    forecast_cost,
     check_budget,
+    forecast_cost,
+    get_cost_summary,
     set_emergency_override,
 )
-from astroml.db.models.cost import LLMBudget
 
 router = APIRouter(prefix="/api/v1/cost", tags=["cost"])
 
@@ -53,13 +55,11 @@ async def configure_budget_endpoint(
 ):
     """Configure or update budget limit and tier for the authenticated user."""
     user_id = str(auth.user_id or auth.subject)
-    
+
     # Fetch or create budget
-    result = await db.execute(
-        select(LLMBudget).where(LLMBudget.entity_id == user_id)
-    )
+    result = await db.execute(select(LLMBudget).where(LLMBudget.entity_id == user_id))
     budget = result.scalar_one_or_none()
-    
+
     if not budget:
         budget = LLMBudget(
             entity_id=user_id,
@@ -68,7 +68,7 @@ async def configure_budget_endpoint(
             limit_amount=limit_amount,
             current_spend=0.0,
             period=period,
-            is_blocked=False
+            is_blocked=False,
         )
         db.add(budget)
     else:
@@ -77,7 +77,7 @@ async def configure_budget_endpoint(
         budget.period = period
         if budget.current_spend < limit_amount:
             budget.is_blocked = False
-            
+
     await db.commit()
     return {
         "status": "success",
@@ -100,6 +100,6 @@ async def admin_override_endpoint(
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Budget for entity '{entity_id}' not found."
+            detail=f"Budget for entity '{entity_id}' not found.",
         )
     return {"status": "success", "entity_id": entity_id, "emergency_override": override}

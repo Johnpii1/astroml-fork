@@ -3,11 +3,12 @@
 Resolves #458: Integration tests for RAG query pipeline using mock providers
 and test document fixtures.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from tests.llm.fixtures import RAG_TEST_DOCUMENTS, MOCK_EMBEDDINGS, make_mock_embedding
+from tests.llm.fixtures import make_mock_embedding
 from tests.llm.utils import assert_valid_rag_response
 
 
@@ -68,6 +69,7 @@ class TestRAGPipelineIntegration:
     async def test_rag_query_returns_valid_structure(self, mock_provider):
         """RAG query should produce a valid response dict."""
         from api.services.llm import LLMService
+
         svc = LLMService(provider=mock_provider)
         result = await svc.rag_query(
             query="What is fraud detection?",
@@ -80,6 +82,7 @@ class TestRAGPipelineIntegration:
     async def test_rag_query_returns_requested_top_k(self, mock_provider):
         """top_k parameter controls number of returned documents."""
         from api.services.llm import LLMService
+
         svc = LLMService(provider=mock_provider)
         for top_k in (1, 3, 5):
             result = await svc.rag_query(
@@ -93,6 +96,7 @@ class TestRAGPipelineIntegration:
     async def test_rag_query_includes_answer(self, mock_provider):
         """RAG response must contain a non-empty answer string."""
         from api.services.llm import LLMService
+
         svc = LLMService(provider=mock_provider)
         result = await svc.rag_query(
             query="Explain fraud detection",

@@ -1,4 +1,5 @@
 import time
+
 import torch
 import torch.nn.functional as F
 from torch_geometric.datasets import Planetoid
@@ -6,12 +7,12 @@ from torch_geometric.transforms import NormalizeFeatures
 
 from astroml.models.gcn import GCN
 from astroml.training.metrics import (
-    TRAINING_EPOCHS_TOTAL,
-    TRAINING_LOSS,
+    LEARNING_RATE,
+    MODEL_PARAMETERS,
     TRAINING_ACCURACY,
     TRAINING_DURATION,
-    MODEL_PARAMETERS,
-    LEARNING_RATE,
+    TRAINING_EPOCHS_TOTAL,
+    TRAINING_LOSS,
 )
 from astroml.training.metrics_server import start_metrics_server
 
@@ -19,7 +20,7 @@ from astroml.training.metrics_server import start_metrics_server
 def train():
     # Start Prometheus metrics server
     start_metrics_server()
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dataset = Planetoid(root="data", name="Cora", transform=NormalizeFeatures())

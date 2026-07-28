@@ -7,14 +7,15 @@ test data for various domains and use cases.
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Type, Callable
+from typing import Any
 
 
 @dataclass
 class FixtureConfig:
     """Configuration for fixture generation."""
+
     domain: str = "general"
     include_mocks: bool = True
     realistic_data: bool = True
@@ -24,7 +25,7 @@ class FixtureConfig:
 class FixtureGenerator:
     """Generates test fixtures for various domains."""
 
-    def __init__(self, config: Optional[FixtureConfig] = None):
+    def __init__(self, config: FixtureConfig | None = None):
         self.config = config or FixtureConfig()
 
     def generate_pytest_fixture(
@@ -43,7 +44,7 @@ class FixtureGenerator:
     def generate_sqlalchemy_fixture(
         self,
         model_name: str,
-        fields: Dict[str, str],
+        fields: dict[str, str],
     ) -> str:
         """Generate a SQLAlchemy model fixture."""
         factory_name = f"create_{model_name.lower()}"
@@ -54,12 +55,13 @@ class FixtureGenerator:
             f"def {factory_name}(db_session) -> Callable[..., {model_name}]:\n"
             f"    def _factory({params}) -> {model_name}:\n"
             f"        instance = {model_name}(\n"
-            + "\n".join(f"            {name}={name}," for name in fields) + "\n"
-            f"        )\n"
-            f"        db_session.add(instance)\n"
-            f"        db_session.commit()\n"
-            f"        return instance\n"
-            f"    return _factory\n"
+            + "\n".join(f"            {name}={name}," for name in fields)
+            + "\n"
+            "        )\n"
+            "        db_session.add(instance)\n"
+            "        db_session.commit()\n"
+            "        return instance\n"
+            "    return _factory\n"
         )
 
     def generate_mock_fixture(self, class_name: str) -> str:
@@ -80,10 +82,7 @@ class FixtureGenerator:
                 "active": True,
             }
         elif return_type == "list":
-            return [
-                {"id": str(uuid.uuid4()), "value": i}
-                for i in range(self.config.num_samples)
-            ]
+            return [{"id": str(uuid.uuid4()), "value": i} for i in range(self.config.num_samples)]
         elif return_type == "str":
             return "test_string"
         elif return_type in ("int", "float"):
@@ -92,12 +91,12 @@ class FixtureGenerator:
             return True
         elif return_type == "pd.DataFrame":
             import pandas as pd
-            return pd.DataFrame({
-                "id": [str(uuid.uuid4()) for _ in range(5)],
-                "value": list(range(5)),
-                "timestamp": [
-                    datetime.utcnow() - timedelta(hours=i)
-                    for i in range(5)
-                ],
-            }).to_dict()
+
+            return pd.DataFrame(
+                {
+                    "id": [str(uuid.uuid4()) for _ in range(5)],
+                    "value": list(range(5)),
+                    "timestamp": [datetime.utcnow() - timedelta(hours=i) for i in range(5)],
+                }
+            ).to_dict()
         return None

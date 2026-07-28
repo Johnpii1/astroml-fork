@@ -4,15 +4,16 @@ A/B test runner for LLM prompt and model comparison.
 Manages traffic allocation, randomization, and experiment lifecycle.
 """
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional, Callable
-from enum import Enum
-from datetime import datetime
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 
 class TrafficAllocation(str, Enum):
     """Traffic allocation strategies."""
+
     EQUAL = "50/50"
     NINETY_TEN = "90/10"
     CUSTOM = "custom"
@@ -21,26 +22,28 @@ class TrafficAllocation(str, Enum):
 @dataclass
 class Variant:
     """A/B test variant."""
+
     name: str
-    prompt_override: Optional[str] = None
-    model_override: Optional[str] = None
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    prompt_override: str | None = None
+    model_override: str | None = None
+    parameters: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ABTestConfig:
     """Configuration for A/B test."""
+
     test_id: str
     name: str
     description: str
     control_variant: Variant
     treatment_variant: Variant
     traffic_allocation: TrafficAllocation = TrafficAllocation.EQUAL
-    custom_allocation: Optional[float] = None  # For CUSTOM allocation
+    custom_allocation: float | None = None  # For CUSTOM allocation
     min_sample_size: int = 1000
     target_significance: float = 0.05  # p-value threshold
     primary_metric: str = "task_success_rate"
-    secondary_metrics: List[str] = field(default_factory=list)
+    secondary_metrics: list[str] = field(default_factory=list)
     duration_hours: int = 24
     auto_winner_declaration: bool = True
     auto_rollback_on_regression: bool = True
@@ -54,14 +57,14 @@ class ExperimentVariant:
         self.variant = variant
         self.samples_seen = 0
         self.successes = 0
-        self.metric_values: Dict[str, List[float]] = {}
-        self.user_ids: List[str] = []
+        self.metric_values: dict[str, list[float]] = {}
+        self.user_ids: list[str] = []
 
     def add_sample(
         self,
         user_id: str,
         success: bool,
-        metrics: Optional[Dict[str, float]] = None,
+        metrics: dict[str, float] | None = None,
     ) -> None:
         """Add a sample to variant."""
         self.samples_seen += 1
@@ -95,13 +98,13 @@ class ABTest:
         self.config = config
         self.test_id = config.test_id or str(uuid.uuid4())
         self.started_at = datetime.now()
-        self.ended_at: Optional[datetime] = None
+        self.ended_at: datetime | None = None
         self.status = "running"  # running, completed, paused
 
         self.control = ExperimentVariant(config.control_variant)
         self.treatment = ExperimentVariant(config.treatment_variant)
 
-        self.winner: Optional[str] = None
+        self.winner: str | None = None
         self.is_significant = False
 
     def assign_variant(self, user_id: str) -> Variant:
@@ -134,7 +137,7 @@ class ABTest:
         user_id: str,
         variant_name: str,
         success: bool,
-        metrics: Optional[Dict[str, float]] = None,
+        metrics: dict[str, float] | None = None,
     ) -> None:
         """
         Record an observation/result in the test.
@@ -150,7 +153,7 @@ class ABTest:
         elif variant_name == self.config.treatment_variant.name:
             self.treatment.add_sample(user_id, success, metrics)
 
-    def get_test_status(self) -> Dict[str, Any]:
+    def get_test_status(self) -> dict[str, Any]:
         """Get current test status and results."""
         control_rate = self.control.get_success_rate()
         treatment_rate = self.treatment.get_success_rate()
@@ -178,7 +181,7 @@ class ABTest:
             "is_significant": self.is_significant,
         }
 
-    def check_significance(self) -> Dict[str, Any]:
+    def check_significance(self) -> dict[str, Any]:
         """
         Check statistical significance of results.
 
@@ -225,7 +228,7 @@ class ABTest:
         # Rollback if treatment has >10% regression
         return (control_rate - treatment_rate) > 0.10
 
-    def end_test(self) -> Dict[str, Any]:
+    def end_test(self) -> dict[str, Any]:
         """End the test and declare winner if applicable."""
         self.ended_at = datetime.now()
         self.status = "completed"

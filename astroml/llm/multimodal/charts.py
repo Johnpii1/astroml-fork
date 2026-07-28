@@ -6,13 +6,14 @@ and financial statements using vision models.
 """
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 
 class ChartType(str, Enum):
     """Supported chart types."""
+
     BAR = "bar"
     LINE = "line"
     PIE = "pie"
@@ -25,6 +26,7 @@ class ChartType(str, Enum):
 @dataclass
 class ChartConfig:
     """Configuration for chart analysis."""
+
     target_accuracy: float = 0.90
     extract_axis_labels: bool = True
     extract_legend: bool = True
@@ -39,12 +41,12 @@ class ChartAnalyzer:
     Supports bar, line, pie, candlestick, heatmap, scatter, and histogram charts.
     """
 
-    def __init__(self, config: Optional[ChartConfig] = None):
+    def __init__(self, config: ChartConfig | None = None):
         """Initialize chart analyzer."""
         self.config = config or ChartConfig()
         self._cache = {}
 
-    def detect_chart_type(self, image_path: str) -> Dict[str, Any]:
+    def detect_chart_type(self, image_path: str) -> dict[str, Any]:
         """
         Detect the type of chart in an image.
 
@@ -80,7 +82,7 @@ class ChartAnalyzer:
 
         return result
 
-    def extract_values(self, image_path: str) -> Dict[str, List[float]]:
+    def extract_values(self, image_path: str) -> dict[str, list[float]]:
         """
         Extract data values from chart.
 
@@ -105,7 +107,7 @@ class ChartAnalyzer:
 
         return result
 
-    def extract_axes(self, image_path: str) -> Dict[str, Any]:
+    def extract_axes(self, image_path: str) -> dict[str, Any]:
         """
         Extract axis labels and ranges from chart.
 
@@ -141,7 +143,7 @@ class ChartAnalyzer:
 
         return result
 
-    def extract_legend(self, image_path: str) -> Dict[str, str]:
+    def extract_legend(self, image_path: str) -> dict[str, str]:
         """
         Extract legend from chart.
 
@@ -167,7 +169,7 @@ class ChartAnalyzer:
 
         return result
 
-    def analyze_financial_statement(self, image_path: str) -> Dict[str, Any]:
+    def analyze_financial_statement(self, image_path: str) -> dict[str, Any]:
         """
         Analyze financial statement chart or table.
 
@@ -208,7 +210,7 @@ class ChartAnalyzer:
 
         return result
 
-    def compare_charts(self, image_paths: List[str]) -> Dict[str, Any]:
+    def compare_charts(self, image_paths: list[str]) -> dict[str, Any]:
         """
         Compare multiple charts for trends and patterns.
 

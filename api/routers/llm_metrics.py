@@ -1,13 +1,16 @@
-import time
 import random
+import time
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
-from astroml.llm.monitoring.collector import get_metrics_collector
+
 from astroml.llm.monitoring.alerts import get_alert_manager
+from astroml.llm.monitoring.collector import get_metrics_collector
 from astroml.llm.monitoring.exporters import get_prometheus_exporter
 
 router = APIRouter(prefix="/api/v1/llm-monitoring", tags=["llm-monitoring"])
+
 
 class RecordRequest(BaseModel):
     latency: float
@@ -23,6 +26,7 @@ class RecordRequest(BaseModel):
     feedback: Optional[int] = None
     eval_score: float = 1.0
     hallucination_rate: float = 0.0
+
 
 @router.get("/metrics")
 def get_metrics():
@@ -59,15 +63,17 @@ def get_metrics():
                 safety_incident=safety_incident,
                 feedback=feedback,
                 eval_score=eval_score,
-                hallucination_rate=hallucination_rate
+                hallucination_rate=hallucination_rate,
             )
 
     return collector.get_summary_metrics()
+
 
 @router.get("/alerts")
 def get_alerts():
     alert_mgr = get_alert_manager()
     return alert_mgr.check_alerts()
+
 
 @router.post("/record")
 def record_metric(req: RecordRequest):
@@ -85,12 +91,14 @@ def record_metric(req: RecordRequest):
         safety_incident=req.safety_incident,
         feedback=req.feedback,
         eval_score=req.eval_score,
-        hallucination_rate=req.hallucination_rate
+        hallucination_rate=req.hallucination_rate,
     )
     return {"status": "success"}
+
 
 @router.get("/prometheus")
 def get_prometheus():
     from fastapi import Response
+
     exporter = get_prometheus_exporter()
     return Response(content=exporter.export(), media_type="text/plain")

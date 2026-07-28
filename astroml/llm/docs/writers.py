@@ -10,7 +10,6 @@ This module provides writers for generating documentation in various formats:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Optional
 
 from astroml.llm.docs.code_analyzer import CodeElement, ElementType
 
@@ -24,7 +23,7 @@ class WriterConfig:
     include_examples: bool = True
     include_type_hints: bool = True
     include_source_links: bool = True
-    base_url: Optional[str] = None
+    base_url: str | None = None
     toc_depth: int = 3
 
 
@@ -36,7 +35,7 @@ class BaseWriter(ABC):
         self.config = config or WriterConfig()
 
     @abstractmethod
-    def write(self, elements: List[CodeElement], output_path: str) -> None:
+    def write(self, elements: list[CodeElement], output_path: str) -> None:
         """
         Write documentation for the given elements.
 
@@ -63,7 +62,7 @@ class BaseWriter(ABC):
 class MarkdownWriter(BaseWriter):
     """Writer for Markdown documentation."""
 
-    def write(self, elements: List[CodeElement], output_path: str) -> None:
+    def write(self, elements: list[CodeElement], output_path: str) -> None:
         """Write Markdown documentation."""
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +70,7 @@ class MarkdownWriter(BaseWriter):
         content = self._generate_content(elements)
         output.write_text(content, encoding="utf-8")
 
-    def _generate_content(self, elements: List[CodeElement]) -> str:
+    def _generate_content(self, elements: list[CodeElement]) -> str:
         """Generate complete Markdown content."""
         lines = []
 
@@ -201,7 +200,7 @@ class MarkdownWriter(BaseWriter):
 class RstWriter(BaseWriter):
     """Writer for reStructuredText documentation."""
 
-    def write(self, elements: List[CodeElement], output_path: str) -> None:
+    def write(self, elements: list[CodeElement], output_path: str) -> None:
         """Write RST documentation."""
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -209,7 +208,7 @@ class RstWriter(BaseWriter):
         content = self._generate_content(elements)
         output.write_text(content, encoding="utf-8")
 
-    def _generate_content(self, elements: List[CodeElement]) -> str:
+    def _generate_content(self, elements: list[CodeElement]) -> str:
         """Generate complete RST content."""
         lines = []
 
@@ -328,7 +327,7 @@ class RstWriter(BaseWriter):
 class HtmlWriter(BaseWriter):
     """Writer for HTML documentation."""
 
-    def write(self, elements: List[CodeElement], output_path: str) -> None:
+    def write(self, elements: list[CodeElement], output_path: str) -> None:
         """Write HTML documentation."""
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -336,7 +335,7 @@ class HtmlWriter(BaseWriter):
         content = self._generate_content(elements)
         output.write_text(content, encoding="utf-8")
 
-    def _generate_content(self, elements: List[CodeElement]) -> str:
+    def _generate_content(self, elements: list[CodeElement]) -> str:
         """Generate complete HTML content."""
         lines = [
             "<!DOCTYPE html>",

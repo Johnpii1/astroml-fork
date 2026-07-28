@@ -3,6 +3,7 @@
 Redirects HTTP requests to HTTPS and adds HSTS headers to enforce
 secure connections in production environments.
 """
+
 from __future__ import annotations
 
 from typing import Callable

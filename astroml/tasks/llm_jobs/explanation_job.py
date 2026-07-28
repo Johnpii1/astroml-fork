@@ -1,8 +1,8 @@
 """Explanation backfill job — generate LLM explanations for past fraud alerts."""
 
 from typing import Any
-from astroml.llm.providers.base import LLMProvider
 
+from astroml.llm.providers.base import LLMProvider
 
 EXPLANATION_PROMPT = """Explain this fraud alert in simple terms:
 Alert ID: {alert_id}

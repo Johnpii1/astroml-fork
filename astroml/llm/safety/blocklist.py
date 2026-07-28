@@ -3,13 +3,14 @@
 Resolves #455: In-memory blocklist with file-based persistence and
 dynamic term addition/removal.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import threading
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 logger = logging.getLogger(__name__)
 

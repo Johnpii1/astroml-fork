@@ -7,11 +7,12 @@ Provides a GraphQL endpoint at /graphql with:
 - Authentication integration with JWT
 - Query depth limiting for security
 """
+
 from __future__ import annotations
 
 try:
-    from api.graphql.schema import schema
     from api.graphql.context import get_graphql_context
+    from api.graphql.schema import schema
 except Exception:
     schema = None
     get_graphql_context = None

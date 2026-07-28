@@ -49,17 +49,17 @@ from astroml.observability.metrics import update_db_pool_metrics
 router = APIRouter(tags=["health"])
 
 #: Per-dependency probe timeout, seconds.
-CHECK_TIMEOUT_SECONDS: Final[float] = float(
-    os.environ.get("HEALTHZ_TIMEOUT_SECONDS", "5")
-)
+CHECK_TIMEOUT_SECONDS: Final[float] = float(os.environ.get("HEALTHZ_TIMEOUT_SECONDS", "5"))
 
 #: Path whose filesystem the disk probe inspects.
 DISK_PATH: Final[str] = os.environ.get("HEALTHZ_DISK_PATH", ".")
 
 #: When true, an unreachable cache fails readiness instead of degrading it.
-CACHE_REQUIRED: Final[bool] = os.environ.get(
-    "HEALTHZ_CACHE_REQUIRED", "false"
-).lower() in ("1", "true", "yes")
+CACHE_REQUIRED: Final[bool] = os.environ.get("HEALTHZ_CACHE_REQUIRED", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 def _envelope(result: CheckResult) -> JSONResponse:

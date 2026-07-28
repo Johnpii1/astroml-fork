@@ -19,14 +19,13 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional
 
 try:
-    from prometheus_client import Counter, Gauge, Histogram
-    from prometheus_client.registry import CollectorRegistry
     from prometheus_client import REGISTRY as _PROM_REGISTRY
+    from prometheus_client import Counter, Gauge, Histogram
 except Exception:  # pragma: no cover
     Counter = Gauge = Histogram = None  # type: ignore
     _PROM_REGISTRY = None  # type: ignore
@@ -48,9 +47,9 @@ class LLMUsage:
     # request latency seconds
     latency_s: float
     # request correlation ids (optional)
-    request_id: Optional[str] = None
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
+    request_id: str | None = None
+    user_id: str | None = None
+    session_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -79,17 +78,15 @@ class LLMUsageTracker:
     def __init__(
         self,
         *,
-        enabled: Optional[bool] = None,
-        alert_budget_usd_per_window: Optional[float] = None,
-        alert_window_s: Optional[int] = None,
+        enabled: bool | None = None,
+        alert_budget_usd_per_window: float | None = None,
+        alert_window_s: int | None = None,
         ring_buffer_size: int = 5000,
-        prices: Optional[Dict[str, LLMPrices]] = None,
-        log_path: Optional[str] = None,
+        prices: dict[str, LLMPrices] | None = None,
+        log_path: str | None = None,
     ):
         self.enabled = (
-            bool(os.environ.get("LLM_USAGE_TRACKING_ENABLED", "1"))
-            if enabled is None
-            else enabled
+            bool(os.environ.get("LLM_USAGE_TRACKING_ENABLED", "1")) if enabled is None else enabled
         )
         self.alert_budget_usd_per_window = (
             float(os.environ.get("LLM_COST_ALERT_BUDGET_USD", "0"))
@@ -105,13 +102,13 @@ class LLMUsageTracker:
         self.prices = prices or {}
 
         self._lock = threading.Lock()
-        self._events: List[dict] = []
+        self._events: list[dict] = []
         self._events_start_idx = 0
 
         self._window_start_ts = time.time()
         self._window_cost_usd = 0.0
 
-        self._alert_callbacks: List[Callable[[dict], None]] = []
+        self._alert_callbacks: list[Callable[[dict], None]] = []
 
         self._prom = {}
         self._init_prometheus()
@@ -124,7 +121,7 @@ class LLMUsageTracker:
         if Counter is None:
             return
 
-        def _get_or_create_counter(name: str, doc: str, labels: list) -> "Counter":
+        def _get_or_create_counter(name: str, doc: str, labels: list) -> Counter:
             """Return existing counter if already registered, else create."""
             try:
                 return Counter(name, doc, labels)
@@ -137,7 +134,7 @@ class LLMUsageTracker:
                         return col  # type: ignore[return-value]
                 raise
 
-        def _get_or_create_histogram(name: str, doc: str, labels: list) -> "Histogram":
+        def _get_or_create_histogram(name: str, doc: str, labels: list) -> Histogram:
             try:
                 return Histogram(name, doc, labels)
             except Exception:
@@ -146,7 +143,7 @@ class LLMUsageTracker:
                         return col  # type: ignore[return-value]
                 raise
 
-        def _get_or_create_gauge(name: str, doc: str) -> "Gauge":
+        def _get_or_create_gauge(name: str, doc: str) -> Gauge:
             try:
                 return Gauge(name, doc)
             except Exception:
@@ -181,9 +178,7 @@ class LLMUsageTracker:
         )
         try:
             if self.alert_budget_usd_per_window:
-                self._prom["llm_cost_budget_usd_gauge"].set(
-                    float(self.alert_budget_usd_per_window)
-                )
+                self._prom["llm_cost_budget_usd_gauge"].set(float(self.alert_budget_usd_per_window))
         except Exception:
             pass
 
@@ -208,9 +203,7 @@ class LLMUsageTracker:
         key = f"{usage.provider}:{usage.model}"
         prices = self.prices.get(key) or self.prices.get(usage.model)
         if not prices:
-            raise ValueError(
-                "cost_usd missing and no prices configured for provider/model"
-            )
+            raise ValueError("cost_usd missing and no prices configured for provider/model")
         return prices.estimate_cost_usd(
             prompt_tokens=usage.prompt_tokens,
             completion_tokens=usage.completion_tokens,
@@ -224,10 +217,10 @@ class LLMUsageTracker:
         prompt_tokens: int,
         completion_tokens: int,
         latency_s: float,
-        cost_usd: Optional[float] = None,
-        request_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
+        cost_usd: float | None = None,
+        request_id: str | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
     ) -> LLMUsage:
         """Record an LLM call.
 
@@ -311,12 +304,12 @@ class LLMUsageTracker:
                     prom["llm_tokens_total"].labels(
                         provider=provider, model=model, token_type="completion"
                     ).inc(usage.completion_tokens)
-                    prom["llm_latency_seconds"].labels(
-                        provider=provider, model=model
-                    ).observe(usage.latency_s)
-                    prom["llm_cost_usd_total"].labels(
-                        provider=provider, model=model
-                    ).inc(resolved_cost_usd)
+                    prom["llm_latency_seconds"].labels(provider=provider, model=model).observe(
+                        usage.latency_s
+                    )
+                    prom["llm_cost_usd_total"].labels(provider=provider, model=model).inc(
+                        resolved_cost_usd
+                    )
                 except Exception:
                     pass
 
@@ -340,7 +333,7 @@ class LLMUsageTracker:
             session_id=session_id,
         )
 
-    def recent_calls(self, limit: int = 100) -> List[dict]:
+    def recent_calls(self, limit: int = 100) -> list[dict]:
         """Return most recent recorded LLM call events."""
         with self._lock:
             if limit <= 0:
@@ -350,4 +343,3 @@ class LLMUsageTracker:
 
 # Default process-wide tracker instance
 default_llm_usage_tracker = LLMUsageTracker()
-

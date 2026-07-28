@@ -3,6 +3,7 @@
 Resolves #458: Sample conversations, test prompts, mock embeddings,
 test documents for RAG, and tool definitions/responses.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -67,9 +68,11 @@ TEST_PROMPTS: list[dict[str, Any]] = [
 
 # ─── Mock embeddings ──────────────────────────────────────────────────────────
 
+
 def make_mock_embedding(text: str, dims: int = 1536) -> list[float]:
     """Return a deterministic mock embedding vector for *text*."""
     import hashlib
+
     seed = int(hashlib.md5(text.encode()).hexdigest(), 16)  # noqa: S324
     return [((seed + i) % 2000 - 1000) / 1000 for i in range(dims)]
 
@@ -111,9 +114,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "description": "Retrieve a transaction by ID",
         "parameters": {
             "type": "object",
-            "properties": {
-                "transaction_id": {"type": "string", "description": "Transaction ID"}
-            },
+            "properties": {"transaction_id": {"type": "string", "description": "Transaction ID"}},
             "required": ["transaction_id"],
         },
     },

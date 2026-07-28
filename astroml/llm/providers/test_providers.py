@@ -1,10 +1,11 @@
 """Tests for the LLM provider abstraction layer (issue #359)."""
+
 import sys
 import types
 import unittest
 from unittest.mock import MagicMock
 
-from .factory import get_llm_provider, _PROVIDERS
+from .factory import _PROVIDERS, get_llm_provider
 
 
 def _install_fake_module(name: str, **attrs):
@@ -60,9 +61,14 @@ class SameInterfaceTests(unittest.TestCase):
         text = provider.generate("hi")
 
         self.assertEqual(text, "hello from openai")
-        self.assertEqual(provider.get_token_usage(), {
-            "prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
-        })
+        self.assertEqual(
+            provider.get_token_usage(),
+            {
+                "prompt_tokens": 5,
+                "completion_tokens": 7,
+                "total_tokens": 12,
+            },
+        )
 
     def test_anthropic_provider_generate(self):
         fake_block = MagicMock(text="hello from anthropic")
@@ -78,9 +84,14 @@ class SameInterfaceTests(unittest.TestCase):
         text = provider.generate("hi")
 
         self.assertEqual(text, "hello from anthropic")
-        self.assertEqual(provider.get_token_usage(), {
-            "prompt_tokens": 6, "completion_tokens": 9, "total_tokens": 15,
-        })
+        self.assertEqual(
+            provider.get_token_usage(),
+            {
+                "prompt_tokens": 6,
+                "completion_tokens": 9,
+                "total_tokens": 15,
+            },
+        )
 
     def test_huggingface_provider_generate(self):
         fake_client = MagicMock()

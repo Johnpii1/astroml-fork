@@ -4,6 +4,7 @@ Collects in-app feedback (bug / feature / general), optionally opens a GitHub
 issue, supports admin review (list + status updates), and exposes a public
 roadmap derived from feedback status.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -15,12 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.database import get_db
 from api.models.orm import Feedback
 from api.schemas import (
+    ROADMAP_STATUSES,
     FeedbackIn,
     FeedbackListResponse,
     FeedbackOut,
     FeedbackStatusUpdate,
     RoadmapResponse,
-    ROADMAP_STATUSES,
 )
 from api.services.github import create_feedback_issue
 
@@ -35,9 +36,7 @@ async def submit_feedback(
     """Create a feedback item and (best-effort) open a GitHub issue."""
     issue_url = None
     try:
-        issue_url = await create_feedback_issue(
-            payload.category, payload.message, payload.email
-        )
+        issue_url = await create_feedback_issue(payload.category, payload.message, payload.email)
     except Exception:  # pragma: no cover - defensive; integration is best-effort
         issue_url = None
 
@@ -74,8 +73,8 @@ async def list_feedback(
         count_query = count_query.where(Feedback.category == category)
 
     total = (await db.execute(count_query)).scalar_one()
-    query = query.order_by(Feedback.created_at.desc()).limit(page_size).offset(
-        (page - 1) * page_size
+    query = (
+        query.order_by(Feedback.created_at.desc()).limit(page_size).offset((page - 1) * page_size)
     )
     rows = (await db.execute(query)).scalars().all()
     return FeedbackListResponse(

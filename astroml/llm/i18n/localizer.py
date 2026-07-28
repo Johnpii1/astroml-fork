@@ -1,13 +1,15 @@
 """Content localization for locale-specific features and prompts."""
 
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
+from typing import Any
+
 from .translator import SupportedLanguage
 
 
 @dataclass
 class LocaleConfig:
     """Configuration for locale-specific behavior."""
+
     language: SupportedLanguage
     currency: str = "USD"
     date_format: str = "YYYY-MM-DD"
@@ -18,14 +20,14 @@ class LocaleConfig:
 class Localizer:
     """
     Localize content for specific locales.
-    
+
     Handles prompt templates, validation rules, and content formatting.
     """
 
     def __init__(self, default_locale: LocaleConfig):
         """Initialize localizer."""
         self.default_locale = default_locale
-        self.locales: Dict[str, LocaleConfig] = {}
+        self.locales: dict[str, LocaleConfig] = {}
         self._register_default_locales()
 
     def _register_default_locales(self) -> None:
@@ -130,6 +132,6 @@ class Localizer:
         # Simulate locale-specific validation
         return True
 
-    def list_available_locales(self) -> Dict[str, LocaleConfig]:
+    def list_available_locales(self) -> dict[str, LocaleConfig]:
         """List all available locales."""
         return self.locales.copy()

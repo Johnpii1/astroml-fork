@@ -22,13 +22,14 @@ can be swapped without changing the wrapper interface.
 
 from __future__ import annotations
 
-import os
-import time
-import math
 import json
 import logging
+import math
+import os
+import time
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple
+from typing import Any
 
 import redis
 
@@ -70,7 +71,7 @@ class LLMEmbeddingProvider:
     Provide an implementation that returns a dense embedding vector for the input text.
     """
 
-    def embed(self, *, text: str, model: str) -> List[float]:  # pragma: no cover
+    def embed(self, *, text: str, model: str) -> list[float]:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -81,7 +82,7 @@ class DefaultNoopEmbeddingProvider(LLMEmbeddingProvider):
     embedding provider is configured. The wrapper should inject a real provider.
     """
 
-    def embed(self, *, text: str, model: str) -> List[float]:
+    def embed(self, *, text: str, model: str) -> list[float]:
         raise RuntimeError(
             "No embedding provider configured. "
             "Provide an embedding provider to LLMSemanticCacheWrapper."
@@ -93,7 +94,7 @@ class SemanticCacheHit:
     response: Any
     similarity: float
     cache_key: str
-    cached_at: Optional[float] = None
+    cached_at: float | None = None
 
 
 class LLMSemanticCache:
@@ -111,9 +112,9 @@ class LLMSemanticCache:
     def __init__(
         self,
         *,
-        redis_cache: Optional[RedisCache] = None,
-        config: Optional[SemanticCacheConfig] = None,
-        embedding_provider: Optional[LLMEmbeddingProvider] = None,
+        redis_cache: RedisCache | None = None,
+        config: SemanticCacheConfig | None = None,
+        embedding_provider: LLMEmbeddingProvider | None = None,
     ):
         self._redis_cache = redis_cache or RedisCache()
         self._config = config or SemanticCacheConfig()
@@ -150,8 +151,8 @@ class LLMSemanticCache:
         prompt: str,
         model: str,
         embedding_model: str,
-        ttl_seconds: Optional[int] = None,
-    ) -> Tuple[Optional[SemanticCacheHit], float]:
+        ttl_seconds: int | None = None,
+    ) -> tuple[SemanticCacheHit | None, float]:
         """Lookup semantic cache.
 
         Returns:
@@ -174,7 +175,7 @@ class LLMSemanticCache:
             logger.warning("Semantic cache ZREVRANGE failed: %s", e)
             candidate_ids = []
 
-        best: Optional[Tuple[float, str]] = None
+        best: tuple[float, str] | None = None
 
         # Pipeline get embeddings for candidates.
         pipe = self._redis.pipeline()
@@ -229,7 +230,7 @@ class LLMSemanticCache:
         except Exception:
             response_obj = None
 
-        cached_at: Optional[float] = None
+        cached_at: float | None = None
         if meta_blob:
             try:
                 meta = json.loads(meta_blob)
@@ -252,8 +253,8 @@ class LLMSemanticCache:
         response: Any,
         model: str,
         embedding_model: str,
-        cache_id: Optional[str] = None,
-        ttl_seconds: Optional[int] = None,
+        cache_id: str | None = None,
+        ttl_seconds: int | None = None,
     ) -> str:
         """Store response in semantic cache."""
         ttl_seconds = ttl_seconds or self._config.ttl_seconds
@@ -301,8 +302,9 @@ class SimpleDeterministicEmbeddingProvider(LLMEmbeddingProvider):
     def __init__(self, dim: int = 64):
         self.dim = dim
 
-    def embed(self, *, text: str, model: str) -> List[float]:
+    def embed(self, *, text: str, model: str) -> list[float]:
         import hashlib
+
         h = hashlib.md5((model + ":" + text).encode("utf-8")).digest()
         # Expand digest to dim floats.
         out = []
@@ -310,4 +312,3 @@ class SimpleDeterministicEmbeddingProvider(LLMEmbeddingProvider):
             b = h[i % len(h)]
             out.append((b / 255.0) * 2.0 - 1.0)
         return out
-

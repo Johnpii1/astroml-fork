@@ -1,8 +1,9 @@
 """LLM context management for blockchain data (issue #360)."""
+
 import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,10 @@ class BlockchainContextBuilder:
         """Rough token estimate (~4 characters per token)."""
         return max(1, len(data) // 4)
 
-    def summarize_by_day(self, days: int, raw_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def summarize_by_day(self, days: int, raw_data: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Group raw transactions from the last `days` days into daily summaries."""
         cutoff = datetime.now() - timedelta(days=days)
-        by_day: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        by_day: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for item in raw_data:
             ts = datetime.fromisoformat(item.get("timestamp", datetime.now().isoformat()))
             if ts >= cutoff:
@@ -32,29 +33,33 @@ class BlockchainContextBuilder:
 
         summaries = []
         for day, items in sorted(by_day.items()):
-            addresses = {item.get("from_address") for item in items} | {item.get("to_address") for item in items}
-            summaries.append({
-                "day": day,
-                "transaction_count": len(items),
-                "total_volume": sum(item.get("amount", 0) for item in items),
-                "unique_addresses": len(addresses - {None}),
-            })
+            addresses = {item.get("from_address") for item in items} | {
+                item.get("to_address") for item in items
+            }
+            summaries.append(
+                {
+                    "day": day,
+                    "transaction_count": len(items),
+                    "total_volume": sum(item.get("amount", 0) for item in items),
+                    "unique_addresses": len(addresses - {None}),
+                }
+            )
         return summaries
 
-    def _summary_to_text(self, summary: Dict[str, Any]) -> str:
+    def _summary_to_text(self, summary: dict[str, Any]) -> str:
         return (
             f"{summary['day']}: {summary['transaction_count']} txs, "
             f"volume={summary['total_volume']:.2f}, unique_addresses={summary['unique_addresses']}"
         )
 
-    def compress_data(self, summaries: List[Dict[str, Any]], group_size: int = None) -> str:
+    def compress_data(self, summaries: list[dict[str, Any]], group_size: int = None) -> str:
         """Aggregate daily summaries into multi-day buckets, summing
         transaction counts/volume exactly so totals don't drift.
         """
         group_size = group_size or self.group_size
         lines = []
         for i in range(0, len(summaries), group_size):
-            group = summaries[i:i + group_size]
+            group = summaries[i : i + group_size]
             start, end = group[0]["day"], group[-1]["day"]
             tx_total = sum(s["transaction_count"] for s in group)
             volume_total = sum(s["total_volume"] for s in group)
@@ -65,7 +70,7 @@ class BlockchainContextBuilder:
             )
         return "\n".join(lines)
 
-    def build_context(self, days: int, raw_data: List[Dict[str, Any]]) -> str:
+    def build_context(self, days: int, raw_data: list[dict[str, Any]]) -> str:
         """Build a token-budgeted context string for the last `days` days
         of blockchain activity, compressing older days if needed.
         """
@@ -86,5 +91,8 @@ class BlockchainContextBuilder:
         if self.analyze_token_size(context) <= self.token_limit:
             return context
 
-        logger.warning("Context still exceeds token_limit=%d after compression; falling back to full aggregation.", self.token_limit)
+        logger.warning(
+            "Context still exceeds token_limit=%d after compression; falling back to full aggregation.",
+            self.token_limit,
+        )
         return self.compress_data(summaries)

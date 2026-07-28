@@ -1,18 +1,18 @@
 """A/B testing framework for comparing models and prompts."""
+
 from __future__ import annotations
 
 import hashlib
 import logging
-import random
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from scipy import stats
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from astroml.db.schema import Experiment, ExperimentResult, ModelVersion, Variant
+from astroml.db.schema import Experiment, ExperimentResult, Variant
 from astroml.db.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class ABTestingFramework:
     with statistical analysis capabilities.
     """
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize the A/B testing framework.
 
         Args:
@@ -68,7 +68,7 @@ class ABTestingFramework:
             self._session.close()
             self._session = None
 
-    def __enter__(self) -> "ABTestingFramework":
+    def __enter__(self) -> ABTestingFramework:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -82,7 +82,7 @@ class ABTestingFramework:
         self,
         name: str,
         experiment_type: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         traffic_allocation: float = 1.0,
     ) -> Experiment:
         """Create a new A/B test experiment.
@@ -100,10 +100,14 @@ class ABTestingFramework:
             ValueError: If experiment with same name exists or invalid parameters
         """
         if experiment_type not in ("model", "prompt"):
-            raise ValueError(f"experiment_type must be 'model' or 'prompt', got '{experiment_type}'")
+            raise ValueError(
+                f"experiment_type must be 'model' or 'prompt', got '{experiment_type}'"
+            )
 
         if not 0.0 <= traffic_allocation <= 1.0:
-            raise ValueError(f"traffic_allocation must be between 0.0 and 1.0, got {traffic_allocation}")
+            raise ValueError(
+                f"traffic_allocation must be between 0.0 and 1.0, got {traffic_allocation}"
+            )
 
         existing = self.get_experiment_by_name(name)
         if existing:
@@ -121,7 +125,7 @@ class ABTestingFramework:
         logger.info("Created experiment: %s (id=%d, type=%s)", name, experiment.id, experiment_type)
         return experiment
 
-    def get_experiment(self, experiment_id: int) -> Optional[Experiment]:
+    def get_experiment(self, experiment_id: int) -> Experiment | None:
         """Get an experiment by ID.
 
         Args:
@@ -132,7 +136,7 @@ class ABTestingFramework:
         """
         return self.session.get(Experiment, experiment_id)
 
-    def get_experiment_by_name(self, name: str) -> Optional[Experiment]:
+    def get_experiment_by_name(self, name: str) -> Experiment | None:
         """Get an experiment by name.
 
         Args:
@@ -146,9 +150,9 @@ class ABTestingFramework:
 
     def list_experiments(
         self,
-        experiment_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> List[Experiment]:
+        experiment_type: str | None = None,
+        status: str | None = None,
+    ) -> list[Experiment]:
         """List experiments with optional filters.
 
         Args:
@@ -169,11 +173,11 @@ class ABTestingFramework:
     def update_experiment(
         self,
         experiment_id: int,
-        description: Optional[str] = None,
-        traffic_allocation: Optional[float] = None,
-        start_at: Optional[datetime] = None,
-        end_at: Optional[datetime] = None,
-    ) -> Optional[Experiment]:
+        description: str | None = None,
+        traffic_allocation: float | None = None,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+    ) -> Experiment | None:
         """Update an experiment.
 
         Args:
@@ -194,7 +198,9 @@ class ABTestingFramework:
             experiment.description = description
         if traffic_allocation is not None:
             if not 0.0 <= traffic_allocation <= 1.0:
-                raise ValueError(f"traffic_allocation must be between 0.0 and 1.0, got {traffic_allocation}")
+                raise ValueError(
+                    f"traffic_allocation must be between 0.0 and 1.0, got {traffic_allocation}"
+                )
             experiment.traffic_allocation = traffic_allocation
         if start_at is not None:
             experiment.start_at = start_at
@@ -234,9 +240,9 @@ class ABTestingFramework:
         name: str,
         traffic_weight: float = 0.5,
         is_control: bool = False,
-        model_version_id: Optional[int] = None,
-        config: Optional[Dict[str, Any]] = None,
-        description: Optional[str] = None,
+        model_version_id: int | None = None,
+        config: dict[str, Any] | None = None,
+        description: str | None = None,
     ) -> Variant:
         """Create a new variant for an experiment.
 
@@ -286,7 +292,7 @@ class ABTestingFramework:
         )
         return variant
 
-    def get_variant(self, experiment_id: int, name: str) -> Optional[Variant]:
+    def get_variant(self, experiment_id: int, name: str) -> Variant | None:
         """Get a variant by experiment ID and name.
 
         Args:
@@ -296,12 +302,10 @@ class ABTestingFramework:
         Returns:
             Variant instance or None if not found
         """
-        stmt = select(Variant).where(
-            Variant.experiment_id == experiment_id, Variant.name == name
-        )
+        stmt = select(Variant).where(Variant.experiment_id == experiment_id, Variant.name == name)
         return self.session.execute(stmt).scalar_one_or_none()
 
-    def get_variant_by_id(self, variant_id: int) -> Optional[Variant]:
+    def get_variant_by_id(self, variant_id: int) -> Variant | None:
         """Get a variant by ID.
 
         Args:
@@ -312,7 +316,7 @@ class ABTestingFramework:
         """
         return self.session.get(Variant, variant_id)
 
-    def list_variants(self, experiment_id: int) -> List[Variant]:
+    def list_variants(self, experiment_id: int) -> list[Variant]:
         """List all variants for an experiment.
 
         Args:
@@ -346,7 +350,7 @@ class ABTestingFramework:
     # Experiment lifecycle management
     # ------------------------------------------------------------------
 
-    def start_experiment(self, experiment_id: int) -> Optional[Experiment]:
+    def start_experiment(self, experiment_id: int) -> Experiment | None:
         """Start an experiment.
 
         Args:
@@ -371,7 +375,7 @@ class ABTestingFramework:
         logger.info("Started experiment: %s (id=%d)", experiment.name, experiment_id)
         return experiment
 
-    def pause_experiment(self, experiment_id: int) -> Optional[Experiment]:
+    def pause_experiment(self, experiment_id: int) -> Experiment | None:
         """Pause an experiment.
 
         Args:
@@ -395,7 +399,7 @@ class ABTestingFramework:
         logger.info("Paused experiment: %s (id=%d)", experiment.name, experiment_id)
         return experiment
 
-    def complete_experiment(self, experiment_id: int) -> Optional[Experiment]:
+    def complete_experiment(self, experiment_id: int) -> Experiment | None:
         """Complete an experiment.
 
         Args:
@@ -420,7 +424,7 @@ class ABTestingFramework:
         logger.info("Completed experiment: %s (id=%d)", experiment.name, experiment_id)
         return experiment
 
-    def archive_experiment(self, experiment_id: int) -> Optional[Experiment]:
+    def archive_experiment(self, experiment_id: int) -> Experiment | None:
         """Archive an experiment.
 
         Args:
@@ -475,9 +479,9 @@ class ABTestingFramework:
     def assign_variant(
         self,
         experiment_id: int,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-    ) -> Optional[Variant]:
+        user_id: str | None = None,
+        session_id: str | None = None,
+    ) -> Variant | None:
         """Assign a variant to a user/session based on traffic weights.
 
         Uses deterministic hashing for consistent assignment across requests.
@@ -530,10 +534,10 @@ class ABTestingFramework:
     def record_result(
         self,
         variant_id: int,
-        metrics: Dict[str, float],
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metrics: dict[str, float],
+        user_id: str | None = None,
+        session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ExperimentResult:
         """Record a result for a variant.
 
@@ -570,8 +574,8 @@ class ABTestingFramework:
     def get_variant_results(
         self,
         variant_id: int,
-        metric_name: Optional[str] = None,
-    ) -> List[ExperimentResult]:
+        metric_name: str | None = None,
+    ) -> list[ExperimentResult]:
         """Get results for a variant, optionally filtered by metric.
 
         Args:
@@ -597,8 +601,8 @@ class ABTestingFramework:
         self,
         experiment_id: int,
         metric_name: str,
-        control_variant_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        control_variant_name: str | None = None,
+    ) -> dict[str, Any]:
         """Compare variants using statistical tests.
 
         Args:
@@ -672,7 +676,11 @@ class ABTestingFramework:
                 pooled_std = np.sqrt(
                     (np.std(control_values) ** 2 + np.std(variant_values) ** 2) / 2
                 )
-                effect_size = (np.mean(variant_values) - np.mean(control_values)) / pooled_std if pooled_std > 0 else 0
+                effect_size = (
+                    (np.mean(variant_values) - np.mean(control_values)) / pooled_std
+                    if pooled_std > 0
+                    else 0
+                )
 
                 pairwise_tests.append(
                     {

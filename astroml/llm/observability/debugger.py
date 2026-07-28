@@ -3,14 +3,13 @@
 Resolves #456: Debug view that assembles all spans, logs, and decisions
 for a given trace ID to reconstruct the complete request flow.
 """
+
 from __future__ import annotations
 
-import json
-import pprint
 from typing import Any
 
-from astroml.llm.observability.tracer import LLMTracer
 from astroml.llm.observability.audit import LLMAuditLog
+from astroml.llm.observability.tracer import LLMTracer
 
 
 class LLMDebugger:
@@ -43,8 +42,7 @@ class LLMDebugger:
         spans = self._tracer.reconstruct_lifecycle(trace_id)
         # Map audit entries that match this trace_id via metadata
         audit_entries = [
-            e for e in self._audit.search(limit=1000)
-            if e.metadata.get("trace_id") == trace_id
+            e for e in self._audit.search(limit=1000) if e.metadata.get("trace_id") == trace_id
         ]
 
         total_latency = sum(s.get("latency_ms", 0) for s in spans)
@@ -74,7 +72,9 @@ class LLMDebugger:
                 "total_tokens": total_tokens,
                 "total_cost_usd": round(total_cost, 6),
                 "error_count": len(errors),
-                "errors": [{"operation": e.get("operation"), "error": e.get("error")} for e in errors],
+                "errors": [
+                    {"operation": e.get("operation"), "error": e.get("error")} for e in errors
+                ],
             },
         }
 

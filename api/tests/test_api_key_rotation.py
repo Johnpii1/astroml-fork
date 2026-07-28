@@ -7,6 +7,7 @@ Tests cover:
 Coverage targets: rotation logic, revocation logic, overlap window,
 expired overlap rejection, 404 on unknown key, idempotent re-revocation.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -15,7 +16,6 @@ import pytest
 
 from api.auth.security import generate_api_key, hash_api_key, hash_password
 from api.models.orm import ApiKey, User
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -139,9 +139,7 @@ class TestRotateKey:
         )
         assert auth_resp.status_code == 401
 
-    def test_rotate_unknown_key_returns_404(
-        self, client, db_session, admin_user, admin_token
-    ):
+    def test_rotate_unknown_key_returns_404(self, client, db_session, admin_user, admin_token):
         resp = client.post(
             "/api/v1/auth/rotate-key",
             json={"name": "does-not-exist"},
@@ -262,9 +260,7 @@ class TestRevokeKey:
         assert resp.status_code == 200
         assert resp.json()["revoked"] is False
 
-    def test_revoke_unknown_key_returns_404(
-        self, client, db_session, admin_user, admin_token
-    ):
+    def test_revoke_unknown_key_returns_404(self, client, db_session, admin_user, admin_token):
         resp = client.post(
             "/api/v1/auth/revoke-key",
             json={"name": "ghost-key"},

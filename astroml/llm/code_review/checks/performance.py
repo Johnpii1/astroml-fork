@@ -6,7 +6,6 @@ including inefficient algorithms, memory leaks, and N+1 queries.
 """
 
 import re
-from typing import List
 
 from astroml.llm.code_review.checks.security import BaseCheck
 from astroml.llm.code_review.suggestions import (
@@ -36,13 +35,13 @@ class PerformanceCheck(BaseCheck):
         """Initialize performance issue patterns."""
         return {
             "nested_loop_o_n2": {
-                "pattern": r'for\s+\w+\s+in\s+.*:\s*for\s+\w+\s+in\s+.*:',
+                "pattern": r"for\s+\w+\s+in\s+.*:\s*for\s+\w+\s+in\s+.*:",
                 "severity": SuggestionSeverity.MEDIUM,
                 "message": "Nested loops may indicate O(n²) complexity",
                 "suggested_fix": "Consider using sets, dictionaries, or more efficient algorithms",
             },
             "list_append_in_loop": {
-                "pattern": r'for\s+\w+\s+in\s+.*:\s*.*\.append\(',
+                "pattern": r"for\s+\w+\s+in\s+.*:\s*.*\.append\(",
                 "severity": SuggestionSeverity.LOW,
                 "message": "List append in loop - consider list comprehension",
                 "suggested_fix": "Use list comprehension for better performance",
@@ -54,26 +53,26 @@ class PerformanceCheck(BaseCheck):
                 "suggested_fix": "Use list and join() for better performance",
             },
             "global_variable_mutation": {
-                "pattern": r'global\s+\w+',
+                "pattern": r"global\s+\w+",
                 "severity": SuggestionSeverity.LOW,
                 "message": "Global variable mutation can impact performance",
                 "suggested_fix": "Consider using function arguments or class attributes",
             },
             "database_query_in_loop": {
-                "pattern": r'(execute|query|select)\s*\(',
+                "pattern": r"(execute|query|select)\s*\(",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Database query inside loop - potential N+1 issue",
                 "suggested_fix": "Use batch operations or eager loading",
             },
             "synchronous_io_in_async": {
-                "pattern": r'(time\.sleep|requests\.get|urllib\.request)',
+                "pattern": r"(time\.sleep|requests\.get|urllib\.request)",
                 "severity": SuggestionSeverity.HIGH,
                 "message": "Synchronous I/O in async context",
                 "suggested_fix": "Use async alternatives (aiohttp, asyncio.sleep)",
             },
         }
 
-    def check(self, content: str, file_path: str) -> List[Suggestion]:
+    def check(self, content: str, file_path: str) -> list[Suggestion]:
         """
         Perform performance checks on the given content.
 

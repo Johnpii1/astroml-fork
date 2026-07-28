@@ -1,7 +1,7 @@
 """Cache invalidation logic."""
+
 import logging
 import time
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 

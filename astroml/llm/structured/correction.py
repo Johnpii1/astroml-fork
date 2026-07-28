@@ -1,7 +1,10 @@
 """Auto-correction of invalid structured outputs."""
+
 import logging
-from typing import Any, Dict, Type, TypeVar
-from pydantic import BaseModel, ValidationError
+from typing import Any, TypeVar
+
+from pydantic import BaseModel
+
 from .validator import OutputValidator
 
 logger = logging.getLogger(__name__)
@@ -15,7 +18,7 @@ class AutoCorrector:
     def __init__(self):
         self.validator = OutputValidator()
 
-    def correct(self, data: Dict[str, Any], schema: Type[T]) -> Dict[str, Any]:
+    def correct(self, data: dict[str, Any], schema: type[T]) -> dict[str, Any]:
         """Apply automatic corrections to data.
 
         Corrections applied:
@@ -69,7 +72,7 @@ class AutoCorrector:
 
         return corrected
 
-    def _get_type_default(self, annotation: Type) -> Any:
+    def _get_type_default(self, annotation: type) -> Any:
         """Get default value for a type."""
         if annotation == str:
             return ""
@@ -85,7 +88,9 @@ class AutoCorrector:
             return {}
         return None
 
-    def generate_correction_prompt(self, data: Dict[str, Any], schema: Type[T], errors: list[str]) -> str:
+    def generate_correction_prompt(
+        self, data: dict[str, Any], schema: type[T], errors: list[str]
+    ) -> str:
         """Generate prompt for LLM to self-correct invalid output.
 
         Args:

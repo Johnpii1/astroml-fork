@@ -1,9 +1,9 @@
 """Context manager for LLM conversations."""
 
-from typing import Any, Dict, List, Optional
+import time
 from dataclasses import dataclass, field
 from enum import Enum
-import time
+from typing import Any
 
 
 class MessageRole(str, Enum):
@@ -22,9 +22,9 @@ class Message:
     content: str
     timestamp: float = field(default_factory=time.time)
     token_count: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "role": self.role.value,
@@ -56,15 +56,15 @@ class ContextManager:
         self.max_tokens = max_tokens
         self.reserve_tokens = reserve_tokens
         self.pruning_strategy = pruning_strategy
-        self.messages: List[Message] = []
-        self.system_prompt: Optional[str] = None
+        self.messages: list[Message] = []
+        self.system_prompt: str | None = None
         self.context_budget = max_tokens - reserve_tokens
 
     def set_system_prompt(self, prompt: str) -> None:
         """Set system prompt (never pruned)."""
         self.system_prompt = prompt
 
-    def add_message(self, role: MessageRole, content: str, metadata: Optional[Dict] = None) -> None:
+    def add_message(self, role: MessageRole, content: str, metadata: dict | None = None) -> None:
         """Add message to conversation.
 
         Args:
@@ -101,7 +101,7 @@ class ContextManager:
 
         return "\n".join(context_parts)
 
-    def get_messages(self) -> List[Dict[str, Any]]:
+    def get_messages(self) -> list[dict[str, Any]]:
         """Get messages in format for API calls."""
         messages = []
 
@@ -110,7 +110,7 @@ class ContextManager:
 
         return messages
 
-    def get_token_usage(self) -> Dict[str, int]:
+    def get_token_usage(self) -> dict[str, int]:
         """Get token usage statistics."""
         system_tokens = self._estimate_tokens(self.system_prompt) if self.system_prompt else 0
         message_tokens = sum(msg.token_count for msg in self.messages)
@@ -184,7 +184,7 @@ class ContextManager:
         return score
 
     @staticmethod
-    def _estimate_tokens(text: Optional[str]) -> int:
+    def _estimate_tokens(text: str | None) -> int:
         """Rough token estimation (4 chars ≈ 1 token)."""
         if not text:
             return 0
@@ -194,6 +194,6 @@ class ContextManager:
         """Clear all messages."""
         self.messages = []
 
-    def export_history(self) -> List[Dict[str, Any]]:
+    def export_history(self) -> list[dict[str, Any]]:
         """Export full conversation history."""
         return [msg.to_dict() for msg in self.messages]

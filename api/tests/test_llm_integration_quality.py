@@ -1,4 +1,5 @@
 """LLM integration regression, latency/cost, chaos, and feedback tests (#401/#402)."""
+
 from __future__ import annotations
 
 import json
@@ -9,10 +10,7 @@ import pytest
 
 from api.tests.llm_mocking import DeterministicLLMMock
 
-
-GOLDEN_CASES = json.loads(
-    (Path(__file__).parent / "llm_golden" / "ask_cases.json").read_text()
-)
+GOLDEN_CASES = json.loads((Path(__file__).parent / "llm_golden" / "ask_cases.json").read_text())
 
 
 @pytest.mark.parametrize("case", GOLDEN_CASES)

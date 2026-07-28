@@ -1,5 +1,6 @@
 """Explanation prompt templates."""
-from typing import Any, Dict, List
+
+from typing import Any
 
 
 class ExplanationTemplates:
@@ -85,7 +86,7 @@ Create an executive summary that:
 - Includes actionable insights"""
 
     @staticmethod
-    def format_transactions(transactions: List[Dict[str, Any]], max_count: int = 5) -> str:
+    def format_transactions(transactions: list[dict[str, Any]], max_count: int = 5) -> str:
         """Format transaction list for template."""
         lines = []
         for i, tx in enumerate(transactions[:max_count], 1):
@@ -96,7 +97,7 @@ Create an executive summary that:
         return "\n".join(lines) if lines else "No transactions available"
 
     @staticmethod
-    def format_features(features: Dict[str, float], max_count: int = 10) -> str:
+    def format_features(features: dict[str, float], max_count: int = 10) -> str:
         """Format feature contributions for template."""
         sorted_features = sorted(features.items(), key=lambda x: abs(x[1]), reverse=True)
         lines = []
@@ -106,7 +107,7 @@ Create an executive summary that:
         return "\n".join(lines) if lines else "No features available"
 
     @staticmethod
-    def format_graph_patterns(patterns: List[str]) -> str:
+    def format_graph_patterns(patterns: list[str]) -> str:
         """Format graph patterns for template."""
         if not patterns:
             return "No specific graph patterns identified"

@@ -1,17 +1,18 @@
 """Alert prioritization and triage service (issue XXX)."""
+
 from __future__ import annotations
 
 import hashlib
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Tuple
-from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from api.models.orm import FraudAlert, ApiTransaction
+from api.models.orm import ApiTransaction, FraudAlert
 from astroml.llm.provider import MockLLMProvider
 
 llm = MockLLMProvider()
@@ -92,7 +93,8 @@ Return ONLY a JSON object with:
                 "asset_code": tx.asset_code or "XLM",
                 "destination_account": tx.destination_account,
                 "created_at": tx.created_at.isoformat(),
-            } for tx in txs
+            }
+            for tx in txs
         ]
 
         # Calculate account activity score
@@ -102,7 +104,9 @@ Return ONLY a JSON object with:
         total_volume = sum(float(tx.amount) for tx in recent_txs if tx.amount)
         account_activity_score = min(1.0, (tx_count / 20) + (total_volume / 10000))
 
-        time_since_first_seen = (datetime.utcnow() - alert.detected_at).total_seconds() / 3600  # hours
+        time_since_first_seen = (
+            datetime.utcnow() - alert.detected_at
+        ).total_seconds() / 3600  # hours
 
         return EnrichedAlert(
             alert=alert,
@@ -129,7 +133,9 @@ Return ONLY a JSON object with:
                 duplicate_of = None
                 for processed in deduplicated:
                     if processed.alert.account_id == account_id:
-                        processed_text = f"{processed.alert.pattern or ''} {processed.alert.description or ''}"
+                        processed_text = (
+                            f"{processed.alert.pattern or ''} {processed.alert.description or ''}"
+                        )
                         similarity = self._semantic_similarity(alert_text, processed_text)
                         if similarity > 0.7:
                             is_dupe = True
@@ -190,7 +196,9 @@ Return ONLY a JSON object with:
 
         return enriched
 
-    def process_alerts(self, db: Session, alerts: List[FraudAlert]) -> Tuple[List[EnrichedAlert], int]:
+    def process_alerts(
+        self, db: Session, alerts: List[FraudAlert]
+    ) -> Tuple[List[EnrichedAlert], int]:
         """Process, enrich, deduplicate, and prioritize alerts."""
         enriched = [self.enrich_alert(db, alert) for alert in alerts]
         deduplicated = self.deduplicate_alerts(enriched)
@@ -199,7 +207,9 @@ Return ONLY a JSON object with:
 
         original_count = len(alerts)
         deduplicated_count = len(prioritized_sorted)
-        reduction = (original_count - deduplicated_count) / original_count if original_count > 0 else 0.0
+        reduction = (
+            (original_count - deduplicated_count) / original_count if original_count > 0 else 0.0
+        )
 
         return prioritized_sorted, int(reduction * 100)
 

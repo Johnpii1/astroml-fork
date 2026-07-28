@@ -1,13 +1,13 @@
 from importlib import import_module
 
 from . import temporal_split
-from .temporal_split import TemporalSplitter, temporal_graph_split, validate_graph_split
 from .config import (
-    TrainingConfig,
     EarlyStoppingConfig,
-    TemporalSplitConfig,
     OptimizerConfig,
+    TemporalSplitConfig,
+    TrainingConfig,
 )
+from .temporal_split import TemporalSplitter, temporal_graph_split, validate_graph_split
 
 __all__ = [
     "temporal_split",

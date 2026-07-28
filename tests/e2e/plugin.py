@@ -1,6 +1,7 @@
 """Pytest plugin for E2E test reporting."""
+
 import time
-import pytest
+
 from tests.e2e.reporter import E2ETestReporter
 
 
@@ -19,7 +20,7 @@ class E2EReportPlugin:
         """Capture test results."""
         if report.when == "call":
             duration = time.time() - self.test_start if self.test_start else 0
-            
+
             if report.passed:
                 status = "passed"
                 error = None

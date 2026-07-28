@@ -2,12 +2,13 @@
 
 Resolves #455: Multi-category content classifier with confidence scoring.
 """
+
 from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Sequence
 from enum import Enum
-from typing import Sequence
 
 
 class ContentCategory(str, Enum):
@@ -31,7 +32,9 @@ class ContentCategory(str, Enum):
 _PROMPT_INJECTION_PATTERNS: Sequence[re.Pattern] = [
     re.compile(r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?)", re.I),
     re.compile(r"you\s+are\s+now\s+(a\s+)?(?:evil|unrestricted|DAN|jailbreak)", re.I),
-    re.compile(r"act\s+as\s+if\s+you\s+(have\s+no|don.t\s+have)\s+(restrictions?|rules?|guidelines?)", re.I),
+    re.compile(
+        r"act\s+as\s+if\s+you\s+(have\s+no|don.t\s+have)\s+(restrictions?|rules?|guidelines?)", re.I
+    ),
     re.compile(r"system\s*:\s*you\s+must", re.I),
     re.compile(r"</?(system|user|assistant)>", re.I),
 ]
@@ -45,7 +48,9 @@ _JAILBREAK_PATTERNS: Sequence[re.Pattern] = [
 ]
 
 _HARMFUL_PATTERNS: Sequence[re.Pattern] = [
-    re.compile(r"\b(how\s+to\s+make|synthesize|build)\s+(a\s+)?(bomb|weapon|explosive|poison)", re.I),
+    re.compile(
+        r"\b(how\s+to\s+make|synthesize|build)\s+(a\s+)?(bomb|weapon|explosive|poison)", re.I
+    ),
     re.compile(r"\b(hack|exploit|bypass)\s+(a\s+)?(bank|system|server)", re.I),
     re.compile(r"\b(suicide|self.harm)\s+method", re.I),
 ]

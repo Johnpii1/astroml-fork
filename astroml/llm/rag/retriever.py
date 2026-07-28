@@ -1,8 +1,7 @@
 """Document retrieval logic for RAG pipeline."""
 
-from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
-import time
+from typing import Any
 
 
 @dataclass
@@ -12,10 +11,10 @@ class RetrievedDocument:
     text: str
     source: str
     relevance_score: float
-    rerank_score: Optional[float] = None
-    metadata: Dict[str, Any] = None
+    rerank_score: float | None = None
+    metadata: dict[str, Any] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "text": self.text,
@@ -32,7 +31,7 @@ class Retriever:
     def __init__(
         self,
         embeddings_service: Any,
-        reranker: Optional[Any] = None,
+        reranker: Any | None = None,
         top_k: int = 10,
         rerank_to_k: int = 5,
     ):
@@ -48,9 +47,11 @@ class Retriever:
         self.reranker = reranker
         self.top_k = top_k
         self.rerank_to_k = rerank_to_k
-        self.document_store: List[RetrievedDocument] = []
+        self.document_store: list[RetrievedDocument] = []
 
-    def add_documents(self, documents: List[str], sources: List[str], metadata: Optional[List[Dict]] = None) -> None:
+    def add_documents(
+        self, documents: list[str], sources: list[str], metadata: list[dict] | None = None
+    ) -> None:
         """Add documents to retriever."""
         embeddings, text_ids = self.embeddings.embed_texts_batch(documents, metadata)
 
@@ -64,9 +65,7 @@ class Retriever:
             )
             self.document_store.append(doc_obj)
 
-    def retrieve(
-        self, query: str, metadata_filter: Optional[Dict] = None
-    ) -> List[RetrievedDocument]:
+    def retrieve(self, query: str, metadata_filter: dict | None = None) -> list[RetrievedDocument]:
         """Retrieve documents for query.
 
         Args:
@@ -93,14 +92,14 @@ class Retriever:
 
         return retrieved[: self.rerank_to_k]
 
-    def _rerank_results(self, query: str, documents: List[RetrievedDocument]) -> List[RetrievedDocument]:
+    def _rerank_results(
+        self, query: str, documents: list[RetrievedDocument]
+    ) -> list[RetrievedDocument]:
         """Rerank documents using reranker."""
         if not self.reranker:
             return documents
 
-        rerank_scores = self.reranker.rerank(
-            query, [doc.text for doc in documents]
-        )
+        rerank_scores = self.reranker.rerank(query, [doc.text for doc in documents])
 
         for doc, score in zip(documents, rerank_scores):
             doc.rerank_score = score
@@ -111,7 +110,7 @@ class Retriever:
         )
         return documents
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get retriever statistics."""
         return {
             "total_documents": len(self.document_store),
@@ -128,7 +127,7 @@ class SimpleReranker:
         """Initialize reranker."""
         self.embeddings = embeddings_service
 
-    def rerank(self, query: str, documents: List[str]) -> List[float]:
+    def rerank(self, query: str, documents: list[str]) -> list[float]:
         """Rerank documents."""
         query_emb, _ = self.embeddings.embed_texts_batch([query])
         query_emb = query_emb[0]

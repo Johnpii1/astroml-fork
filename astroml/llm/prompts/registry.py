@@ -1,18 +1,17 @@
 """Versioned prompt template registry."""
 
-from typing import Any, Dict, Optional, List
-from datetime import datetime
 import json
-from pathlib import Path
 import random
+from pathlib import Path
+from typing import Any
 
-from .engine import PromptTemplate, TemplateEngine, TemplateVariable
+from .engine import PromptTemplate, TemplateEngine
 
 
 class PromptRegistry:
     """Manages versioned prompt templates with A/B testing support."""
 
-    def __init__(self, storage_path: Optional[str] = None):
+    def __init__(self, storage_path: str | None = None):
         """Initialize prompt registry.
 
         Args:
@@ -21,8 +20,8 @@ class PromptRegistry:
         self.engine = TemplateEngine()
         self.storage_path = Path(storage_path or "prompts")
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.templates: Dict[str, List[PromptTemplate]] = {}
-        self._ab_variants: Dict[str, Dict[str, float]] = {}
+        self.templates: dict[str, list[PromptTemplate]] = {}
+        self._ab_variants: dict[str, dict[str, float]] = {}
 
     def register(self, template_def: PromptTemplate) -> None:
         """Register a new template or version.
@@ -41,13 +40,13 @@ class PromptRegistry:
         if template_def.ab_test:
             self._ab_variants[template_def.name] = template_def.ab_test
 
-    def get_latest(self, name: str) -> Optional[PromptTemplate]:
+    def get_latest(self, name: str) -> PromptTemplate | None:
         """Get the latest version of a template."""
         if name not in self.templates or not self.templates[name]:
             return None
         return self.templates[name][0]
 
-    def get_version(self, name: str, version: str) -> Optional[PromptTemplate]:
+    def get_version(self, name: str, version: str) -> PromptTemplate | None:
         """Get a specific version of a template."""
         if name not in self.templates:
             return None
@@ -57,7 +56,7 @@ class PromptRegistry:
                 return template
         return None
 
-    def get_for_ab_test(self, name: str) -> Optional[PromptTemplate]:
+    def get_for_ab_test(self, name: str) -> PromptTemplate | None:
         """Get template variant based on A/B testing configuration.
 
         Args:
@@ -84,16 +83,14 @@ class PromptRegistry:
     def _get_variant(self, template: PromptTemplate, variant_name: str) -> PromptTemplate:
         """Get template with specific variant selected."""
         variant_template = PromptTemplate(**template.dict())
-        variant_template.template = template.variants.get(
-            variant_name, template.template
-        )
+        variant_template.template = template.variants.get(variant_name, template.template)
         return variant_template
 
-    def list_templates(self) -> Dict[str, str]:
+    def list_templates(self) -> dict[str, str]:
         """List all registered templates with their latest versions."""
         return {name: versions[0].version for name, versions in self.templates.items()}
 
-    def list_versions(self, name: str) -> List[str]:
+    def list_versions(self, name: str) -> list[str]:
         """List all versions of a template."""
         if name not in self.templates:
             return []
@@ -105,7 +102,7 @@ class PromptRegistry:
         with open(file_path, "w") as f:
             json.dump(template_def.dict(), f, indent=2)
 
-    def load(self, name: str, version: Optional[str] = None) -> None:
+    def load(self, name: str, version: str | None = None) -> None:
         """Load template from disk.
 
         Args:
@@ -116,9 +113,7 @@ class PromptRegistry:
             file_path = self.storage_path / f"{name}_{version}.json"
         else:
             # Find latest version file
-            matching_files = sorted(
-                self.storage_path.glob(f"{name}_*.json"), reverse=True
-            )
+            matching_files = sorted(self.storage_path.glob(f"{name}_*.json"), reverse=True)
             if not matching_files:
                 raise FileNotFoundError(f"No templates found for '{name}'")
             file_path = matching_files[0]
@@ -128,9 +123,7 @@ class PromptRegistry:
             template = PromptTemplate(**data)
             self.register(template)
 
-    def render(
-        self, name: str, variables: Dict[str, Any], version: Optional[str] = None
-    ) -> str:
+    def render(self, name: str, variables: dict[str, Any], version: str | None = None) -> str:
         """Render a template by name.
 
         Args:
@@ -151,9 +144,7 @@ class PromptRegistry:
 
         return self.engine.render(template, variables)
 
-    def render_ab(
-        self, name: str, variables: Dict[str, Any]
-    ) -> tuple[str, Optional[str]]:
+    def render_ab(self, name: str, variables: dict[str, Any]) -> tuple[str, str | None]:
         """Render template with A/B test variant selection.
 
         Returns:

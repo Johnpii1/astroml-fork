@@ -9,18 +9,17 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Optional, Set
 
-from astroml.llm.docs.code_analyzer import CodeAnalyzer, CodeElement, ElementType
+from astroml.llm.docs.code_analyzer import CodeAnalyzer
+from astroml.llm.docs.updater import DocumentationUpdater
+from astroml.llm.docs.validator import DocumentationValidator, ValidationResult
 from astroml.llm.docs.writers import (
     BaseWriter,
+    HtmlWriter,
     MarkdownWriter,
     RstWriter,
-    HtmlWriter,
     WriterConfig,
 )
-from astroml.llm.docs.validator import DocumentationValidator, ValidationResult
-from astroml.llm.docs.updater import DocumentationUpdater, UpdateResult
 
 
 class DocType(Enum):
@@ -87,11 +86,11 @@ class GenerationResult:
     """
 
     success: bool
-    files_generated: List[str] = field(default_factory=list)
-    files_updated: List[str] = field(default_factory=list)
-    validation_result: Optional[ValidationResult] = None
+    files_generated: list[str] = field(default_factory=list)
+    files_updated: list[str] = field(default_factory=list)
+    validation_result: ValidationResult | None = None
     duration_seconds: float = 0.0
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class DocumentationGenerator:
@@ -117,9 +116,7 @@ class DocumentationGenerator:
         self.validator = DocumentationValidator()
         self.updater = DocumentationUpdater()
 
-    def generate_from_directory(
-        self, source_dir: str, output_dir: str = None
-    ) -> GenerationResult:
+    def generate_from_directory(self, source_dir: str, output_dir: str = None) -> GenerationResult:
         """
         Generate documentation from a directory of source files.
 
@@ -168,9 +165,7 @@ class DocumentationGenerator:
 
         return result
 
-    def generate_from_file(
-        self, source_file: str, output_file: str = None
-    ) -> GenerationResult:
+    def generate_from_file(self, source_file: str, output_file: str = None) -> GenerationResult:
         """
         Generate documentation from a single source file.
 
@@ -226,9 +221,7 @@ class DocumentationGenerator:
 
         return result
 
-    def generate_api_docs(
-        self, api_file: str, output_file: str = None
-    ) -> GenerationResult:
+    def generate_api_docs(self, api_file: str, output_file: str = None) -> GenerationResult:
         """
         Generate API documentation from FastAPI routes.
 
@@ -268,9 +261,7 @@ class DocumentationGenerator:
 
         return result
 
-    def generate_changelog(
-        self, repo_path: str, output_file: str = None
-    ) -> GenerationResult:
+    def generate_changelog(self, repo_path: str, output_file: str = None) -> GenerationResult:
         """
         Generate changelog from git history.
 
@@ -349,9 +340,7 @@ class DocumentationGenerator:
 
         return result
 
-    def update_documentation(
-        self, doc_path: str, source_paths: List[str]
-    ) -> GenerationResult:
+    def update_documentation(self, doc_path: str, source_paths: list[str]) -> GenerationResult:
         """
         Update existing documentation.
 
@@ -413,7 +402,7 @@ class DocumentationGenerator:
         }
         return extensions.get(self.config.output_format, "md")
 
-    def _generate_api_content(self, endpoints: List[Dict], api_file: str) -> str:
+    def _generate_api_content(self, endpoints: list[dict], api_file: str) -> str:
         """Generate API documentation content."""
         lines = ["# API Documentation\n"]
         lines.append(f"Generated from `{api_file}`\n")
@@ -512,9 +501,7 @@ class DocumentationGenerator:
         lines.append("")
         return "\n".join(lines)
 
-    def _merge_readme_sections(
-        self, existing_content: str, new_sections: Dict[str, str]
-    ) -> str:
+    def _merge_readme_sections(self, existing_content: str, new_sections: dict[str, str]) -> str:
         """Merge new sections into existing README."""
         lines = existing_content.split("\n")
         merged = []
@@ -527,10 +514,10 @@ class DocumentationGenerator:
                 continue
 
             section_found = False
-            for section_name in new_sections.keys():
+            for section_name in new_sections:
                 if line.startswith(f"## {section_name}"):
                     merged.append(new_sections[section_name])
-                    skip_until = f"## "
+                    skip_until = "## "
                     section_found = True
                     break
 

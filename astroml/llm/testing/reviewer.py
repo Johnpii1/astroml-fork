@@ -9,9 +9,8 @@ from __future__ import annotations
 import ast
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
 
-from .generator import GeneratedTest, TestType
+from .generator import GeneratedTest
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +18,12 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ReviewResult:
     """Result of a test quality review."""
+
     score: float
-    issues: List[str] = field(default_factory=list)
-    suggestions: List[str] = field(default_factory=list)
-    coverage_tags: List[str] = field(default_factory=list)
-    missing_coverage: List[str] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
+    coverage_tags: list[str] = field(default_factory=list)
+    missing_coverage: list[str] = field(default_factory=list)
     passed_checks: int = 0
     failed_checks: int = 0
 
@@ -40,13 +40,13 @@ class TestReviewer:
     - Mock usage
     """
 
-    def __init__(self, source_code: Optional[str] = None):
+    def __init__(self, source_code: str | None = None):
         self.source_code = source_code
 
     def review_test(self, test: GeneratedTest) -> ReviewResult:
         """Review a single generated test case."""
-        issues: List[str] = []
-        suggestions: List[str] = []
+        issues: list[str] = []
+        suggestions: list[str] = []
         score = 100.0
 
         syntax_issues = self._check_syntax(test)
@@ -73,11 +73,11 @@ class TestReviewer:
             failed_checks=len(issues),
         )
 
-    def review_all(self, tests: List[GeneratedTest]) -> List[ReviewResult]:
+    def review_all(self, tests: list[GeneratedTest]) -> list[ReviewResult]:
         """Review all generated tests."""
         return [self.review_test(test) for test in tests]
 
-    def _check_syntax(self, test: GeneratedTest) -> List[str]:
+    def _check_syntax(self, test: GeneratedTest) -> list[str]:
         issues = []
         full_code = f"\n{test.imports}\ndef {test.name}():\n{test.body}"
         try:
@@ -88,13 +88,13 @@ class TestReviewer:
             issues.append(f"Parse error in {test.name}: {e}")
         return issues
 
-    def _check_assertions(self, test: GeneratedTest) -> List[str]:
+    def _check_assertions(self, test: GeneratedTest) -> list[str]:
         issues = []
         if "assert" not in test.body and "pytest.raises" not in test.body:
             issues.append(f"No assertions found in {test.name}")
         return issues
 
-    def _check_naming(self, test: GeneratedTest) -> List[str]:
+    def _check_naming(self, test: GeneratedTest) -> list[str]:
         issues = []
         if not test.name.startswith("test_"):
             issues.append(f"Test name '{test.name}' should start with 'test_'")
@@ -102,7 +102,7 @@ class TestReviewer:
             issues.append(f"Test name '{test.name}' should be descriptive with underscores")
         return issues
 
-    def _identify_coverage(self, test: GeneratedTest) -> List[str]:
+    def _identify_coverage(self, test: GeneratedTest) -> list[str]:
         tags = []
         body_lower = test.body.lower()
 
@@ -125,7 +125,7 @@ class TestReviewer:
 
     def generate_summary_report(
         self,
-        results: List[ReviewResult],
+        results: list[ReviewResult],
     ) -> str:
         """Generate a human-readable summary report."""
         avg_score = sum(r.score for r in results) / max(len(results), 1)
@@ -134,13 +134,13 @@ class TestReviewer:
         all_tags = set(t for r in results for t in r.coverage_tags)
 
         report = [
-            f"Test Review Summary",
+            "Test Review Summary",
             f"{'=' * 40}",
             f"Tests reviewed: {len(results)}",
             f"Average score: {avg_score:.1f}/100",
             f"Issues found: {len(all_issues)}",
-            f"",
-            f"Coverage Tags:",
+            "",
+            "Coverage Tags:",
         ]
         for tag in sorted(all_tags):
             report.append(f"  - {tag}")
@@ -155,13 +155,11 @@ class TestReviewer:
 
     def get_improvement_suggestions(
         self,
-        results: List[ReviewResult],
-    ) -> List[str]:
+        results: list[ReviewResult],
+    ) -> list[str]:
         """Generate actionable improvement suggestions."""
         suggestions = []
-        missing_assertions = sum(
-            1 for r in results if "No assertions" in str(r.issues)
-        )
+        missing_assertions = sum(1 for r in results if "No assertions" in str(r.issues))
         if missing_assertions > len(results) / 2:
             suggestions.append(
                 "Most tests are missing assertions. Consider adding "
@@ -170,12 +168,8 @@ class TestReviewer:
 
         all_tags = set(t for r in results for t in r.coverage_tags)
         if "edge_case:null_input" not in all_tags:
-            suggestions.append(
-                "No null input tests detected. Add edge cases for None/null values."
-            )
+            suggestions.append("No null input tests detected. Add edge cases for None/null values.")
         if "edge_case:empty_input" not in all_tags:
-            suggestions.append(
-                "No empty input tests detected. Add edge cases for empty inputs."
-            )
+            suggestions.append("No empty input tests detected. Add edge cases for empty inputs.")
 
         return suggestions

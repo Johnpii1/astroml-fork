@@ -1,4 +1,4 @@
-.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan security-audit secrets-scan
+.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan security-audit secrets-scan complexity
 
 help:
 	@echo "AstroML Development Commands"
@@ -8,8 +8,10 @@ help:
 	@echo "make quickstart-verbose  Run quick start with verbose output"
 	@echo "make test                Run full test suite"
 	@echo "make test-api            Run API integration tests only"
-	@echo "make lint                Run linters (flake8, mypy)"
+	@echo "make lint                Run linters (ruff, mypy)"
 	@echo "make format              Format code (black, isort)"
+	@echo "make format-check        Check formatting without modifying files"
+	@echo "make complexity          Run code complexity analysis (xenon)"
 	@echo "make install             Install development dependencies"
 	@echo "make dependency-tree     Print the resolved dependency tree (pipdeptree)"
 	@echo "make clean               Clean build artifacts and cache"
@@ -39,12 +41,19 @@ test-api:
 	pytest api/tests/ -v --tb=short
 
 lint:
-	flake8 astroml/ tests/
+	ruff check astroml/ tests/ api/
 	mypy astroml/ --ignore-missing-imports
 
 format:
-	black astroml/ tests/
-	isort astroml/ tests/
+	black astroml/ tests/ api/
+	ruff check --fix --select I astroml/ tests/ api/
+
+format-check:
+	black --check astroml/ tests/ api/
+	ruff check --select I astroml/ tests/ api/
+
+complexity:
+	xenon --max-absolute C --max-modules D --max-average C astroml/
 
 # Issue #562 — resolved dependency tree, e.g. to check what a pin bump would
 # actually pull in, or to spot conflicting transitive requirements. Requires

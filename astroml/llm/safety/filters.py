@@ -3,10 +3,11 @@
 Resolves #455: Regex-based PII detection, redaction, and blocklist checking.
 Supports: email, phone, SSN, credit card, IP address, physical addresses.
 """
+
 from __future__ import annotations
 
 import re
-from typing import Sequence
+from collections.abc import Sequence
 
 from astroml.llm.safety.blocklist import BlocklistManager
 

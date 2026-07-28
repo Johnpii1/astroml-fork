@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -19,10 +18,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EvaluationResult:
     """Result of a fine-tuned model evaluation."""
+
     model_id: str
-    metrics: Dict[str, float]
-    baseline_metrics: Dict[str, float]
-    improvement_pct: Dict[str, float]
+    metrics: dict[str, float]
+    baseline_metrics: dict[str, float]
+    improvement_pct: dict[str, float]
     num_test_samples: int
     duration_seconds: float
     evaluated_at: datetime = field(default_factory=datetime.utcnow)
@@ -43,8 +43,8 @@ class FineTuneEvaluator:
 
     def evaluate(
         self,
-        test_data: List[Dict[str, str]],
-        baseline_model: Optional[str] = None,
+        test_data: list[dict[str, str]],
+        baseline_model: str | None = None,
     ) -> EvaluationResult:
         """Evaluate the fine-tuned model against test data.
 
@@ -63,9 +63,7 @@ class FineTuneEvaluator:
         ft_predictions = self._generate_predictions(test_data)
         ft_metrics = self._compute_metrics(test_data, ft_predictions)
 
-        baseline_predictions = self._generate_baseline_predictions(
-            test_data, baseline
-        )
+        baseline_predictions = self._generate_baseline_predictions(test_data, baseline)
         baseline_metrics = self._compute_metrics(test_data, baseline_predictions)
 
         improvement = {}
@@ -80,9 +78,7 @@ class FineTuneEvaluator:
                 improvement[metric] = 0.0
 
         duration = time.time() - start
-        logger.info(
-            f"Evaluation complete: {len(test_data)} samples in {duration:.1f}s"
-        )
+        logger.info(f"Evaluation complete: {len(test_data)} samples in {duration:.1f}s")
 
         return EvaluationResult(
             model_id=self.model_id,
@@ -95,8 +91,8 @@ class FineTuneEvaluator:
 
     def _generate_predictions(
         self,
-        test_data: List[Dict[str, str]],
-    ) -> List[str]:
+        test_data: list[dict[str, str]],
+    ) -> list[str]:
         """Generate predictions using the fine-tuned model."""
         predictions = []
         trainer = getattr(self.model, "_predict", None)
@@ -115,14 +111,15 @@ class FineTuneEvaluator:
 
     def _generate_baseline_predictions(
         self,
-        test_data: List[Dict[str, str]],
+        test_data: list[dict[str, str]],
         baseline_model: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate predictions using the baseline model."""
         predictions = []
         for record in test_data:
             try:
                 from astroml.llm.providers.factory import get_llm_provider
+
                 provider = get_llm_provider("openai")
                 response = provider.generate(record["input"], model=baseline_model)
                 predictions.append(response)
@@ -133,9 +130,9 @@ class FineTuneEvaluator:
 
     def _compute_metrics(
         self,
-        test_data: List[Dict[str, str]],
-        predictions: List[str],
-    ) -> Dict[str, float]:
+        test_data: list[dict[str, str]],
+        predictions: list[str],
+    ) -> dict[str, float]:
         """Compute evaluation metrics."""
         exact_matches = 0
         partial_scores = []

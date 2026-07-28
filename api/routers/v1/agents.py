@@ -3,16 +3,18 @@
 Resolves #457: Run autonomous LLM agent tasks with tool-use simulation,
 task management, and result retrieval.
 """
+
 from __future__ import annotations
 
 import logging
 import uuid
 from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from api.services.llm import LLMService
 from api.routers.llm import get_llm_service
+from api.services.llm import LLMService
 
 logger = logging.getLogger(__name__)
 

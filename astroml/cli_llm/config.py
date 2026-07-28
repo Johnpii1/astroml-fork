@@ -4,7 +4,6 @@ import os
 import pathlib
 from typing import Any
 
-
 DEFAULT_CONFIG_PATH = pathlib.Path.home() / ".config" / "astroml" / "llm.yaml"
 
 DEFAULTS: dict[str, Any] = {
@@ -24,6 +23,7 @@ def load_cli_config(config_path: str | None = None) -> dict[str, Any]:
     if cfg_path.exists():
         try:
             import yaml
+
             with open(cfg_path) as f:
                 loaded = yaml.safe_load(f) or {}
             config.update(loaded)

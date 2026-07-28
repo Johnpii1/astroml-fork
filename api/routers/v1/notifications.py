@@ -10,6 +10,7 @@ Endpoints:
   POST /api/v1/notifications/webhook/github    — GitHub webhook handler
   GET /api/v1/notifications/digest              — generate digest
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -22,24 +23,25 @@ from api.auth.dependencies import AuthContext, get_current_auth
 from api.database import get_db
 from api.models.orm import Notification, NotificationPreference
 from api.schemas import (
-    NotificationOut,
+    DigestEmailOut,
     NotificationListResponse,
+    NotificationOut,
     NotificationPreferenceIn,
     NotificationPreferenceOut,
     WebhookEventIn,
-    DigestEmailOut,
 )
 from astroml.contributors.notifications import (
-    NotificationService,
-    NotificationPreferences,
-    GitHubWebhookHandler,
     DigestEmailGenerator,
+    GitHubWebhookHandler,
+    NotificationPreferences,
+    NotificationService,
 )
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 
 
 # ─── User Notifications ───────────────────────────────────────────────────
+
 
 @router.get("", response_model=NotificationListResponse)
 async def get_notifications(
@@ -61,7 +63,9 @@ async def get_notifications(
 
     # Count unread
     unread_result = await db.execute(
-        select(func.count()).select_from(Notification).where(
+        select(func.count())
+        .select_from(Notification)
+        .where(
             Notification.user_id == auth.user_id,
             Notification.is_read.is_(False),
         )
@@ -81,7 +85,9 @@ async def get_unread_count(
 ):
     """Get count of unread notifications."""
     result = await db.execute(
-        select(func.count()).select_from(Notification).where(
+        select(func.count())
+        .select_from(Notification)
+        .where(
             Notification.user_id == auth.user_id,
             Notification.is_read.is_(False),
         )
@@ -97,9 +103,7 @@ async def mark_as_read(
     db: AsyncSession = Depends(get_db),
 ):
     """Mark notification as read."""
-    result = await db.execute(
-        select(Notification).where(Notification.id == notification_id)
-    )
+    result = await db.execute(select(Notification).where(Notification.id == notification_id))
     notification = result.scalar_one_or_none()
 
     if not notification:
@@ -138,6 +142,7 @@ async def mark_all_as_read(
 
 # ─── Preferences ──────────────────────────────────────────────────────────
 
+
 @router.get("/preferences", response_model=NotificationPreferenceOut)
 async def get_preferences(
     auth: AuthContext = Depends(get_current_auth),
@@ -145,9 +150,7 @@ async def get_preferences(
 ):
     """Get notification preferences."""
     result = await db.execute(
-        select(NotificationPreference).where(
-            NotificationPreference.user_id == auth.user_id
-        )
+        select(NotificationPreference).where(NotificationPreference.user_id == auth.user_id)
     )
     pref = result.scalar_one_or_none()
 
@@ -168,9 +171,7 @@ async def update_preferences(
 ):
     """Update notification preferences."""
     result = await db.execute(
-        select(NotificationPreference).where(
-            NotificationPreference.user_id == auth.user_id
-        )
+        select(NotificationPreference).where(NotificationPreference.user_id == auth.user_id)
     )
     pref = result.scalar_one_or_none()
 
@@ -196,6 +197,7 @@ async def update_preferences(
 
 
 # ─── Webhooks ─────────────────────────────────────────────────────────────
+
 
 @router.post("/webhook/github", status_code=202)
 async def handle_github_webhook(
@@ -246,6 +248,7 @@ async def handle_github_webhook(
 
 
 # ─── Digest & Analytics ───────────────────────────────────────────────────
+
 
 @router.get("/digest", response_model=DigestEmailOut)
 async def get_digest(
