@@ -130,7 +130,6 @@ class TestReviewer:
         """Generate a human-readable summary report."""
         avg_score = sum(r.score for r in results) / max(len(results), 1)
         all_issues = [i for r in results for i in r.issues]
-        all_suggestions = [s for r in results for s in r.suggestions]
         all_tags = set(t for r in results for t in r.coverage_tags)
 
         report = [

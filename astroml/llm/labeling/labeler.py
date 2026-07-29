@@ -1,13 +1,13 @@
 """Core labeling logic for LLM-based data labeling (issue #475)."""
+
 from __future__ import annotations
 
 import logging
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from .schemas import Label, LabelSchema, LabelDefinition
+from .schemas import Label, LabelDefinition, LabelSchema
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +113,7 @@ class DataLabeler:
             # Update stats
             self.labeling_stats[schema_name]["total_labeled"] += 1
             auto_accepted = sum(
-                1 for l in labels
-                if l.confidence >= definition.confidence_threshold
+                1 for l in labels if l.confidence >= definition.confidence_threshold
             )
             self.labeling_stats[schema_name]["auto_accepted"] += auto_accepted
             self.labeling_stats[schema_name]["human_reviewed"] += len(labels) - auto_accepted

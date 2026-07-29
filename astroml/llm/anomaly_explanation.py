@@ -38,12 +38,10 @@ class AnomalyExplanationEngine:
     def generate_explanation(
         self, anomaly_id: str, account_id: str, anomaly_data: dict[str, Any]
     ) -> dict[str, Any]:
-        features_str = self.extract_features(anomaly_data)
-        baseline_str = self.extract_baseline(account_id)
-
-        prompt = self.prompt_template.format(features=features_str, baseline=baseline_str)
-
         # Simulate LLM call
+        # features = self.extract_features(anomaly_data)
+        # baseline = self.extract_baseline(account_id)
+        # prompt = self.prompt_template.format(features=features, baseline=baseline)
         # response = self.llm.generate(prompt)
         # Mocking the response for batch processing performance
         response = {

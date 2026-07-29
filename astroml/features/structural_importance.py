@@ -478,7 +478,6 @@ def compute_eigenvector_centrality(
     """
     try:
         import scipy.sparse as sp
-        import scipy.sparse.linalg as spla
     except ImportError:
         warnings.warn(
             "SciPy is required for eigenvector centrality. Install with: pip install scipy"

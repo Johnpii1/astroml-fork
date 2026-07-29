@@ -39,12 +39,9 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional, Protocol, Union, runtime_checkable
 from enum import Enum
 from pathlib import Path
-from contextlib import contextmanager
-import concurrent.futures
-import sqlite3
+from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
 import pandas as pd
 from cachetools import TTLCache
@@ -280,8 +277,7 @@ class FeatureStorage:
     def _init_database(self) -> None:
         """Initialize SQLite database with required tables."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS feature_definitions (
                     feature_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -320,8 +316,7 @@ class FeatureStorage:
                 
                 CREATE INDEX IF NOT EXISTS idx_feature_definitions_status 
                     ON feature_definitions(status);
-            """
-            )
+            """)
 
     def store_feature_definition(self, feature_def: FeatureDefinition) -> None:
         """Store feature definition in database.
@@ -352,7 +347,7 @@ class FeatureStorage:
                     json.dumps(feature_def.metadata),
                 ),
             )
-    
+
     @staticmethod
     def _row_to_dict(row: tuple[Any, ...], columns: List[str]) -> Dict[str, Any]:
         """Map a SQLite row to a dictionary using column names."""
@@ -366,16 +361,25 @@ class FeatureStorage:
     def _deserialize_feature_definition(row: tuple[Any, ...]) -> FeatureDefinition:
         """Deserialize a feature definition row into a dataclass."""
         columns = [
-            "feature_id", "name", "version", "description", "feature_type",
-            "parameters", "tags", "owner", "status", "created_at",
-            "updated_at", "metadata",
+            "feature_id",
+            "name",
+            "version",
+            "description",
+            "feature_type",
+            "parameters",
+            "tags",
+            "owner",
+            "status",
+            "created_at",
+            "updated_at",
+            "metadata",
         ]
         data = FeatureStorage._row_to_dict(row, columns)
         data.pop("feature_id", None)
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         data["updated_at"] = datetime.fromisoformat(data["updated_at"])
         return FeatureDefinition.from_dict(data)
-    
+
     def get_feature_definition(self, feature_id: str) -> Optional[FeatureDefinition]:
         """Retrieve feature definition by ID.
 
@@ -414,7 +418,7 @@ class FeatureStorage:
         """
         query = "SELECT * FROM feature_definitions WHERE 1=1"
         params: List[Any] = []
-        
+
         if status:
             query += " AND status = ?"
             params.append(status.value)
@@ -426,16 +430,25 @@ class FeatureStorage:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
-            
+
             features: List[FeatureDefinition] = []
             columns = [
-                "feature_id", "name", "version", "description", "feature_type",
-                "parameters", "tags", "owner", "status", "created_at", 
-                "updated_at", "metadata"
+                "feature_id",
+                "name",
+                "version",
+                "description",
+                "feature_type",
+                "parameters",
+                "tags",
+                "owner",
+                "status",
+                "created_at",
+                "updated_at",
+                "metadata",
             ]
             for row in rows:
                 data = FeatureStorage._row_to_dict(row, columns)
-                
+
                 # Filter by tags if specified
                 if tags:
                     feature_tags = set(data["tags"])

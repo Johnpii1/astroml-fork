@@ -173,7 +173,6 @@ class FineTuneTrainer:
     ) -> str:
         """Fine-tune using LoRA/QLoRA for open-source models."""
         try:
-            import torch
             from datasets import Dataset
             from peft import (
                 LoraConfig,

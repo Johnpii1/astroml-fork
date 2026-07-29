@@ -272,7 +272,7 @@ class CalibrationAnalyzer:
 
         # Color bins by sample count
         colors = plt.cm.YlOrRd(np.array(bin_counts) / max(bin_counts))
-        bars = ax3.bar(
+        ax3.bar(
             mean_pred,
             fraction_pos,
             width=1.0 / self.n_bins,

@@ -1,21 +1,20 @@
 """Batch labeling worker for LLM-based data labeling (issue #475)."""
+
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from astroml.llm.labeling import (
-    DataLabeler,
     ConsensusLabeler,
+    DataLabeler,
     HumanReviewQueue,
-    LabelSchema,
     LabelDefinition,
-    LabelType,
 )
 from astroml.llm.labeling.schemas import (
-    FRAUD_CLASSIFICATION_SCHEMA,
     ALERT_CATEGORIZATION_SCHEMA,
     ENTITY_RESOLUTION_SCHEMA,
+    FRAUD_CLASSIFICATION_SCHEMA,
     SENTIMENT_SCHEMA,
 )
 
@@ -79,7 +78,9 @@ class BatchLabelingWorker:
                 # Check for low confidence labels
                 for label in result.labels:
                     if label.confidence < auto_review_threshold:
-                        definition = self.labeler.schemas[schema_name].get_definition(label.label_name)
+                        definition = self.labeler.schemas[schema_name].get_definition(
+                            label.label_name
+                        )
                         if definition and definition.requires_human_review:
                             self._add_to_review_queue(item_id, data, result, definition)
                             low_confidence_items.append(item_id)
@@ -109,10 +110,14 @@ class BatchLabelingWorker:
             labeling_result: Labeling result
             definition: Label definition
         """
-        if hasattr(labeling_result, 'labels'):
+        if hasattr(labeling_result, "labels"):
             labels = labeling_result.labels
         else:
-            labels = labeling_result.individual_results[0]['result']['labels'] if labeling_result.individual_results else []
+            labels = (
+                labeling_result.individual_results[0]["result"]["labels"]
+                if labeling_result.individual_results
+                else []
+            )
 
         self.review_queue.add_task(
             item_id=item_id,

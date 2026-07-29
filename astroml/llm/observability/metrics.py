@@ -13,7 +13,7 @@ from typing import Any
 
 # Optional prometheus_client — gracefully degrade if not installed
 try:
-    from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
+    from prometheus_client import CollectorRegistry, Counter, Histogram
 
     _PROMETHEUS_AVAILABLE = True
 except ImportError:  # pragma: no cover

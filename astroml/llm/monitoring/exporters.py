@@ -65,7 +65,6 @@ class PrometheusExporter:
 
     def update_metrics(self):
         collector = get_metrics_collector()
-        summary = collector.get_summary_metrics()
 
         # In a real environment, we'd update gauges or increment counters as events happen.
         # For simplicity, we expose these metrics.

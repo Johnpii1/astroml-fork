@@ -110,7 +110,7 @@ class EmbeddingRouter(EmbeddingProvider):
         return self._active
 
     def _try_embed(
-        self, provider: EmbeddingProvider, text: str, remaining_s: float
+        self, provider: EmbeddingProvider, text: str, _remaining_s: float
     ) -> tuple[list[float] | None, float]:
         """Attempt a single embed call; return (result, elapsed_s) or (None, elapsed_s)."""
         t0 = time.monotonic()
@@ -157,7 +157,6 @@ class EmbeddingRouter(EmbeddingProvider):
             If all providers fail or the fallback budget is exhausted.
         """
         deadline = time.monotonic() + _FALLBACK_BUDGET_S
-        last_error: Exception | None = None
 
         for provider in self.providers:
             remaining = deadline - time.monotonic()
@@ -185,7 +184,6 @@ class EmbeddingRouter(EmbeddingProvider):
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Embed a batch of texts using the first available provider, with fallback."""
         deadline = time.monotonic() + _FALLBACK_BUDGET_S
-        last_error: Exception | None = None
 
         for provider in self.providers:
             remaining = deadline - time.monotonic()
@@ -212,8 +210,6 @@ class EmbeddingRouter(EmbeddingProvider):
                     elapsed * 1000,
                     exc,
                 )
-                last_error = exc
-
         raise EmbeddingError(
             f"All embedding providers failed within {_FALLBACK_BUDGET_S * 1000:.0f} ms budget"
         )

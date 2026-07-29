@@ -105,7 +105,6 @@ class TemporalDataProcessor:
             Temporal features [num_nodes, temporal_feature_dim]
         """
         num_nodes = timestamps.size(0)
-        feature_dim = features.size(1)
 
         # Sort nodes by timestamp
         sorted_indices = torch.argsort(timestamps)

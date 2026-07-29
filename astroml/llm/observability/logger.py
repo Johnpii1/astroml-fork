@@ -14,14 +14,6 @@ import sys
 import time
 from typing import Any
 
-# Try structlog for production-grade structured logging
-try:
-    import structlog
-
-    _STRUCTLOG_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    _STRUCTLOG_AVAILABLE = False
-
 logger = logging.getLogger(__name__)
 
 # Fields that must be redacted before logging

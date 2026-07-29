@@ -12,8 +12,7 @@ import ast
 import collections
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
-
+from typing import List
 
 #: Hard limit — CI will fail if any function exceeds this.
 MAX_COMPLEXITY_HARD: int = 15

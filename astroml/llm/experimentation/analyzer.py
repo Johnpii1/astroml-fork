@@ -62,7 +62,6 @@ class StatisticalAnalyzer:
         z_alpha = 1.96  # For 5% alpha
         z_beta = 0.84  # For 80% power
 
-        effect_size = mde / baseline_rate
         p1 = baseline_rate
         p2 = baseline_rate + mde
 

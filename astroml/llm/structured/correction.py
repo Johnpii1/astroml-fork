@@ -50,7 +50,6 @@ class AutoCorrector:
                 continue
 
             value = corrected[name]
-            constraints = field.metadata
 
             # Check for ge/le constraints
             if hasattr(field, "ge") and field.ge is not None:

@@ -1,4 +1,3 @@
-import time
 from typing import Any
 
 from .collector import get_metrics_collector
@@ -17,7 +16,6 @@ class AlertManager:
     def check_alerts(self) -> list[dict[str, Any]]:
         collector = get_metrics_collector()
         summary = collector.get_summary_metrics()
-        now = time.time()
 
         # Latency check
         if summary["p95_latency"] > self.thresholds["latency_p95_limit"]:

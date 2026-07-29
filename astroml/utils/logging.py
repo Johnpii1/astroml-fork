@@ -148,7 +148,7 @@ class CorrelationId:
         self.token = _correlation_id.set(self.correlation_id)
         return self.correlation_id
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> None:
         if self.token is not None:
             _correlation_id.reset(self.token)
 

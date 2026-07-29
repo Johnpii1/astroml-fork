@@ -8,15 +8,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 import pandas as pd
 
 from astroml.cache import cached_feature
 from astroml.features.feature_store import (
-    FeatureDefinition,
-    FeatureStatus,
     FeatureStore,
     FeatureType,
 )
@@ -119,15 +116,6 @@ class LLMFeatureIntegration:
         ]
 
         for name, desc, ftype, extra_meta in embedding_features + score_features + meta_features:
-            feature_def = FeatureDefinition(
-                name=name,
-                description=desc,
-                feature_type=ftype,
-                tags=["llm", "auto-generated"],
-                owner="llm-features",
-                status=FeatureStatus.PRODUCTION,
-                metadata=extra_meta,
-            )
             self.store.register_feature(
                 name=name,
                 computer=None,
@@ -197,7 +185,6 @@ class LLMFeatureIntegration:
 
     def refresh_materialized_views(self) -> None:
         """Refresh all materialized views based on TTL policy."""
-        now = datetime.utcnow()
         for name in list(self._materialized_views.keys()):
             self._materialized_views.pop(name, None)
         logger.info("Refreshed all materialized views")

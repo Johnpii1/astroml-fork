@@ -50,8 +50,6 @@ class CacheInvalidator:
             Number of entries invalidated
         """
         count = 0
-        cutoff_time = time.time() - max_age_seconds
-
         for tier_name, store in self.cache_manager.stores.items():
             if hasattr(store, "cleanup_expired"):
                 # SQLite has built-in cleanup

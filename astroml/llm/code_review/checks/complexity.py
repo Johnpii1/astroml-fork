@@ -127,7 +127,6 @@ class ComplexityCheck(BaseCheck):
 
     def _check_nesting_depth(self, tree: ast.AST, file_path: str) -> list[Suggestion]:
         """Check nesting depth of code blocks."""
-        suggestions = []
 
         class NestingDepthVisitor(ast.NodeVisitor):
             def __init__(self, max_depth: int):
