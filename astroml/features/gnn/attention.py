@@ -132,7 +132,6 @@ class GATConv(nn.Module):
         N = x.size(0)
         assert edge_index.dim() == 2 and edge_index.size(0) == 2, "edge_index must be [2, E]"
         src, dst = edge_index[0], edge_index[1]
-        E = edge_index.size(1)
 
         Wh = self.lin(x)  # [N, H*F]
         Wh = Wh.view(N, self.heads, self.out_dim)  # [N, H, F]

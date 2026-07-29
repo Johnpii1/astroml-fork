@@ -88,7 +88,7 @@ class QueryProfiler:
             statement: str,
             parameters: dict[str, Any],
             context: Any,
-            executemany: bool,
+            _executemany: bool,
         ) -> None:
             context._query_start_time = time.perf_counter()
 
@@ -99,7 +99,7 @@ class QueryProfiler:
             statement: str,
             parameters: dict[str, Any],
             context: Any,
-            executemany: bool,
+            _executemany: bool,
         ) -> None:
             if not hasattr(context, "_query_start_time"):
                 return

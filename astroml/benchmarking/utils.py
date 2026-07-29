@@ -62,7 +62,7 @@ class Timer:
         self.start_time = time.perf_counter()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb):
         self.end_time = time.perf_counter()
         self.elapsed = self.end_time - self.start_time
 
@@ -94,7 +94,7 @@ class MemoryMonitor:
         self.gpu_start = measure_gpu_memory()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb):
         self.end_memory = measure_memory_usage()
         self.gpu_end = measure_gpu_memory()
 

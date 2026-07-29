@@ -4,6 +4,7 @@ Provides mock implementations of the abstract base classes for use in tests.
 These implementations allow testing without requiring real data sources or
 external dependencies.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -11,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from .abstracts import Ingestor, FeatureComputer, GraphBuilder, IngestionResult, ComputationResult, Graph
+from .abstracts import FeatureComputer, Graph, GraphBuilder, IngestionResult, Ingestor
 
 
 class MockIngestor(Ingestor):
@@ -116,10 +117,12 @@ class MockFeatureComputer(FeatureComputer):
             return result
         else:
             # Return a simple mock DataFrame
-            return pd.DataFrame({
-                self.feature_name: [1.0] * 10,
-                "id": list(range(10)),
-            })
+            return pd.DataFrame(
+                {
+                    self.feature_name: [1.0] * 10,
+                    "id": list(range(10)),
+                }
+            )
 
     def get_feature_schema(self) -> Dict[str, Any]:
         """Get mock feature schema.

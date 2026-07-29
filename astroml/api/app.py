@@ -42,7 +42,7 @@ _session_factory: async_sessionmaker = async_sessionmaker(_engine, expire_on_com
 
 
 @asynccontextmanager
-async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_application: FastAPI) -> AsyncGenerator[None, None]:
     """Start the batch scheduler on startup; stop it cleanly on shutdown."""
     start_scheduler(_session_factory)
     try:

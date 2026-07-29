@@ -1,11 +1,11 @@
 """SQLAlchemy models for LLM backfill job tracking."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -46,7 +46,9 @@ class LLMBackfillItem(Base):
     __tablename__ = "llm_backfill_items"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    job_id: Mapped[str] = mapped_column(String(64), ForeignKey("llm_backfill_jobs.id"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("llm_backfill_jobs.id"), nullable=False, index=True
+    )
     item_ref: Mapped[str] = mapped_column(String(256), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)

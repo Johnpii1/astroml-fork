@@ -11,7 +11,7 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import threading
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -26,7 +26,7 @@ from typing import (
 import pandas as pd
 
 from ..cache import cached_feature
-from ..core.abstracts import FeatureComputer as CoreFeatureComputer, ComputationResult
+from ..core.abstracts import FeatureComputer as CoreFeatureComputer
 
 logger = logging.getLogger(__name__)
 
@@ -507,9 +507,9 @@ class ComputationEngine:
                                 f"Plugin {ep.name} does not subclass BaseFeatureComputer"
                             )
                     elif callable(plugin_cls):
-                        from .feature_store import FeatureRegistry
-
-                        logger.info(f"Plugin {ep.name} is a callable; register via FeatureRegistry")
+                        logger.info(
+                            f"Plugin {ep.name} is a callable; register via the feature registry"
+                        )
                 except Exception as e:
                     logger.warning(f"Failed to load plugin '{ep.name}': {e}")
         except ImportError:

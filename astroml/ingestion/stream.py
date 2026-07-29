@@ -63,7 +63,7 @@ class HorizonStreamClient:
         )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type, _exc_val, _exc_tb) -> None:
         self._running = False
         if self._session:
             await self._session.close()

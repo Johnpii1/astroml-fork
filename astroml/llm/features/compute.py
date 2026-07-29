@@ -7,7 +7,6 @@ to generate embeddings, scores, confidence, and uncertainty estimates.
 from __future__ import annotations
 
 import logging
-import time
 
 import numpy as np
 import pandas as pd
@@ -48,7 +47,6 @@ def compute_fraud_scores(
     for _, row in data.iterrows():
         prompt = _build_fraud_prompt(row, prompt_version)
         try:
-            start = time.time()
             response = provider.generate_detailed(prompt, model=model)
             score = _parse_score(response.text)
             scores.append(score)
@@ -72,7 +70,6 @@ def compute_confidence_scores(
     for _, row in data.iterrows():
         prompt = _build_confidence_prompt(row, prompt_version)
         try:
-            start = time.time()
             response = provider.generate_detailed(prompt, model=model)
             score = _parse_score(response.text)
             confidence.append(score)

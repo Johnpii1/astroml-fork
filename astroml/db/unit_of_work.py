@@ -60,7 +60,7 @@ class UnitOfWork:
         return self
 
     def __exit__(
-        self, exc_type: type | None, exc_val: Exception | None, exc_tb: object | None
+        self, exc_type: type | None, _exc_val: Exception | None, _exc_tb: object | None
     ) -> None:
         if exc_type is not None:
             self.rollback()

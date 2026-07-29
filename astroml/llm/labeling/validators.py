@@ -1,8 +1,8 @@
 """Label validation for LLM-based data labeling (issue #475)."""
+
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
@@ -152,7 +152,9 @@ class LabelValidator:
 
         # Check label name matches
         if label.label_name != definition.name:
-            errors.append(f"Label name '{label.label_name}' does not match definition '{definition.name}'")
+            errors.append(
+                f"Label name '{label.label_name}' does not match definition '{definition.name}'"
+            )
 
         # Check allowed values
         if definition.allowed_values and label.value not in definition.allowed_values:

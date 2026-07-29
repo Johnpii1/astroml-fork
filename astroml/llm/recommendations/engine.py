@@ -1,18 +1,19 @@
 """Recommendation engine for LLM-based recommendations (issue #474)."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
 
-from .profiler import UserProfiler, UserProfile, UserRole, ActivityType
-from .ranker import Recommendation, RecommendationRanker
 from .generators import (
-    RecommendationGenerator,
     FeatureRecommendationGenerator,
+    InsightGenerator,
     ModelRecommendationGenerator,
     QuerySuggestionGenerator,
-    InsightGenerator,
+    RecommendationGenerator,
 )
+from .profiler import ActivityType, UserProfiler, UserRole
+from .ranker import RecommendationRanker
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,8 @@ class RecommendationEngine:
         # Apply feedback filter (downvote previously rejected)
         user_feedback = self.feedback.get(user_id, {})
         filtered = [
-            rec for rec in ranked
+            rec
+            for rec in ranked
             if user_feedback.get(rec.id, True)  # Default to True if no feedback
         ]
 
@@ -149,15 +151,15 @@ class RecommendationEngine:
         else:
             # Global stats
             total_feedback = sum(len(fb) for fb in self.feedback.values())
-            total_accepted = sum(
-                sum(1 for v in fb.values() if v) for fb in self.feedback.values()
-            )
+            total_accepted = sum(sum(1 for v in fb.values() if v) for fb in self.feedback.values())
             return {
                 "total_users": len(self.feedback),
                 "total_feedback": total_feedback,
                 "total_accepted": total_accepted,
                 "total_rejected": total_feedback - total_accepted,
-                "global_acceptance_rate": total_accepted / total_feedback if total_feedback > 0 else 0,
+                "global_acceptance_rate": (
+                    total_accepted / total_feedback if total_feedback > 0 else 0
+                ),
             }
 
     def cleanup_old_data(self, days: int = 30) -> None:

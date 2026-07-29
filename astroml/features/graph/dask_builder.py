@@ -69,7 +69,7 @@ class DaskGraphBuilder:
         logger.info(f"Started Dask cluster: {self.client.dashboard_link}")
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb):
         """Stop Dask cluster."""
         if self.client:
             self.client.close()
