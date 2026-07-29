@@ -19,8 +19,19 @@ repos:
         args: [--baseline, .secrets.baseline]
         exclude: package.lock.json|go.sum|pnpm-lock.yaml|yarn.lock|poetry.lock
 
-  - repo: https://github.com/rubik/radon
-    rev: 6.0.1
+  - repo: local
     hooks:
       - id: radon
+        name: Check code complexity with Radon
+        entry: radon
+        language: python
+        additional_dependencies: ["radon==6.0.1"]
         args: ["cc", "-nc", "-s", "-i"]
+
+      - id: docstring-coverage
+        name: Check public API docstring coverage
+        entry: interrogate
+        language: python
+        additional_dependencies: ["interrogate>=1.7.0,<2.0"]
+        args: ["astroml", "api", "tests"]
+        pass_filenames: false

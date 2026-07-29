@@ -1,4 +1,4 @@
-.PHONY: help quickstart test test-api lint format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan security-audit secrets-scan complexity
+.PHONY: help quickstart test test-api lint lint-docs format clean install run-api canary-deploy canary-promote rollback-llm dependency-tree llm-test llm-eval llm-cost-check llm-validate-prompts llm-safety-scan security-audit secrets-scan complexity
 
 help:
 	@echo "AstroML Development Commands"
@@ -9,6 +9,7 @@ help:
 	@echo "make test                Run full test suite"
 	@echo "make test-api            Run API integration tests only"
 	@echo "make lint                Run linters (ruff, mypy)"
+	@echo "make lint-docs           Enforce public API docstring coverage"
 	@echo "make format              Format code (black, isort)"
 	@echo "make format-check        Check formatting without modifying files"
 	@echo "make complexity          Run code complexity analysis (xenon)"
@@ -44,6 +45,9 @@ test-api:
 lint:
 	ruff check astroml/ tests/ api/
 	mypy astroml/ --ignore-missing-imports
+
+lint-docs:
+	interrogate astroml/ api/ tests/
 
 format:
 	black astroml/ tests/ api/

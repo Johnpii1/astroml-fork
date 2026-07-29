@@ -30,4 +30,6 @@ Use built-in parameterized generics where possible (`dict[str, Any]`, `list[str]
 ## Style
 
 - Run `black`, `ruff`, and type checks before submitting.
+- Document public classes, methods, and functions. Run `make lint-docs` to
+  enforce the repository's docstring coverage floor before submitting.
 - Keep functions small and testable.
