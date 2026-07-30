@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -149,12 +150,30 @@ _OPTIMIZATION_LEVELS: dict[OptimizationLevel, list[str]] = {
 }
 
 
+_ONNX_PATH_RE = re.compile(r"^[^\x00]+\.onnx$", re.IGNORECASE)
+
+
+def _validate_onnx_path(path: Path) -> None:
+    """Validate that a path refers to an ONNX file without suspicious components.
+
+    Args:
+        path: Resolved absolute path to validate.
+
+    Raises:
+        ValueError: If the path fails validation.
+    """
+    if not _ONNX_PATH_RE.match(path.name):
+        msg = f"Invalid ONNX filename: {path.name!r}"
+        raise ValueError(msg)
+
+
 class ONNXOptimizer:
     """Optimize ONNX models using graph transformations."""
 
     @staticmethod
     def _load_model(onnx_path: str | Path) -> Any:
-        onnx_path = Path(onnx_path)
+        onnx_path = Path(onnx_path).resolve()
+        _validate_onnx_path(onnx_path)
         if not onnx_path.exists():
             msg = f"ONNX file not found: {onnx_path}"
             raise FileNotFoundError(msg)
@@ -162,6 +181,8 @@ class ONNXOptimizer:
 
     @staticmethod
     def _save_model(model: Any, onnx_path: str | Path) -> None:
+        onnx_path = Path(onnx_path).resolve()
+        _validate_onnx_path(onnx_path)
         onnx.save(model, str(onnx_path))
 
     @staticmethod
@@ -188,8 +209,8 @@ class ONNXOptimizer:
             msg = f"Invalid optimization level: {optimization_level}. Choose from: basic, extended, all."
             raise ValueError(msg)
 
-        onnx_path = Path(onnx_path)
-        output_path = Path(output_path) if output_path else onnx_path
+        onnx_path = Path(onnx_path).resolve()
+        output_path = Path(output_path).resolve() if output_path else onnx_path
 
         model = ONNXOptimizer._load_model(onnx_path)
         original_nodes = len(model.graph.node)
@@ -203,7 +224,7 @@ class ONNXOptimizer:
         optimized_nodes = len(optimized_model.graph.node)
 
         logger.info(
-            "Applied %d optimizations at level '%s': %d -> %d nodes, %d -> %d bytes",
+            "Applied %d optimizations at level %r: %d -> %d nodes, %d -> %d bytes",
             len(passes),
             optimization_level,
             original_nodes,
@@ -245,8 +266,8 @@ class ONNXOptimizer:
             "fuse_transpose_into_gemm",
         ]
 
-        onnx_path = Path(onnx_path)
-        output_path = Path(output_path) if output_path else onnx_path
+        onnx_path = Path(onnx_path).resolve()
+        output_path = Path(output_path).resolve() if output_path else onnx_path
 
         model = ONNXOptimizer._load_model(onnx_path)
         original_nodes = len(model.graph.node)
@@ -288,8 +309,8 @@ class ONNXOptimizer:
             "eliminate_unused_initializer",
         ]
 
-        onnx_path = Path(onnx_path)
-        output_path = Path(output_path) if output_path else onnx_path
+        onnx_path = Path(onnx_path).resolve()
+        output_path = Path(output_path).resolve() if output_path else onnx_path
 
         model = ONNXOptimizer._load_model(onnx_path)
         original_nodes = len(model.graph.node)
@@ -329,8 +350,8 @@ class ONNXOptimizer:
             "eliminate_unused_initializer",
         ]
 
-        onnx_path = Path(onnx_path)
-        output_path = Path(output_path) if output_path else onnx_path
+        onnx_path = Path(onnx_path).resolve()
+        output_path = Path(output_path).resolve() if output_path else onnx_path
 
         model = ONNXOptimizer._load_model(onnx_path)
         original_nodes = len(model.graph.node)
@@ -376,8 +397,8 @@ class ONNXOptimizer:
             "eliminate_nop_pad",
         ]
 
-        onnx_path = Path(onnx_path)
-        output_path = Path(output_path) if output_path else onnx_path
+        onnx_path = Path(onnx_path).resolve()
+        output_path = Path(output_path).resolve() if output_path else onnx_path
 
         model = ONNXOptimizer._load_model(onnx_path)
         original_nodes = len(model.graph.node)
@@ -420,8 +441,8 @@ class ONNXOptimizer:
             "eliminate_identity",
         ]
 
-        onnx_path = Path(onnx_path)
-        output_path = Path(output_path) if output_path else onnx_path
+        onnx_path = Path(onnx_path).resolve()
+        output_path = Path(output_path).resolve() if output_path else onnx_path
 
         model = ONNXOptimizer._load_model(onnx_path)
         original_nodes = len(model.graph.node)
@@ -464,7 +485,8 @@ class ONNXOptimizer:
         """
         import numpy as np
 
-        onnx_path = Path(onnx_path)
+        onnx_path = Path(onnx_path).resolve()
+        _validate_onnx_path(onnx_path)
         if not onnx_path.exists():
             msg = f"ONNX file not found: {onnx_path}"
             raise FileNotFoundError(msg)

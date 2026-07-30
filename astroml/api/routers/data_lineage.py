@@ -18,6 +18,18 @@ from astroml.tracking.lineage.provenance import ProvenanceTracker
 
 logger = logging.getLogger(__name__)
 
+
+def _sanitize_log(value: str) -> str:
+    """Remove newlines from user-supplied strings before logging.
+
+    Args:
+        value: Raw string from user input.
+
+    Returns:
+        String with newlines replaced by spaces.
+    """
+    return value.replace("\n", " ").replace("\r", " ")
+
 router = APIRouter(prefix="/api/v1", tags=["data-lineage"])
 
 # ---------------------------------------------------------------------------
@@ -121,7 +133,7 @@ async def get_lineage(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching lineage for %s/%s", entity_type, entity_id)
+        logger.exception("Error fetching lineage for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -156,7 +168,7 @@ async def get_upstream(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching upstream for %s/%s", entity_type, entity_id)
+        logger.exception("Error fetching upstream for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -191,7 +203,7 @@ async def get_downstream(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching downstream for %s/%s", entity_type, entity_id)
+        logger.exception("Error fetching downstream for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -220,7 +232,7 @@ async def get_provenance(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching provenance for %s", entity_id)
+        logger.exception("Error fetching provenance for %s", _sanitize_log(entity_id))
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -250,7 +262,7 @@ async def export_lineage(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error exporting lineage for %s/%s", entity_type, entity_id)
+        logger.exception("Error exporting lineage for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
         raise HTTPException(status_code=500, detail=str(exc))
 
 

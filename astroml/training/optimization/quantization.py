@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -55,6 +56,23 @@ class QuantizationResult(BaseModel):
     latency_change: float | None = None
 
 
+_ONNX_PATH_RE = re.compile(r"^[^\x00]+\.onnx$", re.IGNORECASE)
+
+
+def _validate_onnx_path(path: Path) -> None:
+    """Validate that a resolved path refers to an ONNX file.
+
+    Args:
+        path: Resolved absolute path to check.
+
+    Raises:
+        ValueError: If the filename is invalid.
+    """
+    if not _ONNX_PATH_RE.match(path.name):
+        msg = f"Invalid ONNX filename: {path.name!r}"
+        raise ValueError(msg)
+
+
 def _get_model_size(path: Path) -> int:
     return path.stat().st_size
 
@@ -91,8 +109,10 @@ def quantize(
         FileNotFoundError: If the model file does not exist.
         ValueError: If the quantization type is unsupported.
     """
-    model_path = Path(model_path)
-    output_path = Path(output_path)
+    model_path = Path(model_path).resolve()
+    output_path = Path(output_path).resolve()
+    _validate_onnx_path(model_path)
+    _validate_onnx_path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     if not model_path.exists():
@@ -202,7 +222,8 @@ def calibrate(
     Raises:
         FileNotFoundError: If the model file does not exist.
     """
-    model_path = Path(model_path)
+    model_path = Path(model_path).resolve()
+    _validate_onnx_path(model_path)
     if not model_path.exists():
         msg = f"ONNX model not found: {model_path}"
         raise FileNotFoundError(msg)
@@ -259,8 +280,10 @@ def evaluate_quantized(
     Raises:
         FileNotFoundError: If either model file does not exist.
     """
-    model_path = Path(model_path)
-    original_model_path = Path(original_model_path)
+    model_path = Path(model_path).resolve()
+    original_model_path = Path(original_model_path).resolve()
+    _validate_onnx_path(model_path)
+    _validate_onnx_path(original_model_path)
 
     if not model_path.exists():
         msg = f"Quantized model not found: {model_path}"

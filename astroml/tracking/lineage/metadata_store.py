@@ -15,6 +15,18 @@ from pydantic import BaseModel, ConfigDict, Field
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_log(value: str) -> str:
+    """Remove newline characters to prevent log injection.
+
+    Args:
+        value: Raw string from user input.
+
+    Returns:
+        String with newlines replaced by spaces.
+    """
+    return value.replace("\n", " ").replace("\r", " ")
+
+
 class MetadataRecord(BaseModel):
     """A single lineage metadata record.
 
@@ -69,7 +81,7 @@ class MetadataStore:
         )
         self._records[run_id] = record
         self._by_type["dataset"][run_id] = record
-        logger.debug("Stored run record: %s", run_id)
+        logger.debug("Stored run record: %s", _sanitize_log(run_id))
         return record
 
     def get_run(self, run_id: str) -> MetadataRecord | None:
@@ -108,7 +120,7 @@ class MetadataStore:
         self._records[dataset_id] = record
         self._by_type["dataset"][dataset_id] = record
         self._update_relationships(record)
-        logger.debug("Stored dataset record: %s", dataset_id)
+        logger.debug("Stored dataset record: %s", _sanitize_log(dataset_id))
         return record
 
     def get_dataset(self, dataset_id: str) -> MetadataRecord | None:
@@ -150,7 +162,7 @@ class MetadataStore:
         self._records[transformation_id] = record
         self._by_type["transformation"][transformation_id] = record
         self._update_relationships(record)
-        logger.debug("Stored transformation record: %s", transformation_id)
+        logger.debug("Stored transformation record: %s", _sanitize_log(transformation_id))
         return record
 
     def get_transformations(
@@ -202,7 +214,7 @@ class MetadataStore:
         self._records[model_id] = record
         self._by_type["model"][model_id] = record
         self._update_relationships(record)
-        logger.debug("Stored model record: %s", model_id)
+        logger.debug("Stored model record: %s", _sanitize_log(model_id))
         return record
 
     def get_model(self, model_id: str) -> MetadataRecord | None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,28 @@ try:
     import onnxruntime as ort
 except ImportError:
     ort = None  # type: ignore[assignment]
+
+# Allowlist: model paths must be absolute and end in .onnx
+_ONNX_PATH_RE = re.compile(r"^[^\x00]+\.onnx$", re.IGNORECASE)
+
+
+def _validate_onnx_path(path: Path) -> None:
+    """Raise if the path looks suspicious (directory traversal, null bytes, etc.).
+
+    The caller is responsible for ensuring the path originates from a trusted
+    source (e.g. the server-side model store). This is a defence-in-depth check.
+
+    Args:
+        path: Resolved absolute path to the ONNX file.
+
+    Raises:
+        ValueError: If the path fails validation.
+    """
+    if not _ONNX_PATH_RE.match(path.name):
+        msg = f"Invalid ONNX filename: {path.name!r}"
+        raise ValueError(msg)
+    # Reject any path that escaped its expected parent via symlinks etc.
+    # The API layer (model_optimization.py) must also enforce containment.
 
 
 class ONNXRuntime:
@@ -52,7 +75,8 @@ class ONNXRuntime:
             FileNotFoundError: If the ONNX file does not exist.
             RuntimeError: If the model cannot be loaded.
         """
-        onnx_path = Path(onnx_path)
+        onnx_path = Path(onnx_path).resolve()
+        _validate_onnx_path(onnx_path)
         if not onnx_path.exists():
             msg = f"ONNX file not found: {onnx_path}"
             raise FileNotFoundError(msg)

@@ -16,6 +16,18 @@ from astroml.tracking.lineage.metadata_store import MetadataRecord, MetadataStor
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_log(value: str) -> str:
+    """Remove newline characters to prevent log injection.
+
+    Args:
+        value: Raw string from user input.
+
+    Returns:
+        String with newlines replaced by spaces.
+    """
+    return value.replace("\n", " ").replace("\r", " ")
+
+
 class DataLineageTracker:
     """Records data provenance through pipeline stages.
 
@@ -47,7 +59,7 @@ class DataLineageTracker:
             The created MetadataRecord.
         """
         record = self._store.store_dataset(source_id, metadata=metadata)
-        logger.info("Recorded data source: %s", source_id)
+        logger.info("Recorded data source: %s", _sanitize_log(source_id))
         return record
 
     def record_transformation(
@@ -77,7 +89,11 @@ class DataLineageTracker:
             metadata=metadata,
             parent_ids=input_ids,
         )
-        logger.info("Recorded transformation: %s -> %s", input_ids, output_id)
+        logger.info(
+            "Recorded transformation: %s -> %s",
+            [_sanitize_log(i) for i in input_ids],
+            _sanitize_log(output_id),
+        )
         return record
 
     def record_model_training(
@@ -103,7 +119,11 @@ class DataLineageTracker:
             metadata=metadata,
             parent_ids=[dataset_id],
         )
-        logger.info("Recorded model training: %s <- %s", model_id, dataset_id)
+        logger.info(
+            "Recorded model training: %s <- %s",
+            _sanitize_log(model_id),
+            _sanitize_log(dataset_id),
+        )
         return record
 
     def record_prediction(
@@ -136,9 +156,9 @@ class DataLineageTracker:
         )
         logger.info(
             "Recorded prediction: %s (model=%s, input=%s)",
-            prediction_id,
-            model_id,
-            input_id,
+            _sanitize_log(prediction_id),
+            _sanitize_log(model_id),
+            _sanitize_log(input_id),
         )
         return record
 

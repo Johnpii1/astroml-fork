@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -126,12 +127,47 @@ class PredictResponse(BaseModel):
     outputs: list[Any]
 
 
+_MODEL_ID_RE = re.compile(r"^[a-zA-Z0-9_\-]{1,128}$")
+
+
+def _validate_model_id(model_id: str) -> None:
+    """Reject model IDs that could be used for path traversal.
+
+    Args:
+        model_id: The model ID supplied by the caller.
+
+    Raises:
+        HTTPException: If the model ID contains disallowed characters.
+    """
+    if not _MODEL_ID_RE.match(model_id):
+        raise HTTPException(
+            status_code=400,
+            detail="model_id must contain only alphanumeric characters, hyphens, or underscores (max 128 chars).",
+        )
+
+
 def _get_model_path(model_id: str) -> Path:
-    """Resolve model path from model ID."""
-    path = _MODEL_STORE / f"{model_id}.onnx"
+    """Resolve and validate model path from model ID.
+
+    Ensures the resolved path stays within the model store directory
+    to prevent path traversal attacks.
+
+    Args:
+        model_id: The model identifier (alphanumeric + hyphens/underscores).
+
+    Returns:
+        Absolute Path to the model file.
+
+    Raises:
+        HTTPException: 400 if model_id is invalid, 404 if file not found.
+    """
+    _validate_model_id(model_id)
+    # Resolve to absolute path and confirm it stays within _MODEL_STORE
+    path = (_MODEL_STORE / f"{model_id}.onnx").resolve()
+    if not path.is_relative_to(_MODEL_STORE.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid model_id.")
     if not path.exists():
-        msg = f"Model not found: {model_id}"
-        raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=404, detail=f"Model not found: {model_id}")
     return path
 
 
@@ -157,8 +193,11 @@ async def optimize_model(
     request: OptimizeRequest,
 ) -> OptimizeResponse:
     """Optimize an ONNX model with graph transformations."""
+    _validate_model_id(model_id)
     model_path = _get_model_path(model_id)
-    output_path = _MODEL_STORE / f"{model_id}_optimized.onnx"
+    output_path = (_MODEL_STORE / f"{model_id}_optimized.onnx").resolve()
+    if not output_path.is_relative_to(_MODEL_STORE.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid model_id.")
 
     try:
         result = ONNXOptimizer.optimize(
@@ -192,8 +231,11 @@ async def quantize_model_endpoint(
     request: QuantizeRequest,
 ) -> QuantizeResponse:
     """Quantize an ONNX model."""
+    _validate_model_id(model_id)
     model_path = _get_model_path(model_id)
-    output_path = _MODEL_STORE / f"{model_id}_quantized.onnx"
+    output_path = (_MODEL_STORE / f"{model_id}_quantized.onnx").resolve()
+    if not output_path.is_relative_to(_MODEL_STORE.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid model_id.")
 
     config = QuantizationConfig(
         quantization_type=request.quantization_type,
