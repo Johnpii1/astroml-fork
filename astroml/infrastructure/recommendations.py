@@ -11,6 +11,7 @@ from astroml.infrastructure.resource_analyzer import ResourceAnalyzer, WorkloadR
 @dataclass
 class OptimizationRecommendation:
     """A specific cost optimization recommendation."""
+
     workload_id: str
     recommendation_type: str  # e.g., 'spot_instance', 'auto_scaling', 'right_sizing'
     description: str
@@ -33,7 +34,9 @@ class RecommendationEngine:
         Assume 'batch' workloads are interruptible.
         """
         if profile.workload_type.lower() == "batch":
-            monthly_cost = allocation.total_cost * (730 / (profile.duration_seconds / 3600.0) if profile.duration_seconds > 0 else 0)
+            monthly_cost = allocation.total_cost * (
+                730 / (profile.duration_seconds / 3600.0) if profile.duration_seconds > 0 else 0
+            )
             # If the workload only ran once, let's scale it to monthly based on an assumed schedule,
             # or simply use the total cost as a baseline if it's continuous.
             # To simplify, we calculate savings per 730 hours (1 month) based on the hourly rate.
@@ -51,7 +54,7 @@ class RecommendationEngine:
         self, profile: WorkloadResourceProfile, allocation: CostAllocation
     ) -> OptimizationRecommendation | None:
         """
-        Recommend auto-scaling if the workload shows spiky or low utilization, 
+        Recommend auto-scaling if the workload shows spiky or low utilization,
         particularly for inference endpoints.
         """
         scores = self.resource_analyzer.analyze_utilization(profile)

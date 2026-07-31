@@ -207,8 +207,7 @@ class FeatureVersionManager:
     def _init_database(self) -> None:
         """Initialize version database."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS feature_versions (
                     version_id TEXT PRIMARY KEY,
                     feature_name TEXT NOT NULL,
@@ -263,8 +262,7 @@ class FeatureVersionManager:
                 
                 CREATE INDEX IF NOT EXISTS idx_feature_lineage_name 
                     ON feature_lineage(feature_name);
-            """
-            )
+            """)
 
     def create_version(
         self,

@@ -1,6 +1,8 @@
 """Pydantic schemas for model registry."""
 
 from __future__ import annotations
+from enum import Enum
+from pydantic import BaseModel, Field, validator
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -79,11 +81,6 @@ class ModelTagsUpdateIn(BaseModel):
 
 
 # Add to existing schemas/model_registry.py
-
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel, Field, validator
 
 
 class SemanticVersion(BaseModel):
@@ -173,9 +170,6 @@ class VersionHistoryItem(BaseModel):
     created_at: str
     deployed_at: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
-
-
-from enum import Enum
 
 
 class DeploymentEnvironment(str, Enum):

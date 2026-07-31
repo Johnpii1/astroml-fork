@@ -19,17 +19,18 @@ try:
         check_temporal_consistency,
         check_referential_integrity,
     )
-    
+
     print("✓ Successfully imported data quality validation components")
-    
+
     # Test basic functionality
     validator = DataQualityValidator()
     print("✓ Successfully created DataQualityValidator instance")
-    
+
     # Test with sample data
     from datetime import datetime, timedelta
+
     base_time = datetime.utcnow()
-    
+
     sample_transactions = [
         {
             "id": "tx_1",
@@ -42,19 +43,19 @@ try:
             "operation_count": 1,
         }
     ]
-    
+
     report = validator.validate_batch(sample_transactions)
     print(f"✓ Successfully validated sample transactions: {report.total_records} records")
     print(f"✓ Quality score: {report.quality_score:.1f}%")
-    
+
     # Test convenience functions
     temporal_results = check_temporal_consistency(sample_transactions)
     referential_results = check_referential_integrity(sample_transactions)
     print(f"✓ Temporal consistency checks: {len(temporal_results)} results")
     print(f"✓ Referential integrity checks: {len(referential_results)} results")
-    
+
     print("\n🎉 All data quality validation tests passed!")
-    
+
 except ImportError as e:
     print(f"❌ Import error: {e}")
     sys.exit(1)

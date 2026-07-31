@@ -51,7 +51,6 @@ from astroml.testing.property_based.strategies import (
     scalar_score_strategy,
 )
 
-
 # ── Shared Hypothesis settings ────────────────────────────────────────────────
 
 _SETTINGS = settings(
@@ -71,9 +70,7 @@ class TestFeatureMatrixStrategy:
     """Tests for :func:`feature_matrix_strategy`."""
 
     @given(
-        X=feature_matrix_strategy(
-            min_samples=1, max_samples=20, min_features=2, max_features=10
-        )
+        X=feature_matrix_strategy(min_samples=1, max_samples=20, min_features=2, max_features=10)
     )
     @_SETTINGS
     def test_shape_within_bounds(self, X: np.ndarray) -> None:
@@ -416,11 +413,7 @@ class TestDataPropertyValidator:
         X = np.zeros((5, 3))
         assert validator.all_passed(X) is False
 
-    @given(
-        X=feature_matrix_strategy(
-            min_samples=2, max_samples=30, min_features=3, max_features=3
-        )
-    )
+    @given(X=feature_matrix_strategy(min_samples=2, max_samples=30, min_features=3, max_features=3))
     @_SETTINGS
     def test_hypothesis_clean_matrix_passes(self, X: np.ndarray) -> None:
         validator = DataPropertyValidator(expected_features=3)
@@ -433,7 +426,6 @@ class TestDataPropertyValidator:
             assert r.passed, f"Check '{r.check_name}' failed: {r.error_message}"
 
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 6. invariant_checker.py — InvariantChecker
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -444,9 +436,7 @@ class TestInvariantChecker:
 
     def _make_checker(self) -> InvariantChecker:
         checker = InvariantChecker()
-        checker.register(
-            "finite", lambda X, y: bool(np.all(np.isfinite(y)))
-        )
+        checker.register("finite", lambda X, y: bool(np.all(np.isfinite(y))))
         return checker
 
     def test_check_passes_for_finite_output(self) -> None:
@@ -492,9 +482,7 @@ class TestInvariantChecker:
 
     def test_check_per_sample_sets_index(self) -> None:
         checker = InvariantChecker()
-        checker.register(
-            "non_negative", lambda X, y: bool(np.all(y >= 0))
-        )
+        checker.register("non_negative", lambda X, y: bool(np.all(y >= 0)))
         X = np.zeros((3, 2))
         output = np.array([1.0, -1.0, 2.0])
         violations = checker.check_per_sample(X, output)
@@ -559,11 +547,7 @@ class TestStandardInvariantChecker:
         violations = checker.check(X, output)
         assert any(v.invariant_name == "output_shape_consistent" for v in violations)
 
-    @given(
-        X=feature_matrix_strategy(
-            min_samples=1, max_samples=20, min_features=4, max_features=4
-        )
-    )
+    @given(X=feature_matrix_strategy(min_samples=1, max_samples=20, min_features=4, max_features=4))
     @_SETTINGS
     def test_hypothesis_zero_output_passes(self, X: np.ndarray) -> None:
         checker = create_standard_invariant_checker()

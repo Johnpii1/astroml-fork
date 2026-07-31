@@ -59,7 +59,7 @@ class BlockchainContextBuilder:
         group_size = group_size or self.group_size
         lines = []
         for i in range(0, len(summaries), group_size):
-            group = summaries[i : i + group_size]
+            group = summaries[i: i + group_size]
             start, end = group[0]["day"], group[-1]["day"]
             tx_total = sum(s["transaction_count"] for s in group)
             volume_total = sum(s["total_volume"] for s in group)

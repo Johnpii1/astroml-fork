@@ -29,8 +29,16 @@ class SearchDocumentsTool(BaseTool):
         return {
             "query": query,
             "results": [
-                {"title": "AstroML Overview", "snippet": "AstroML is a fraud detection platform...", "score": 0.95},
-                {"title": "Getting Started", "snippet": "Install astroml with pip install astroml...", "score": 0.88},
+                {
+                    "title": "AstroML Overview",
+                    "snippet": "AstroML is a fraud detection platform...",
+                    "score": 0.95,
+                },
+                {
+                    "title": "Getting Started",
+                    "snippet": "Install astroml with pip install astroml...",
+                    "score": 0.88,
+                },
             ],
             "total_results": 2,
             "top_k": top_k,

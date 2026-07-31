@@ -16,6 +16,51 @@ Endpoints:
 """
 
 from __future__ import annotations
+from astroml.llm.providers.embedding_router import build_default_router
+from astroml.llm.provider import MockLLMProvider
+from astroml.llm.memory import ConversationMemory
+from astroml.llm.embedding_drift import EmbeddingDriftMonitor
+from astroml.llm.embedding_cache import EmbeddingCache
+from astroml.llm.compliance_logger import compliance_logger
+from api.services.translation import translation_service
+from api.services.llm_validation import ResponseValidator
+from api.services.llm_suggest import AutocompleteService
+from api.services.llm_search import SemanticSearchService
+from api.services.llm_rag import build_citations, build_rag_answer, retrieve_sources
+from api.services.llm_query import QueryTranslator
+from api.services.llm_explainer import TransactionExplainer
+from api.services.llm_cost import CostMonitoringService
+from api.services.llm_context import MultiModalContextHandler
+from api.schemas import (
+    BatchTranslationRequest,
+    BatchTranslationResponse,
+    CostDashboardResponse,
+    LLMFeedbackDashboard,
+    LLMFeedbackIn,
+    LLMFeedbackOut,
+    LLMFeedbackTrend,
+    LLMPromptImprovement,
+    LocaleFormatRequest,
+    LocaleFormatResponse,
+    SearchRequest,
+    SearchResponse,
+    SuggestionResponse,
+    SupportedLanguagesResponse,
+    TranslationCacheStatsResponse,
+    TranslationRequest,
+    TranslationResponse,
+)
+from api.models.orm import LLMFeedback
+from api.database import get_db
+from api.auth.dependencies import AuthContext, get_current_auth
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, TypeVar, Union
+import time
+import os
+import hashlib
 
 import json
 import logging
@@ -365,55 +410,6 @@ async def websocket_stream(
     except WebSocketDisconnect:
         logger.debug("WebSocket stream client disconnected")
 
-
-import hashlib
-import os
-import time
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, TypeVar, Union
-
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from api.auth.dependencies import AuthContext, get_current_auth
-from api.database import get_db
-from api.models.orm import LLMFeedback
-from api.schemas import (
-    BatchTranslationRequest,
-    BatchTranslationResponse,
-    CostDashboardResponse,
-    LLMFeedbackDashboard,
-    LLMFeedbackIn,
-    LLMFeedbackOut,
-    LLMFeedbackTrend,
-    LLMPromptImprovement,
-    LocaleFormatRequest,
-    LocaleFormatResponse,
-    SearchRequest,
-    SearchResponse,
-    SuggestionResponse,
-    SupportedLanguagesResponse,
-    TranslationCacheStatsResponse,
-    TranslationRequest,
-    TranslationResponse,
-)
-from api.services.llm_context import MultiModalContextHandler
-from api.services.llm_cost import CostMonitoringService
-from api.services.llm_explainer import TransactionExplainer
-from api.services.llm_query import QueryTranslator
-from api.services.llm_rag import build_citations, build_rag_answer, retrieve_sources
-from api.services.llm_search import SemanticSearchService
-from api.services.llm_suggest import AutocompleteService
-from api.services.llm_validation import ResponseValidator
-from api.services.translation import translation_service
-from astroml.llm.compliance_logger import compliance_logger
-from astroml.llm.embedding_cache import EmbeddingCache
-from astroml.llm.embedding_drift import EmbeddingDriftMonitor
-from astroml.llm.memory import ConversationMemory
-from astroml.llm.provider import MockLLMProvider
-from astroml.llm.providers.embedding_router import build_default_router
 
 router = APIRouter(prefix="/api/v1/llm", tags=["llm"])
 explainer = TransactionExplainer()

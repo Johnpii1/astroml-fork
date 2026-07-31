@@ -7,6 +7,7 @@ Validation rules:
 - Port must be in valid range (1024-65535)
 - Log level must be one of DEBUG, INFO, WARNING, ERROR, CRITICAL
 """
+
 from datetime import timedelta
 from typing import Optional, Any
 from urllib.parse import urlparse
@@ -17,7 +18,11 @@ from functools import lru_cache
 
 
 class DatabaseSettings(BaseSettings):
-    url: str = Field(default="sqlite:///./astroml.db", env="DATABASE_URL", description="Database connection URL (PostgreSQL or SQLite)")
+    url: str = Field(
+        default="sqlite:///./astroml.db",
+        env="DATABASE_URL",
+        description="Database connection URL (PostgreSQL or SQLite)",
+    )
     pool_size: int = Field(default=10, ge=1, env="DATABASE_POOL_SIZE")
     max_overflow: int = Field(default=20, ge=0, env="DATABASE_MAX_OVERFLOW")
 
@@ -40,14 +45,26 @@ class DatabaseSettings(BaseSettings):
 
 
 class TrainingSettings(BaseSettings):
-    learning_rate: float = Field(default=0.01, gt=0, env="TRAINING_LEARNING_RATE", description="Learning rate (must be > 0)")
-    epochs: int = Field(default=200, gt=0, env="TRAINING_EPOCHS", description="Number of training epochs (must be > 0)")
+    learning_rate: float = Field(
+        default=0.01, gt=0, env="TRAINING_LEARNING_RATE", description="Learning rate (must be > 0)"
+    )
+    epochs: int = Field(
+        default=200,
+        gt=0,
+        env="TRAINING_EPOCHS",
+        description="Number of training epochs (must be > 0)",
+    )
     batch_size: Optional[int] = Field(default=None, ge=1, env="TRAINING_BATCH_SIZE")
     weight_decay: float = Field(default=5e-4, ge=0, env="TRAINING_WEIGHT_DECAY")
 
 
 class GraphSettings(BaseSettings):
-    window_duration_minutes: int = Field(default=60, gt=0, env="GRAPH_WINDOW_DURATION_MINUTES", description="Graph window duration in minutes (must be > 0)")
+    window_duration_minutes: int = Field(
+        default=60,
+        gt=0,
+        env="GRAPH_WINDOW_DURATION_MINUTES",
+        description="Graph window duration in minutes (must be > 0)",
+    )
 
     @property
     def window_duration(self) -> timedelta:
@@ -65,7 +82,9 @@ class Settings(BaseSettings):
     graph: GraphSettings = Field(default_factory=GraphSettings)
     api_key: Optional[str] = Field(default=None, env="API_KEY")
     api_key_name: str = Field(default="X-API-Key", env="API_KEY_NAME")
-    allowed_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:3000"], env="ALLOWED_ORIGINS")
+    allowed_origins: list[str] = Field(
+        default=["http://localhost:5173", "http://localhost:3000"], env="ALLOWED_ORIGINS"
+    )
     cors_allow_credentials: bool = Field(default=True, env="CORS_ALLOW_CREDENTIALS")
     cors_allow_methods: list[str] = Field(default=["*"], env="CORS_ALLOW_METHODS")
     cors_allow_headers: list[str] = Field(default=["*"], env="CORS_ALLOW_HEADERS")
@@ -73,7 +92,9 @@ class Settings(BaseSettings):
     algorithm: str = Field(default="HS256", env="ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, ge=1, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    log_format: str = Field(default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT")
+    log_format: str = Field(
+        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT"
+    )
 
     @field_validator("port")
     @classmethod
@@ -94,7 +115,9 @@ class Settings(BaseSettings):
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
         if len(v) < 16:
-            raise ValueError(f"Secret key must be at least 16 characters long (got {len(v)} characters)")
+            raise ValueError(
+                f"Secret key must be at least 16 characters long (got {len(v)} characters)"
+            )
         return v
 
     @model_validator(mode="after")

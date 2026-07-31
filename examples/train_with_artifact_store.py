@@ -13,6 +13,7 @@ Usage:
     # GCS storage
     python examples/train_with_artifact_store.py artifact_storage=gcs
 """
+
 from __future__ import annotations
 
 import logging

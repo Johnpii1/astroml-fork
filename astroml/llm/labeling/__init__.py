@@ -9,6 +9,7 @@ Components:
 - Consensus: Multi-LLM consensus
 - Human: Human-in-the-loop integration
 """
+
 from __future__ import annotations
 
 from .labeler import DataLabeler, LabelResult

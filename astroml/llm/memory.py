@@ -270,6 +270,6 @@ class ConversationMemory:
         # Step 2 — hard-trim to max_messages.
         if len(messages) > self.max_messages:
             # Keep the most-recent max_messages entries.
-            messages = messages[-self.max_messages :]
+            messages = messages[-self.max_messages:]
 
         self._write_messages(session_id, messages)

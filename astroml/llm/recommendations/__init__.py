@@ -9,6 +9,7 @@ Components:
 - Ranker: Result ranking
 - Generators: Suggestion generators
 """
+
 from __future__ import annotations
 
 from .engine import RecommendationEngine

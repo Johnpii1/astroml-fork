@@ -1,4 +1,5 @@
 """Recommendation ranking for LLM-based recommendations (issue #474)."""
+
 from __future__ import annotations
 
 import logging

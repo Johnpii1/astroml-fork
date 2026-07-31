@@ -6,6 +6,14 @@ This script provides a command-line interface for generating,
 updating, and validating documentation.
 """
 
+from astroml.llm.docs.updater import DocumentationUpdater
+from astroml.llm.docs.validator import DocumentationValidator
+from astroml.llm.docs.generator import (
+    DocumentationGenerator,
+    GenerationConfig,
+    DocType,
+    OutputFormat,
+)
 import argparse
 import sys
 from pathlib import Path
@@ -14,74 +22,46 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from astroml.llm.docs.generator import (
-    DocumentationGenerator,
-    GenerationConfig,
-    DocType,
-    OutputFormat,
-)
-from astroml.llm.docs.validator import DocumentationValidator
-from astroml.llm.docs.updater import DocumentationUpdater
-
 
 def main():
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="Generate and manage documentation for astroml"
-    )
+    parser = argparse.ArgumentParser(description="Generate and manage documentation for astroml")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Generate command
     generate_parser = subparsers.add_parser("generate", help="Generate documentation")
+    generate_parser.add_argument("source", help="Source file or directory to document")
+    generate_parser.add_argument("-o", "--output", help="Output directory or file")
     generate_parser.add_argument(
-        "source", help="Source file or directory to document"
-    )
-    generate_parser.add_argument(
-        "-o", "--output", help="Output directory or file"
-    )
-    generate_parser.add_argument(
-        "-f", "--format",
+        "-f",
+        "--format",
         choices=["markdown", "rst", "html"],
         default="markdown",
-        help="Output format (default: markdown)"
+        help="Output format (default: markdown)",
     )
     generate_parser.add_argument(
-        "-t", "--type",
+        "-t",
+        "--type",
         choices=["api", "code", "architecture", "tutorial", "changelog", "readme"],
         default="code",
-        help="Type of documentation (default: code)"
+        help="Type of documentation (default: code)",
     )
     generate_parser.add_argument(
-        "--include-private", action="store_true",
-        help="Include private members"
+        "--include-private", action="store_true", help="Include private members"
     )
     generate_parser.add_argument(
-        "--include-internal", action="store_true",
-        help="Include internal members"
+        "--include-internal", action="store_true", help="Include internal members"
     )
-    generate_parser.add_argument(
-        "--no-examples", action="store_true",
-        help="Exclude code examples"
-    )
-    generate_parser.add_argument(
-        "--no-type-hints", action="store_true",
-        help="Exclude type hints"
-    )
-    generate_parser.add_argument(
-        "--no-validate", action="store_true",
-        help="Skip validation"
-    )
+    generate_parser.add_argument("--no-examples", action="store_true", help="Exclude code examples")
+    generate_parser.add_argument("--no-type-hints", action="store_true", help="Exclude type hints")
+    generate_parser.add_argument("--no-validate", action="store_true", help="Skip validation")
 
     # Update command
     update_parser = subparsers.add_parser("update", help="Update existing documentation")
     update_parser.add_argument("doc_path", help="Path to documentation file")
+    update_parser.add_argument("source_paths", nargs="+", help="Source file paths")
     update_parser.add_argument(
-        "source_paths", nargs="+",
-        help="Source file paths"
-    )
-    update_parser.add_argument(
-        "--no-preserve-edits", action="store_true",
-        help="Do not preserve manual edits"
+        "--no-preserve-edits", action="store_true", help="Do not preserve manual edits"
     )
 
     # Validate command
@@ -93,9 +73,7 @@ def main():
 
     # Check outdated command
     check_parser = subparsers.add_parser("check-outdated", help="Check for outdated documentation")
-    check_parser.add_argument(
-        "doc_dir", help="Directory containing documentation"
-    )
+    check_parser.add_argument("doc_dir", help="Directory containing documentation")
 
     args = parser.parse_args()
 
@@ -194,6 +172,7 @@ def handle_validate(args):
     code_elements = None
     if args.code_dir:
         from astroml.llm.docs.code_analyzer import CodeAnalyzer
+
         analyzer = CodeAnalyzer()
         code_elements = analyzer.analyze_directory(args.code_dir)
 

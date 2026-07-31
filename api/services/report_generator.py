@@ -195,8 +195,7 @@ class ReportGenerator:
             from weasyprint import HTML
 
             html_content = markdown.markdown(markdown_content, extensions=["tables"])
-            html = HTML(
-                string=f"""
+            html = HTML(string=f"""
                 <!DOCTYPE html>
                 <html>
                 <head>
@@ -215,8 +214,7 @@ class ReportGenerator:
                     {html_content}
                 </body>
                 </html>
-            """
-            )
+            """)
             return html.write_pdf()
         except ImportError:
             return b""

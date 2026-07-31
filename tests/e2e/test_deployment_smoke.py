@@ -8,6 +8,7 @@ Verifies that the deployment succeeded by checking:
 
 These tests run after deployment with a 5-minute timeout.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -72,15 +73,17 @@ class TestDeploymentSmoke:
             "/api/v1/healthz",
             "/api/v1/models",
         ]
-        
+
         for endpoint in endpoints:
             response = requests.get(
                 f"{self.BASE_URL}{endpoint}",
                 timeout=30,
             )
             # Accept 200 or 401 (auth required) as success
-            assert response.status_code in [200, 401], \
-                f"Endpoint {endpoint} failed with status {response.status_code}: {response.text}"
+            assert response.status_code in [
+                200,
+                401,
+            ], f"Endpoint {endpoint} failed with status {response.status_code}: {response.text}"
 
     def test_deployment_timestamp(self):
         """Verify deployment is recent (within last hour)."""
@@ -90,7 +93,7 @@ class TestDeploymentSmoke:
         )
         assert response.status_code == 200
         data = response.json()
-        
+
         # Check if deployment timestamp is present and recent
         if "deployment_time" in data:
             deployment_time = data["deployment_time"]
@@ -117,14 +120,14 @@ class TestDeploymentSmokeConfigurable:
             Dictionary mapping test names to success status
         """
         results = {}
-        
+
         tests = [
             ("health_check", self._test_health_check),
             ("api_root", self._test_api_root),
             ("database", self._test_database),
             ("cache", self._test_cache),
         ]
-        
+
         for test_name, test_func in tests:
             try:
                 test_func()
@@ -132,7 +135,7 @@ class TestDeploymentSmokeConfigurable:
             except Exception as e:
                 results[test_name] = False
                 print(f"Test {test_name} failed: {e}")
-        
+
         return results
 
     def _test_health_check(self):
@@ -167,25 +170,25 @@ def run_smoke_tests(base_url: str = "http://localhost:8000") -> bool:
     """
     tester = TestDeploymentSmokeConfigurable(base_url)
     results = tester.run_all_smoke_tests()
-    
+
     all_passed = all(results.values())
-    
+
     if not all_passed:
         failed_tests = [name for name, passed in results.items() if not passed]
         print(f"Smoke tests failed: {failed_tests}")
-    
+
     return all_passed
 
 
 if __name__ == "__main__":
     """Run smoke tests when executed directly."""
     import sys
-    
+
     base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
-    
+
     print(f"Running smoke tests against {base_url}...")
     success = run_smoke_tests(base_url)
-    
+
     if success:
         print("All smoke tests passed!")
         sys.exit(0)

@@ -80,6 +80,7 @@ async def _require_account(public_key: str, db: AsyncSession):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
+
 @router.get(
     "",
     response_model=AccountsResponse,

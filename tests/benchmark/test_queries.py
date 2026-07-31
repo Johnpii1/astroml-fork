@@ -16,11 +16,9 @@ def test_graph_query_performance(benchmark):
 
     def run_graph_query():
         # A mock or typical graph query (e.g. recursive CTE)
-        query = text(
-            """
+        query = text("""
         SELECT 1 AS dummy
-        """
-        )
+        """)
         with engine.connect() as conn:
             result = conn.execute(query).fetchall()
             return result

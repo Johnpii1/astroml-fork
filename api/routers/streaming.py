@@ -5,6 +5,14 @@ Endpoints:
 """
 
 from __future__ import annotations
+from astroml.llm.streaming import StreamHandler, format_sse
+from astroml.llm.cost import check_budget, route_request, track_request
+from api.database import get_db
+from api.auth.dependencies import AuthContext, get_current_auth
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import StreamingResponse
+from fastapi import Depends, Query
+import asyncio
 
 import time
 from typing import Any, Dict, List, Optional
@@ -113,16 +121,6 @@ def get_streaming_health():
 # ---------------------------------------------------------------------------
 # LLM SSE Streaming Endpoint
 # ---------------------------------------------------------------------------
-import asyncio
-
-from fastapi import Depends, Query
-from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from api.auth.dependencies import AuthContext, get_current_auth
-from api.database import get_db
-from astroml.llm.cost import check_budget, route_request, track_request
-from astroml.llm.streaming import StreamHandler, format_sse
 
 
 @router.get("/llm")

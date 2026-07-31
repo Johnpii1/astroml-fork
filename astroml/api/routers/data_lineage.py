@@ -30,6 +30,7 @@ def _sanitize_log(value: str) -> str:
     """
     return value.replace("\n", " ").replace("\r", " ")
 
+
 router = APIRouter(prefix="/api/v1", tags=["data-lineage"])
 
 # ---------------------------------------------------------------------------
@@ -133,7 +134,9 @@ async def get_lineage(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching lineage for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
+        logger.exception(
+            "Error fetching lineage for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id)
+        )
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -168,7 +171,11 @@ async def get_upstream(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching upstream for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
+        logger.exception(
+            "Error fetching upstream for %s/%s",
+            _sanitize_log(entity_type),
+            _sanitize_log(entity_id),
+        )
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -203,7 +210,11 @@ async def get_downstream(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error fetching downstream for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
+        logger.exception(
+            "Error fetching downstream for %s/%s",
+            _sanitize_log(entity_type),
+            _sanitize_log(entity_id),
+        )
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -262,7 +273,11 @@ async def export_lineage(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Error exporting lineage for %s/%s", _sanitize_log(entity_type), _sanitize_log(entity_id))
+        logger.exception(
+            "Error exporting lineage for %s/%s",
+            _sanitize_log(entity_type),
+            _sanitize_log(entity_id),
+        )
         raise HTTPException(status_code=500, detail=str(exc))
 
 

@@ -6,6 +6,7 @@ Defines the contracts for key services to enable:
 - Mock implementations for testing
 - Clear interface documentation
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

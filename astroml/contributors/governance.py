@@ -131,7 +131,7 @@ class GovernanceSystem:
         new_role: str | None = None
 
         # Walk up from the next tier
-        for candidate in _ROLE_ORDER[current_index + 1 :]:
+        for candidate in _ROLE_ORDER[current_index + 1:]:
             threshold = CONTRIBUTION_THRESHOLDS[candidate]
             if record.contribution_count >= threshold:
                 new_role = candidate

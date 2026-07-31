@@ -8,6 +8,7 @@ from typing import Dict, List
 @dataclass
 class ResourceMetrics:
     """Metrics for a specific resource type."""
+
     cpu_utilization_percent: float
     memory_utilization_percent: float
     gpu_utilization_percent: float | None = None
@@ -18,6 +19,7 @@ class ResourceMetrics:
 @dataclass
 class WorkloadResourceProfile:
     """Resource profile for a specific ML workload."""
+
     workload_id: str
     workload_type: str  # e.g., 'training', 'inference', 'batch'
     metrics: ResourceMetrics

@@ -6,6 +6,7 @@ Create Date: 2026-06-25
 
 Closes #332 — Request Audit Logging
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -25,8 +26,9 @@ def upgrade() -> None:
     op.create_table(
         "audit_logs",
         sa.Column("id", _ID, primary_key=True, autoincrement=True),
-        sa.Column("timestamp", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "timestamp", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")
+        ),
         sa.Column("user_id", _ID, nullable=True),
         sa.Column("username", sa.String(64), nullable=True),
         sa.Column("auth_type", sa.String(16), nullable=True),
@@ -40,7 +42,7 @@ def upgrade() -> None:
         sa.Column("status_code", sa.Integer(), nullable=True),
         sa.Column("details", _JSON, nullable=True),
     )
-    
+
     op.create_index("ix_audit_logs_timestamp", "audit_logs", ["timestamp"])
     op.create_index("ix_audit_logs_user_id", "audit_logs", ["user_id"])
     op.create_index("ix_audit_logs_action", "audit_logs", ["action"])

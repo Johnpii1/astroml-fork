@@ -6,6 +6,7 @@ Create Date: 2026-07-27
 
 Closes #534 — API Key Rotation & Revocation
 """
+
 from typing import Sequence, Union
 
 from alembic import op

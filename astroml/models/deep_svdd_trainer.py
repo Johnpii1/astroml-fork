@@ -25,7 +25,7 @@ from .deep_svdd import DeepSVDD, DeepSVDDNetwork
 
 class DeepSVDDTrainer:
     """Advanced trainer for Deep SVDD with multiple loss functions and strategies."""
-    
+
     def __init__(
         self,
         model: DeepSVDD,
@@ -48,7 +48,7 @@ class DeepSVDDTrainer:
             'val_loss': [],
             'radius': []
         }
-    
+
     def train(
         self,
         train_loader: torch.utils.data.DataLoader,
@@ -60,33 +60,33 @@ class DeepSVDDTrainer:
         scheduler_type: str = 'cosine'
     ) -> Dict[str, np.ndarray]:
         """Train Deep SVDD with advanced strategies."""
-        
+
         # Initialize center
         self.model.init_center(train_loader)
-        
+
         # Setup optimizer
         optimizer = torch.optim.Adam(
             self.model.parameters(),
             lr=lr,
             weight_decay=weight_decay
         )
-        
+
         # Setup scheduler
         scheduler = self._get_scheduler(optimizer, scheduler_type, epochs)
-        
+
         # Early stopping
         best_val_loss = float('inf')
         patience_counter = 0
-        
+
         for epoch in range(epochs):
             # Training phase
             train_loss = self._train_epoch(train_loader, optimizer, loss_type)
-            
+
             # Validation phase
             val_loss = None
             if val_loader is not None:
                 val_loss = self._validate_epoch(val_loader, loss_type)
-                
+
                 # Early stopping
                 if val_loss < best_val_loss - self.min_delta:
                     best_val_loss = val_loss
@@ -94,18 +94,18 @@ class DeepSVDDTrainer:
                     self._save_checkpoint()
                 else:
                     patience_counter += 1
-                
+
                 if patience_counter >= self.patience:
                     print(f"Early stopping at epoch {epoch}")
                     break
-            
+
             # Update scheduler
             if scheduler_type != 'none':
                 scheduler.step()
-            
+
             # Update radius
             radius = self._compute_radius(train_loader)
-            
+
             # Record history
             self.training_history['train_loss'].append(train_loss)
             if val_loss is not None:
@@ -131,7 +131,7 @@ class DeepSVDDTrainer:
                 print(log_msg)
 
         return self.training_history
-    
+
     def _train_epoch(
         self,
         dataloader: torch.utils.data.DataLoader,
@@ -141,15 +141,15 @@ class DeepSVDDTrainer:
         """Train for one epoch."""
         self.model.train()
         total_loss = 0
-        
+
         for batch in dataloader:
             if isinstance(batch, (list, tuple)):
                 x = batch[0].to(self.device)
             else:
                 x = batch.to(self.device)
-            
+
             optimizer.zero_grad()
-            
+
             if loss_type == 'svdd':
                 loss = self.model.compute_loss(x)
             elif loss_type == 'soft_boundary':
@@ -158,14 +158,14 @@ class DeepSVDDTrainer:
                 loss = self._robust_loss(x)
             else:
                 raise ValueError(f"Unknown loss type: {loss_type}")
-            
+
             loss.backward()
             optimizer.step()
-            
+
             total_loss += loss.item()
-        
+
         return total_loss / len(dataloader)
-    
+
     def _validate_epoch(
         self,
         dataloader: torch.utils.data.DataLoader,
@@ -174,41 +174,41 @@ class DeepSVDDTrainer:
         """Validate for one epoch."""
         self.model.eval()
         total_loss = 0
-        
+
         with torch.no_grad():
             for batch in dataloader:
                 if isinstance(batch, (list, tuple)):
                     x = batch[0].to(self.device)
                 else:
                     x = batch.to(self.device)
-                
+
                 if loss_type == 'svdd':
                     loss = self.model.compute_loss(x)
                 elif loss_type == 'soft_boundary':
                     loss = self._soft_boundary_loss(x)
                 elif loss_type == 'robust':
                     loss = self._robust_loss(x)
-                
+
                 total_loss += loss.item()
-        
+
         return total_loss / len(dataloader)
-    
+
     def _soft_boundary_loss(self, x: torch.Tensor) -> torch.Tensor:
         """Soft boundary loss for more flexible anomaly detection."""
         embeddings = self.model(x)
         distances = torch.sum((embeddings - self.model.center) ** 2, dim=1)
-        
+
         # Soft boundary with radius R
         radius = self._compute_radius_single_batch(x)
         loss = torch.mean(torch.relu(distances - radius))
-        
+
         return loss
-    
+
     def _robust_loss(self, x: torch.Tensor) -> torch.Tensor:
         """Robust loss function less sensitive to outliers."""
         embeddings = self.model(x)
         distances = torch.sum((embeddings - self.model.center) ** 2, dim=1)
-        
+
         # Huber-like loss
         delta = torch.median(distances)
         loss = torch.where(
@@ -216,37 +216,37 @@ class DeepSVDDTrainer:
             0.5 * distances,
             delta * (torch.sqrt(distances) - 0.5 * torch.sqrt(delta))
         )
-        
+
         return torch.mean(loss)
-    
+
     def _compute_radius(self, dataloader: torch.utils.data.DataLoader) -> float:
         """Compute hypersphere radius."""
         self.model.eval()
         all_distances = []
-        
+
         with torch.no_grad():
             for batch in dataloader:
                 if isinstance(batch, (list, tuple)):
                     x = batch[0].to(self.device)
                 else:
                     x = batch.to(self.device)
-                
+
                 embeddings = self.model(x)
                 distances = torch.sum((embeddings - self.model.center) ** 2, dim=1)
                 all_distances.append(distances)
-        
+
         all_distances = torch.cat(all_distances, dim=0)
-        
+
         # Set radius to capture (1-nu) quantile of normal data
         radius = torch.quantile(all_distances, 1 - self.model.nu)
         return radius.item()
-    
+
     def _compute_radius_single_batch(self, x: torch.Tensor) -> torch.Tensor:
         """Compute radius for a single batch."""
         embeddings = self.model(x)
         distances = torch.sum((embeddings - self.model.center) ** 2, dim=1)
         return torch.quantile(distances, 1 - self.model.nu)
-    
+
     def _get_scheduler(
         self,
         optimizer: torch.optim.Optimizer,
@@ -272,7 +272,7 @@ class DeepSVDDTrainer:
             )
         else:
             raise ValueError(f"Unknown scheduler type: {scheduler_type}")
-    
+
     def _save_checkpoint(self):
         """Save best model checkpoint and log it to MLflow."""
         checkpoint = {
@@ -288,7 +288,7 @@ class DeepSVDDTrainer:
                 'model_class': self.model.__class__.__name__
             }
         }
-        
+
         # Save to artifact store
         try:
             checkpoint_uri = self.artifact_store.save_checkpoint(
@@ -301,34 +301,34 @@ class DeepSVDDTrainer:
             # Fallback to local save
             torch.save(checkpoint, 'best_deep_svdd.pth')
             print("Checkpoint saved locally to best_deep_svdd.pth")
-        
+
         if self.tracker is not None:
             self.tracker.log_model_artifact(
                 self.model,
                 artifact_path="model",
                 checkpoint_path="best_deep_svdd.pth",
             )
-    
+
     def load_checkpoint(self, checkpoint_path: str) -> bool:
         """Load model from checkpoint with validation.
-        
+
         Supports loading from:
         - Local filesystem paths
         - S3 (s3://bucket/path)
         - Google Cloud Storage (gs://bucket/path)
-        
+
         Args:
             checkpoint_path: Path to checkpoint file (local or artifact URI)
-            
+
         Returns:
             True if checkpoint was loaded successfully
-            
+
         Raises:
             FileNotFoundError: If checkpoint file doesn't exist
             ValueError: If checkpoint metadata doesn't match model architecture
             RuntimeError: If device is unavailable or checkpoint is corrupted
         """
-from pathlib import Path
+
 
 try:
     # Try to load from artifact store first if it looks like a relative path
@@ -371,24 +371,24 @@ except Exception as e:
     raise RuntimeError(
         f"Failed to load checkpoint '{checkpoint_path}': {str(e)}"
     ) from e
-        except Exception as e:
+       except Exception as e:
             raise RuntimeError(
                 f"Failed to load checkpoint from {checkpoint_path}\n"
                 f"Error: {e}\n"
                 f"The file may be corrupted or incompatible with this PyTorch version."
             ) from e
-        
+
         # Validate checkpoint structure
         if 'model_state_dict' not in checkpoint:
             raise ValueError(
                 f"Invalid checkpoint format: missing 'model_state_dict' key.\n"
                 f"Available keys: {list(checkpoint.keys())}"
             )
-        
+
         # Validate metadata if present
         if 'metadata' in checkpoint:
             metadata = checkpoint['metadata']
-            
+
             # Check input dimension
             if 'input_dim' in metadata:
                 if metadata['input_dim'] != self.model.input_dim:
@@ -398,7 +398,7 @@ except Exception as e:
                         f"  Found in checkpoint: {metadata['input_dim']}\n"
                         f"Please ensure the model architecture matches the checkpoint."
                     )
-            
+
             # Check hidden dimensions
             if 'hidden_dims' in metadata:
                 if metadata['hidden_dims'] != self.model.hidden_dims:
@@ -408,7 +408,7 @@ except Exception as e:
                         f"  Found in checkpoint: {metadata['hidden_dims']}\n"
                         f"Please ensure the model architecture matches the checkpoint."
                     )
-            
+
             # Check device compatibility
             if 'device' in metadata:
                 checkpoint_device = metadata['device']
@@ -423,7 +423,7 @@ except Exception as e:
                 "Cannot validate model architecture compatibility. "
                 "Proceed with caution."
             )
-        
+
         # Load model state
         try:
             self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -434,24 +434,24 @@ except Exception as e:
                 f"This typically indicates a mismatch between the checkpoint architecture "
                 f"and the current model architecture."
             ) from e
-        
+
         # Load center
         if 'center' not in checkpoint:
             raise ValueError("Invalid checkpoint format: missing 'center' key")
         self.model.center = checkpoint['center']
-        
+
         # Load scaler if present
         if checkpoint.get('scaler') is not None:
             self.model.scaler = checkpoint['scaler']
-        
+
         # Load training history if present
         if checkpoint.get('training_history') is not None:
             self.training_history = checkpoint['training_history']
-        
+
         return True
-        
+
         return True
-    
+
     def evaluate(
         self,
         X: np.ndarray,
@@ -512,7 +512,7 @@ except Exception as e:
 
 class FraudDetectionDeepSVDD:
     """Specialized Deep SVDD for fraud detection with domain-specific features."""
-    
+
     def __init__(
         self,
         input_dim: int,
@@ -529,7 +529,7 @@ class FraudDetectionDeepSVDD:
             device=device
         )
         self.trainer = DeepSVDDTrainer(self.model, device=device)
-    
+
     def fit(
         self,
         X: np.ndarray,
@@ -538,16 +538,16 @@ class FraudDetectionDeepSVDD:
         **training_kwargs
     ) -> 'FraudDetectionDeepSVDD':
         """Fit model for fraud detection."""
-        
+
         # Split data for validation
         if validation_split > 0:
             n_samples = len(X)
             val_size = int(n_samples * validation_split)
             indices = np.random.permutation(n_samples)
-            
+
             train_idx, val_idx = indices[val_size:], indices[:val_size]
             X_train, X_val = X[train_idx], X[val_idx]
-            
+
             if y is not None:
                 y_train, y_val = y[train_idx], y[val_idx]
             else:
@@ -555,7 +555,7 @@ class FraudDetectionDeepSVDD:
         else:
             X_train, X_val = X, None
             y_train, y_val = y, None
-        
+
         # Create datasets
         train_dataset = torch.utils.data.TensorDataset(
             torch.FloatTensor(X_train)
@@ -563,7 +563,7 @@ class FraudDetectionDeepSVDD:
         train_loader = torch.utils.data.DataLoader(
             train_dataset, batch_size=128, shuffle=True
         )
-        
+
         val_loader = None
         if X_val is not None:
             val_dataset = torch.utils.data.TensorDataset(
@@ -572,35 +572,35 @@ class FraudDetectionDeepSVDD:
             val_loader = torch.utils.data.DataLoader(
                 val_dataset, batch_size=128, shuffle=False
             )
-        
+
         # Train model
         self.trainer.train(
             train_loader=train_loader,
             val_loader=val_loader,
             **training_kwargs
         )
-        
+
         return self
-    
+
     def predict_anomaly_scores(self, X: np.ndarray) -> np.ndarray:
         """Get anomaly scores for transactions."""
         return self.model.predict(X)
-    
+
     def predict_fraud_probability(self, X: np.ndarray) -> np.ndarray:
         """Convert anomaly scores to fraud probabilities."""
         scores = self.predict_anomaly_scores(X)
-        
+
         # Normalize scores to [0, 1] using min-max scaling
         min_score = np.min(scores)
         max_score = np.max(scores)
-        
+
         if max_score > min_score:
             probabilities = (scores - min_score) / (max_score - min_score)
         else:
             probabilities = np.zeros_like(scores)
-        
+
         return probabilities
-    
+
     def evaluate_fraud_detection(
         self,
         X: np.ndarray,
@@ -608,10 +608,10 @@ class FraudDetectionDeepSVDD:
         threshold_percentile: float = 95.0
     ) -> Dict[str, Union[float, np.ndarray]]:
         """Evaluate fraud detection performance."""
-        
+
         metrics = self.trainer.evaluate(X, y, threshold_percentile)
         scores = self.predict_anomaly_scores(X)
-        
+
         return {
             **metrics,
             'anomaly_scores': scores,

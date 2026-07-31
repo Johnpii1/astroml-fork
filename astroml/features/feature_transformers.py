@@ -418,7 +418,7 @@ class FeatureEngineering:
         result = data.copy()
 
         for i, col1 in enumerate(columns):
-            for j, col2 in enumerate(columns[i + 1 :], i + 1):
+            for j, col2 in enumerate(columns[i + 1:], i + 1):
                 if col1 not in data.columns or col2 not in data.columns:
                     continue
 

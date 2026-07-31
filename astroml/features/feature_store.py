@@ -1030,7 +1030,7 @@ class FeatureStore:
         unique_entities = data[entity_col].unique()
         chunks = []
         for i in range(0, len(unique_entities), self._chunk_size):
-            chunk_entities = unique_entities[i : i + self._chunk_size]
+            chunk_entities = unique_entities[i: i + self._chunk_size]
             chunk_data = data[data[entity_col].isin(chunk_entities)].copy()
             chunks.append(chunk_data)
 

@@ -11,15 +11,17 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
+
 def get_project_root() -> Path:
     """Return the absolute path to the project root directory."""
     return Path(__file__).resolve().parent.parent.parent
+
 
 def setup_mkdocs_config(root_dir: Path) -> None:
     """
     Set up MkDocs configuration with theme.
     Search plugin and theme configurations are handled in the YAML.
-    
+
     Args:
         root_dir: The project root directory.
     """
@@ -27,10 +29,11 @@ def setup_mkdocs_config(root_dir: Path) -> None:
     if not mkdocs_file.exists():
         logger.warning("docs/mkdocs.yml configuration not found.")
 
+
 def implement_api_documentation_generation(root_dir: Path) -> None:
     """
     Implement API documentation generation.
-    
+
     Args:
         root_dir: The project root directory.
     """
@@ -40,10 +43,11 @@ def implement_api_documentation_generation(root_dir: Path) -> None:
     if not index_file.exists():
         index_file.write_text("# API Reference\n", encoding="utf-8")
 
+
 def build_model_card_documentation_pages(root_dir: Path) -> None:
     """
     Build model card documentation pages.
-    
+
     Args:
         root_dir: The project root directory.
     """
@@ -53,10 +57,11 @@ def build_model_card_documentation_pages(root_dir: Path) -> None:
     if not index_file.exists():
         index_file.write_text("# Model Cards\n", encoding="utf-8")
 
+
 def add_pipeline_documentation_generation(root_dir: Path) -> None:
     """
     Add pipeline documentation generation.
-    
+
     Args:
         root_dir: The project root directory.
     """
@@ -66,25 +71,28 @@ def add_pipeline_documentation_generation(root_dir: Path) -> None:
     if not index_file.exists():
         index_file.write_text("# Pipelines\n", encoding="utf-8")
 
+
 def add_versioned_documentation(root_dir: Path) -> None:
     """
     Add versioned documentation setup.
-    
+
     Args:
         root_dir: The project root directory.
     """
     # Versioning functionality placeholder for CI/CD integration (e.g., mike)
     logger.info("Versioned documentation initialized.")
 
+
 def implement_search_functionality(root_dir: Path) -> None:
     """
     Implement search functionality.
-    
+
     Args:
         root_dir: The project root directory.
     """
     # Search is natively enabled via mkdocs.yml search plugin
     logger.info("Search functionality enabled via configuration.")
+
 
 def build_docs_for_ci() -> None:
     """
@@ -100,11 +108,12 @@ def build_docs_for_ci() -> None:
     add_pipeline_documentation_generation(root_dir)
     logger.info("CI documentation build process completed.")
 
+
 def test_documentation_generation() -> bool:
     """
     Test documentation generation.
     Validates that the required files and directories are created.
-    
+
     Returns:
         True if all files exist, False otherwise.
     """
@@ -115,16 +124,17 @@ def test_documentation_generation() -> bool:
         root_dir / "docs" / "models" / "index.md",
         root_dir / "docs" / "pipelines" / "index.md",
     ]
-    
+
     build_docs_for_ci()
-    
+
     missing_files = [f for f in expected_files if not f.exists()]
     if missing_files:
         logger.error(f"Documentation generation test failed. Missing: {missing_files}")
         return False
-        
+
     logger.info("Documentation generation test passed successfully.")
     return True
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

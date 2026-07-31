@@ -1,4 +1,5 @@
 from __future__ import annotations
+from astroml.features.asset_diversity import compute_asset_diversity
 
 """
 Base node features from transaction graph.
@@ -25,9 +26,6 @@ import numpy as np
 import pandas as pd
 
 Edge = dict[str, object]
-
-
-from astroml.features.asset_diversity import compute_asset_diversity
 
 
 def compute_node_features(

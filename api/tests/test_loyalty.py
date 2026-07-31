@@ -6,6 +6,14 @@ balance queries, and history pagination.
 """
 
 from __future__ import annotations
+from api.loyalty_models import LoyaltyAccount, LoyaltyBase, PointsLedger
+from api.app import app
+import api.routers.loyalty as _loyalty_module
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from fastapi.testclient import TestClient
+from datetime import date, datetime, timezone
+import uuid
 
 import pytest
 from sqlalchemy import select
@@ -157,16 +165,6 @@ We override the `_get_db` dependency so tests use the same SQLite session
 produced by conftest instead of the real Postgres session.
 """
 
-import uuid
-from datetime import date, datetime, timezone
-
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-import api.routers.loyalty as _loyalty_module
-from api.app import app
-from api.loyalty_models import LoyaltyAccount, LoyaltyBase, PointsLedger
 
 # ---------------------------------------------------------------------------
 # Helpers

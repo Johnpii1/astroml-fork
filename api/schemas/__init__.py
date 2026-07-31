@@ -31,8 +31,18 @@ def _validate_stellar_account(value: str, field_name: str = "account") -> str:
 
 
 class EdgeInput(BaseModel):
-    src: str = Field(..., min_length=56, max_length=56, examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
-    dst: str = Field(..., min_length=56, max_length=56, examples=["GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    src: str = Field(
+        ...,
+        min_length=56,
+        max_length=56,
+        examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"],
+    )
+    dst: str = Field(
+        ...,
+        min_length=56,
+        max_length=56,
+        examples=["GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"],
+    )
     amount: float = Field(default=0.0, ge=0.0, le=1e15, examples=[100.5])
     timestamp: float = Field(default=0.0, ge=0.0, examples=[1640995200.0])
     asset: str = Field(default="XLM", min_length=1, max_length=12, examples=["XLM", "USDC"])
@@ -51,7 +61,17 @@ class EdgeInput(BaseModel):
 
 
 class ScoreRequest(BaseModel):
-    accounts: List[str] = Field(..., min_length=1, max_length=50, examples=[["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890", "GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"]])
+    accounts: List[str] = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        examples=[
+            [
+                "GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+                "GDEF1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890",
+            ]
+        ],
+    )
     edges: List[EdgeInput] = Field(default_factory=list, max_length=500, examples=[[]])
 
     @field_validator("accounts", mode="before")
@@ -180,7 +200,9 @@ class AccountsResponse(BaseModel):
 class TransactionOut(BaseModel):
     hash: str = Field(..., min_length=1, max_length=128, examples=["abc123def456789"])
     ledger_sequence: int = Field(..., ge=0, examples=[12345])
-    source_account: str = Field(..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"])
+    source_account: str = Field(
+        ..., examples=["GABC1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"]
+    )
     created_at: datetime = Field(..., examples=["2024-01-01T00:00:00Z"])
     fee: int = Field(..., ge=0, examples=[100])
     operation_count: int = Field(..., ge=0, examples=[2])
@@ -605,7 +627,9 @@ class FAQOut(BaseModel):
 class FAQIn(BaseModel):
     category: str = Field(..., min_length=1, max_length=64, examples=["general"])
     question: str = Field(..., min_length=1, max_length=512, examples=["How do I get started?"])
-    answer: str = Field(..., min_length=1, examples=["To get started, follow the quickstart guide."])
+    answer: str = Field(
+        ..., min_length=1, examples=["To get started, follow the quickstart guide."]
+    )
     order: int = Field(default=0, ge=0, examples=[0])
     is_published: bool = Field(True, examples=[True])
 

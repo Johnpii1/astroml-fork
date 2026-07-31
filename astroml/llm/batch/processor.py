@@ -40,7 +40,7 @@ class BatchProcessor:
         batch_size = self._strategy.get_batch_size()
 
         for i in range(0, len(items), batch_size):
-            batch = items[i : i + batch_size]
+            batch = items[i: i + batch_size]
             batch_result = await self._process_batch(batch, process_fn)
             results.extend(batch_result)
 

@@ -9,6 +9,7 @@ Thresholds:
 - Database query (1000 records): <500ms
 - Model inference (batch of 100): <100ms
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -24,26 +25,26 @@ from astroml.features.frequency import compute_frequency_features
 @pytest.mark.benchmark(group="graph-building")
 def test_graph_building_10k_edges(benchmark):
     """Benchmark graph building with 10k edges.
-    
+
     Threshold: should complete in <5s
     """
     # Generate 10k edges
     num_nodes = 2000
     num_edges = 10000
-    
+
     # Create random node features
     node_features = np.random.rand(num_nodes, 32).astype(np.float32)
-    
+
     # Create random edges
     edge_index = np.random.randint(0, num_nodes, size=(2, num_edges), dtype=np.int64)
-    
+
     # Benchmark graph conversion
     result = benchmark(
         graph_to_pyg_data,
         node_features=node_features,
         edge_index=edge_index,
     )
-    
+
     assert result.num_nodes == num_nodes
     assert result.edge_index.shape[1] == num_edges
 
@@ -51,27 +52,30 @@ def test_graph_building_10k_edges(benchmark):
 @pytest.mark.benchmark(group="feature-computation")
 def test_feature_computation_1000_nodes(benchmark):
     """Benchmark feature computation for 1000 nodes.
-    
+
     Threshold: should complete in <2s
     """
     # Create test data with 1000 nodes
     num_nodes = 1000
     entity_ids = [f"node_{i}" for i in range(num_nodes)]
-    
+
     # Create mock transaction data
     edges = []
     for i in range(num_nodes):
         for j in range(min(5, num_nodes - i - 1)):
-            edges.append({
-                "source": entity_ids[i],
-                "target": entity_ids[i + j + 1],
-                "amount": np.random.rand() * 1000,
-                "timestamp": i * 1000 + j,
-            })
-    
+            edges.append(
+                {
+                    "source": entity_ids[i],
+                    "target": entity_ids[i + j + 1],
+                    "amount": np.random.rand() * 1000,
+                    "timestamp": i * 1000 + j,
+                }
+            )
+
     import pandas as pd
+
     edges_df = pd.DataFrame(edges)
-    
+
     # Benchmark feature computation
     result = benchmark(
         compute_frequency_features,
@@ -79,20 +83,20 @@ def test_feature_computation_1000_nodes(benchmark):
         entity_ids=entity_ids[:100],  # Sample for benchmark
         time_window_days=30,
     )
-    
+
     assert result is not None
 
 
 @pytest.mark.benchmark(group="database-query")
 def test_database_query_1000_records(benchmark, db_session):
     """Benchmark database query for 1000 records.
-    
+
     Threshold: should complete in <500ms
     """
     from astroml.db.schema import NormalizedTransaction
     from datetime import datetime, timedelta, timezone
     from sqlalchemy import select
-    
+
     # Create test data
     now = datetime.now(timezone.utc)
     transactions = []
@@ -106,9 +110,9 @@ def test_database_query_1000_records(benchmark, db_session):
         )
         db_session.add(tx)
         transactions.append(tx)
-    
+
     db_session.commit()
-    
+
     # Benchmark query
     def query_1000_records():
         result = db_session.execute(
@@ -117,10 +121,10 @@ def test_database_query_1000_records(benchmark, db_session):
             .limit(1000)
         )
         return result.scalars().all()
-    
+
     result = benchmark(query_1000_records)
     assert len(result) <= 1000
-    
+
     # Cleanup
     for tx in transactions:
         db_session.delete(tx)
@@ -130,31 +134,31 @@ def test_database_query_1000_records(benchmark, db_session):
 @pytest.mark.benchmark(group="model-inference")
 def test_model_inference_batch_100(benchmark):
     """Benchmark model inference for batch of 100.
-    
+
     Threshold: should complete in <100ms
     """
     import torch
     from torch_geometric.data import Data
-    
+
     # Create a simple GCN model for benchmarking
     num_nodes = 100
     num_features = 32
     hidden_dim = 64
-    
+
     # Create test data
     node_features = torch.randn(num_nodes, num_features)
     edge_index = torch.randint(0, num_nodes, (2, 200))
-    
+
     data = Data(x=node_features, edge_index=edge_index)
-    
+
     # Simple linear layer as proxy for model inference
     model = torch.nn.Linear(num_features, hidden_dim)
     model.eval()
-    
+
     def inference():
         with torch.no_grad():
             return model(data.x)
-    
+
     result = benchmark(inference)
     assert result.shape == (num_nodes, hidden_dim)
 
@@ -162,24 +166,26 @@ def test_model_inference_batch_100(benchmark):
 @pytest.mark.benchmark(group="graph-validation")
 def test_graph_validation_large_graph(benchmark):
     """Benchmark graph validation on large graph (10k nodes, 100k edges).
-    
+
     Threshold: should complete in <5s
     """
     import pandas as pd
-    
+
     # Create large graph
     num_nodes = 10000
     num_edges = 100000
-    
+
     edges = []
     for i in range(num_edges):
-        edges.append({
-            "source": f"node_{np.random.randint(0, num_nodes)}",
-            "target": f"node_{np.random.randint(0, num_nodes)}",
-        })
-    
+        edges.append(
+            {
+                "source": f"node_{np.random.randint(0, num_nodes)}",
+                "target": f"node_{np.random.randint(0, num_nodes)}",
+            }
+        )
+
     edges_df = pd.DataFrame(edges)
-    
+
     # Benchmark validation
     result = benchmark(
         check_isolated_nodes,
@@ -188,7 +194,7 @@ def test_graph_validation_large_graph(benchmark):
         target_col="target",
         allow_isolated=True,
     )
-    
+
     connected, isolated = result
     assert isinstance(connected, set)
     assert isinstance(isolated, set)
@@ -198,7 +204,7 @@ def test_graph_validation_large_graph(benchmark):
 def db_session():
     """Create a test database session."""
     from astroml.db.session import get_session
-    
+
     session = get_session()
     try:
         yield session

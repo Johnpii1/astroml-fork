@@ -40,7 +40,9 @@ def test_restore_snapshot_applies_state() -> None:
         assert state == {"config": "ok"}
         return True
 
-    restored = manager.restore_snapshot(snapshot.snapshot_id, apply_fn=apply_fn, restored_by="tester")
+    restored = manager.restore_snapshot(
+        snapshot.snapshot_id, apply_fn=apply_fn, restored_by="tester"
+    )
     assert restored == {"config": "ok"}
     assert snapshot.restored_by == "tester"
     assert snapshot.recovery_metrics["applied_successfully"] is True

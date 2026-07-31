@@ -20,7 +20,6 @@ from typing import Callable, Dict, List, Optional
 
 import numpy as np
 
-
 # ── Type alias ────────────────────────────────────────────────────────────────
 
 InvariantFn = Callable[[np.ndarray, np.ndarray], bool]
@@ -147,8 +146,7 @@ class InvariantChecker:
                         input_sample=X,
                         model_output=output,
                         description=(
-                            f"Invariant '{name}' failed for output of "
-                            f"shape {output.shape}."
+                            f"Invariant '{name}' failed for output of " f"shape {output.shape}."
                         ),
                     )
                 )
@@ -177,8 +175,8 @@ class InvariantChecker:
 
         for name, fn in self._invariants.items():
             for i in range(n_samples):
-                xi = X[i : i + 1]
-                yi = output[i : i + 1]
+                xi = X[i: i + 1]
+                yi = output[i: i + 1]
                 try:
                     passed = fn(xi, yi)
                 except Exception as exc:
@@ -188,9 +186,7 @@ class InvariantChecker:
                             sample_index=i,
                             input_sample=xi,
                             model_output=yi,
-                            description=(
-                                f"Invariant '{name}' raised at sample {i}: {exc}"
-                            ),
+                            description=(f"Invariant '{name}' raised at sample {i}: {exc}"),
                         )
                     )
                     break
@@ -203,8 +199,7 @@ class InvariantChecker:
                             input_sample=xi,
                             model_output=yi,
                             description=(
-                                f"Invariant '{name}' violated at sample "
-                                f"{i}: output={yi!r}"
+                                f"Invariant '{name}' violated at sample " f"{i}: output={yi!r}"
                             ),
                         )
                     )

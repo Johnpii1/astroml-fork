@@ -85,7 +85,9 @@ class StateSnapshotManager:
 
         snapshot.restored_at = datetime.now(timezone.utc)
         snapshot.restored_by = restored_by
-        snapshot.recovery_metrics["rto_seconds"] = (snapshot.restored_at - snapshot.created_at).total_seconds()
+        snapshot.recovery_metrics["rto_seconds"] = (
+            snapshot.restored_at - snapshot.created_at
+        ).total_seconds()
 
         if apply_fn is not None:
             success = apply_fn(snapshot.state)

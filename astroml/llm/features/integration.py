@@ -202,7 +202,7 @@ class LLMFeatureIntegration:
         feature_counts: dict[str, int] = {}
 
         for start in range(0, len(historical_data), batch_size):
-            batch = historical_data.iloc[start : start + batch_size]
+            batch = historical_data.iloc[start: start + batch_size]
             features = self.compute_and_store(batch, entity_col, timestamp_col)
             for name, feat in features.items():
                 feature_counts[name] = feature_counts.get(name, 0) + len(feat.values)

@@ -6,6 +6,7 @@ Provides endpoints for:
 - Recording feedback on recommendations
 - Getting feedback statistics
 """
+
 from __future__ import annotations
 
 from typing import Optional, List
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 
 
 # ─── Request/Response Schemas ─────────────────────────────────────────────
+
 
 class ActivityRequest(BaseModel):
     """Request schema for recording user activity."""
@@ -52,6 +54,7 @@ class RecommendationsRequest(BaseModel):
 
 # ─── Recommendations Endpoints ─────────────────────────────────────────────
 
+
 @router.post("/get", response_model=List[dict])
 async def get_recommendations(request: RecommendationsRequest):
     """Get personalized recommendations for a user."""
@@ -76,7 +79,9 @@ async def record_activity(request: ActivityRequest):
     try:
         activity_type = ActivityType(request.activity_type)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid activity type: {request.activity_type}")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid activity type: {request.activity_type}"
+        )
 
     recommendation_engine.record_activity(
         user_id=request.user_id,

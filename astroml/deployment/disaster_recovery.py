@@ -43,7 +43,9 @@ class DisasterRecoveryManager:
         self._procedures[procedure.name] = procedure
         logger.info("Registered recovery procedure: %s", procedure.name)
 
-    def plan_recovery(self, incident_id: str, procedure_name: str, snapshot_id: str) -> RecoveryPlan:
+    def plan_recovery(
+        self, incident_id: str, procedure_name: str, snapshot_id: str
+    ) -> RecoveryPlan:
         if procedure_name not in self._procedures:
             raise ValueError(f"Recovery procedure '{procedure_name}' not found")
         self._snapshot_manager.get_snapshot(snapshot_id)

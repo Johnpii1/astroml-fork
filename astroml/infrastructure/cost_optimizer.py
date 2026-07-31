@@ -10,6 +10,7 @@ from astroml.infrastructure.resource_analyzer import WorkloadResourceProfile
 @dataclass
 class CostAllocation:
     """Cost allocation for a specific workload."""
+
     workload_id: str
     instance_type: str
     duration_hours: float
@@ -50,7 +51,9 @@ class CostOptimizer:
             total_cost=total_cost,
         )
 
-    def build_cost_allocation(self, profiles: List[WorkloadResourceProfile]) -> Dict[str, CostAllocation]:
+    def build_cost_allocation(
+        self, profiles: List[WorkloadResourceProfile]
+    ) -> Dict[str, CostAllocation]:
         """Build cost allocations for a list of workloads."""
         allocations = {}
         for profile in profiles:

@@ -1,4 +1,5 @@
 """Human-in-the-loop integration for LLM-based data labeling (issue #475)."""
+
 from __future__ import annotations
 
 import logging
@@ -220,10 +221,7 @@ class HumanReviewQueue:
         Returns:
             List of pending ReviewTasks
         """
-        pending = [
-            task for task in self.tasks.values()
-            if task.status == ReviewStatus.PENDING
-        ]
+        pending = [task for task in self.tasks.values() if task.status == ReviewStatus.PENDING]
         return pending[:limit]
 
     def get_stats(self) -> Dict[str, Any]:

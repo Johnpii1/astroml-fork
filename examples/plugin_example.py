@@ -68,9 +68,7 @@ class CustomFeatureComputer(BaseFeatureComputer):
 
         value_col = kwargs.get("value_col", "value")
         result = (
-            data.groupby(entity_col)[value_col]
-            .rolling(window=self.window, min_periods=1)
-            .mean()
+            data.groupby(entity_col)[value_col].rolling(window=self.window, min_periods=1).mean()
         )
         result_df = pd.DataFrame({"custom_metric": result})
         result_df.index = data[entity_col].values
@@ -130,11 +128,13 @@ if __name__ == "__main__":
     import numpy as np
 
     # Create sample data
-    sample_data = pd.DataFrame({
-        "entity_id": ["a", "a", "b", "b", "a"],
-        "value": [1.0, 2.0, 3.0, 4.0, 5.0],
-        "timestamp": pd.date_range("2024-01-01", periods=5, freq="h"),
-    })
+    sample_data = pd.DataFrame(
+        {
+            "entity_id": ["a", "a", "b", "b", "a"],
+            "value": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "timestamp": pd.date_range("2024-01-01", periods=5, freq="h"),
+        }
+    )
 
     # Test the plugin computer
     computer = create_custom_feature_computer(window=2)

@@ -135,15 +135,15 @@ def apply_temporal_masks(data: Any, cfg: DictConfig) -> Any:
 def load_dataset(cfg: DictConfig) -> Any:
     """Load and prepare the dataset."""
     logger.info(f"Loading dataset: {cfg.data.name}")
-    
+
     # Instantiate dataset from config
     dataset = instantiate(cfg.data)
     data = dataset[0]
-    
+
     logger.info(f"Dataset loaded: {dataset.data}")
     logger.info(f"Number of classes: {dataset.num_classes}")
     logger.info(f"Number of node features: {dataset.num_node_features}")
-    
+
     return dataset, data
 
 
@@ -153,10 +153,10 @@ def create_model(cfg: DictConfig, dataset: Any) -> torch.nn.Module:
     model_cfg = cfg.model.copy()
     model_cfg.input_dim = dataset.num_node_features
     model_cfg.output_dim = dataset.num_classes
-    
+
     logger.info(f"Creating model with config: {model_cfg}")
     model = instantiate(model_cfg)
-    
+
     return model
 
 
@@ -166,7 +166,7 @@ def create_optimizer(cfg: DictConfig, model: torch.nn.Module) -> torch.optim.Opt
         "params": model.parameters(),
         "lr": cfg.training.lr,
     }
-    
+
     # Add optimizer-specific parameters
     if cfg.training.optimizer == "adam":
         optimizer_cfg.update(cfg.training.optimizer_configs.adam)
@@ -174,44 +174,46 @@ def create_optimizer(cfg: DictConfig, model: torch.nn.Module) -> torch.optim.Opt
         optimizer_cfg.update(cfg.training.optimizer_configs.sgd)
     elif cfg.training.optimizer == "adamw":
         optimizer_cfg.update(cfg.training.optimizer_configs.adamw)
-    
+
     logger.info(f"Creating {cfg.training.optimizer} optimizer with lr={cfg.training.lr}")
     optimizer = getattr(torch.optim, cfg.training.optimizer.upper())(**optimizer_cfg)
-    
+
     return optimizer
 
 
-def train_epoch(model: torch.nn.Module, data: Any, optimizer: torch.optim.Optimizer, 
-                device: torch.device) -> float:
+def train_epoch(
+    model: torch.nn.Module, data: Any, optimizer: torch.optim.Optimizer, device: torch.device
+) -> float:
     """Train for one epoch."""
     model.train()
     optimizer.zero_grad()
-    
+
     out = model(data.x.to(device), data.edge_index.to(device))
     loss = F.nll_loss(out[data.train_mask], data.y.to(device)[data.train_mask])
-    
+
     loss.backward()
     optimizer.step()
-    
+
     return loss.item()
 
 
-def evaluate(model: torch.nn.Module, data: Any, device: torch.device, 
-             mask_name: str = "test_mask") -> Dict[str, float]:
+def evaluate(
+    model: torch.nn.Module, data: Any, device: torch.device, mask_name: str = "test_mask"
+) -> Dict[str, float]:
     """Evaluate the model."""
     model.eval()
-    
+
     with torch.no_grad():
         out = model(data.x.to(device), data.edge_index.to(device))
         pred = out.argmax(dim=1)
-        
+
         mask = getattr(data, mask_name)
         correct = (pred[mask] == data.y.to(device)[mask]).sum()
         accuracy = int(correct) / int(mask.sum())
-        
+
         # Calculate loss
         loss = F.nll_loss(out[mask], data.y.to(device)[mask]).item()
-    
+
     return {"accuracy": accuracy, "loss": loss}
 
 
@@ -231,16 +233,18 @@ def train(cfg: DictConfig) -> Dict[str, Any]:
     )
 
     # Log hyper-parameters once
-    tracker.log_params({
-        "model": cfg.model.get("_target_", "gcn"),
-        "hidden_dims": str(cfg.model.get("hidden_dims", [])),
-        "dropout": cfg.model.get("dropout", None),
-        "optimizer": cfg.training.optimizer,
-        "lr": cfg.training.lr,
-        "weight_decay": cfg.training.weight_decay,
-        "epochs": cfg.training.epochs,
-        "seed": cfg.experiment.seed,
-    })
+    tracker.log_params(
+        {
+            "model": cfg.model.get("_target_", "gcn"),
+            "hidden_dims": str(cfg.model.get("hidden_dims", [])),
+            "dropout": cfg.model.get("dropout", None),
+            "optimizer": cfg.training.optimizer,
+            "lr": cfg.training.lr,
+            "weight_decay": cfg.training.weight_decay,
+            "epochs": cfg.training.epochs,
+            "seed": cfg.experiment.seed,
+        }
+    )
 
     # Load dataset
     dataset, data = load_dataset(cfg)
@@ -291,8 +295,8 @@ def train(cfg: DictConfig) -> Dict[str, Any]:
             )
 
         # Early stopping
-        if val_metrics['accuracy'] > best_val_acc:
-            best_val_acc = val_metrics['accuracy']
+        if val_metrics["accuracy"] > best_val_acc:
+            best_val_acc = val_metrics["accuracy"]
             patience_counter = 0
 
             # Save best model
@@ -301,8 +305,10 @@ def train(cfg: DictConfig) -> Dict[str, Any]:
         else:
             patience_counter += 1
 
-        if (cfg.training.early_stopping.patience > 0 and
-                patience_counter >= cfg.training.early_stopping.patience):
+        if (
+            cfg.training.early_stopping.patience > 0
+            and patience_counter >= cfg.training.early_stopping.patience
+        ):
             logger.info(f"Early stopping at epoch {epoch}")
             break
 
@@ -311,11 +317,13 @@ def train(cfg: DictConfig) -> Dict[str, Any]:
     logger.info(f"Test Accuracy: {test_metrics['accuracy']:.4f}")
 
     # Log final test metrics
-    tracker.log_metrics({
-        "test_acc": test_metrics["accuracy"],
-        "test_loss": test_metrics["loss"],
-        "best_val_acc": best_val_acc,
-    })
+    tracker.log_metrics(
+        {
+            "test_acc": test_metrics["accuracy"],
+            "test_loss": test_metrics["loss"],
+            "best_val_acc": best_val_acc,
+        }
+    )
 
     # Save final model
     last_model_path = Path(cfg.experiment.save_dir) / "last_model.pth"
@@ -332,8 +340,8 @@ def train(cfg: DictConfig) -> Dict[str, Any]:
     tracker.end()
 
     return {
-        "test_accuracy": test_metrics['accuracy'],
-        "test_loss": test_metrics['loss'],
+        "test_accuracy": test_metrics["accuracy"],
+        "test_loss": test_metrics["loss"],
         "best_val_accuracy": best_val_acc,
         "epochs_trained": epoch + 1,
     }

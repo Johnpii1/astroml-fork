@@ -78,7 +78,11 @@ class RollbackManager:
         record = RollbackRecord(
             rollback_id=self._generate_id(),
             trigger=trigger,
-            status="approved" if auto_approve or severity in self.AUTO_APPROVE_SEVERITIES else "requested",
+            status=(
+                "approved"
+                if auto_approve or severity in self.AUTO_APPROVE_SEVERITIES
+                else "requested"
+            ),
             snapshot_id=snapshot_id,
         )
         self._records[record.rollback_id] = record
@@ -138,7 +142,11 @@ class RollbackManager:
 
             record.status = "executed"
             record.executed_at = datetime.now(timezone.utc)
-            logger.info("Rollback executed: id=%s target_version=%s", rollback_id, record.trigger.target_version)
+            logger.info(
+                "Rollback executed: id=%s target_version=%s",
+                rollback_id,
+                record.trigger.target_version,
+            )
         except Exception as exc:
             record.status = "failed"
             record.error = str(exc)
@@ -157,17 +165,21 @@ class RollbackManager:
         for record in self._records.values():
             statuses[record.status] = statuses.get(record.status, 0) + 1
 
-        latest = max(self._records.values(), key=lambda record: record.trigger.created_at, default=None)
+        latest = max(
+            self._records.values(), key=lambda record: record.trigger.created_at, default=None
+        )
         dashboard = {
             "total_rollbacks": len(self._records),
             "rollbacks_by_status": statuses,
-            "latest_rollback": {
-                "rollback_id": latest.rollback_id,
-                "target_version": latest.trigger.target_version,
-                "status": latest.status,
-            }
-            if latest
-            else {},
+            "latest_rollback": (
+                {
+                    "rollback_id": latest.rollback_id,
+                    "target_version": latest.trigger.target_version,
+                    "status": latest.status,
+                }
+                if latest
+                else {}
+            ),
         }
         return dashboard
 
