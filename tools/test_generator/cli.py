@@ -29,20 +29,24 @@ def create_parser() -> argparse.ArgumentParser:
 
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument(
-        "--source", "-s",
+        "--source",
+        "-s",
         help="Path to source file for test generation",
     )
     source_group.add_argument(
-        "--spec", "-p",
+        "--spec",
+        "-p",
         help="Path to API spec file (OpenAPI, etc.)",
     )
     source_group.add_argument(
-        "--function", "-f",
+        "--function",
+        "-f",
         help="Inline function definition to generate tests for",
     )
 
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output file path (default: print to stdout)",
     )
     parser.add_argument(
@@ -81,7 +85,8 @@ def create_parser() -> argparse.ArgumentParser:
         help="Skip edge case tests",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose output",
     )
@@ -157,6 +162,7 @@ def main() -> None:
         print(f"Error: {e}", file=sys.stderr)
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 

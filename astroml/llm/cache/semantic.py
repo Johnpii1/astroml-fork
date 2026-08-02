@@ -1,5 +1,6 @@
 """Semantic similarity cache using embeddings."""
 
+from astroml.search.embedders import get_embedder
 import logging
 from typing import Optional
 
@@ -137,11 +138,6 @@ class SemanticCache:
 
         self.store.set(cache_key, response, ttl=ttl, metadata=metadata)
         logger.debug(f"Cached semantic entry: {cache_key[:16]}...")
-
-
-from typing import Optional
-
-from astroml.search.embedders import get_embedder
 
 
 class SemanticCache:

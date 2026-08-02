@@ -1,10 +1,13 @@
 """Smoke test: EmbeddingRouter fallback + dimension normalisation."""
-import sys, time
-sys.path.insert(0, '.')
 
-from astroml.llm.providers.embedding_base import EmbeddingProvider, EmbeddingError
-from astroml.llm.providers.embedding_local import LocalEmbeddingProvider
 from astroml.llm.providers.embedding_router import EmbeddingRouter, build_default_router
+from astroml.llm.providers.embedding_local import LocalEmbeddingProvider
+from astroml.llm.providers.embedding_base import EmbeddingProvider, EmbeddingError
+import sys
+import time
+
+sys.path.insert(0, ".")
+
 
 # --- Test 1: Local-only router always works ---
 local = LocalEmbeddingProvider()
@@ -17,15 +20,21 @@ batch = local.embed_batch(["hello world", "fraud detection"])
 assert len(batch) == 2
 print("PASS: LocalEmbeddingProvider.embed_batch()")
 
+
 # --- Test 2: Router with always-failing primary falls through to local ---
 class AlwaysFailProvider(EmbeddingProvider):
     name = "always_fail"
     output_dim = 512
-    def is_available(self): return True
+
+    def is_available(self):
+        return True
+
     def embed(self, text):
         raise EmbeddingError("intentional failure")
+
     def embed_batch(self, texts):
         raise EmbeddingError("intentional failure")
+
 
 router = EmbeddingRouter(
     providers=[AlwaysFailProvider(), LocalEmbeddingProvider()],
@@ -64,8 +73,10 @@ vec4 = default_router.embed("stellar transaction fraud score")
 elapsed_ms = (time.monotonic() - t0) * 1000
 assert len(vec4) == 64
 assert elapsed_ms < 500
-print("PASS: build_default_router -> active=%s, dim=%d, time=%.1f ms" % (
-    default_router.active_provider.name, len(vec4), elapsed_ms))
+print(
+    "PASS: build_default_router -> active=%s, dim=%d, time=%.1f ms"
+    % (default_router.active_provider.name, len(vec4), elapsed_ms)
+)
 
 # --- Test 6: provider_status() ---
 status = default_router.provider_status()

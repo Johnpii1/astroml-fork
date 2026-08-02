@@ -128,16 +128,14 @@ class SQLiteStore(CacheStore):
 
     def _init_db(self):
         """Initialize database schema."""
-        self.conn.execute(
-            """
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS cache (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 metadata TEXT,
                 expires_at INTEGER NOT NULL
             )
-        """
-        )
+        """)
         self.conn.execute("CREATE INDEX IF NOT EXISTS idx_expires ON cache(expires_at)")
         self.conn.commit()
 

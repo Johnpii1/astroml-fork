@@ -85,7 +85,7 @@ def train_epoch(
     num_batches = 0
 
     for start in range(0, train_nodes.size(0), batch_size):
-        batch_indices = perm[start : start + batch_size]
+        batch_indices = perm[start: start + batch_size]
         batch_nodes = train_nodes[batch_indices]
 
         # Sample neighborhoods

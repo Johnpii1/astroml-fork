@@ -25,6 +25,7 @@ Dependencies:
 - cohere: Cohere API client
 - sentence-transformers: Local embedding models
 """
+
 from .blockchain_context import BlockchainContextBuilder
 from .embedding_cache import EmbeddingCache, EmbeddingCacheStats
 from .embedding_drift import (

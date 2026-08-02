@@ -48,7 +48,9 @@ def test_execute_recovery_plan_success() -> None:
     manager.register_procedure(procedure)
     plan = manager.plan_recovery("incident-2", "restore-procedure-2", snapshot.snapshot_id)
 
-    executed = manager.execute_recovery(plan.plan_id, apply_fn=lambda state: state["feature_flag"] is True)
+    executed = manager.execute_recovery(
+        plan.plan_id, apply_fn=lambda state: state["feature_flag"] is True
+    )
     assert executed.status == "completed"
     assert executed.result["snapshot_restored"] is True
     assert executed.result["procedure"]["success"] is True
@@ -86,7 +88,9 @@ def test_test_recovery_scenario_validator() -> None:
     manager.register_procedure(procedure)
     plan = manager.plan_recovery("incident-4", "restore-procedure-4", snapshot.snapshot_id)
 
-    result = manager.test_recovery_scenario(plan.plan_id, validator=lambda s: s.environment == "prod")
+    result = manager.test_recovery_scenario(
+        plan.plan_id, validator=lambda s: s.environment == "prod"
+    )
     assert result["validator_passed"] is True
     assert result["snapshot_available"] is True
 

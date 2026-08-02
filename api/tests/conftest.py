@@ -3,6 +3,19 @@ Shared pytest fixtures for API integration tests.
 """
 
 from __future__ import annotations
+from astroml.db.schema import Base
+from api.models.orm import (
+    FraudAlert,
+    LoyaltyPoints,
+    PointsTransaction,
+)
+from api.models.orm import ApiTransaction as Transaction
+from api.models.orm import ApiAccount as Account
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import create_engine, event
+from fastapi.testclient import TestClient
+import pytest
+from datetime import datetime, timezone
 
 import os
 
@@ -10,22 +23,8 @@ os.environ.setdefault("AUTH_ENABLED", "false")
 os.environ.setdefault("DISABLE_SCHEDULER", "true")
 os.environ.setdefault("DISABLE_WS_POLLER", "true")
 
-from datetime import datetime, timezone
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
 
 import api.models.orm  # noqa: F401 — registers ORM models on Base.metadata
-from api.models.orm import ApiAccount as Account
-from api.models.orm import ApiTransaction as Transaction
-from api.models.orm import (
-    FraudAlert,
-    LoyaltyPoints,
-    PointsTransaction,
-)
-from astroml.db.schema import Base
 
 # ─── Engine / session ─────────────────────────────────────────────────────────
 

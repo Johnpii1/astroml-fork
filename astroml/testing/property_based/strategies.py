@@ -10,7 +10,6 @@ import numpy as np
 from hypothesis import strategies as st
 from hypothesis.extra import numpy as np_st
 
-
 # ── Feature matrix strategies ─────────────────────────────────────────────────
 
 

@@ -166,16 +166,14 @@ class TestSecretsManagement:
     def test_yaml_config_password_not_logged(self, monkeypatch, capsys, tmp_path):
         """resolve_database_url must not print/log the password to stdout."""
         monkeypatch.delenv("ASTROML_DATABASE_URL", raising=False)
-        cfg_content = textwrap.dedent(
-            """\
+        cfg_content = textwrap.dedent("""\
             database:
               host: localhost
               port: 5432
               name: astroml
               user: astroml
               password: supersecret123
-        """
-        )
+        """)
         cfg_path = tmp_path / "database.yaml"
         cfg_path.write_text(cfg_content)
 

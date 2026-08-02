@@ -13,6 +13,7 @@ Query params for list endpoint:
 """
 
 from __future__ import annotations
+from astroml.llm.explainer import TransactionExplainer
 
 import os
 import sys
@@ -29,7 +30,6 @@ from api.graphql import publish_transaction
 from api.models.orm import ApiTransaction as Transaction
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-from astroml.llm.explainer import TransactionExplainer
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
 explainer = TransactionExplainer()

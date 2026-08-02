@@ -324,8 +324,7 @@ class DiskCache:
     def _init_metadata_db(self) -> None:
         """Initialize metadata database."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS cache_entries (
                     key TEXT PRIMARY KEY,
                     file_path TEXT NOT NULL,
@@ -338,8 +337,7 @@ class DiskCache:
                 
                 CREATE INDEX IF NOT EXISTS idx_cache_entries_timestamp 
                     ON cache_entries(timestamp);
-            """
-            )
+            """)
 
     def _get_file_path(self, key: str) -> Path:
         """Get file path for cache key."""
@@ -507,13 +505,11 @@ class DiskCache:
             removed_count = 0
 
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    """
+                cursor = conn.execute("""
                     SELECT key, file_path, timestamp, ttl_seconds 
                     FROM cache_entries 
                     WHERE ttl_seconds IS NOT NULL
-                    """
-                )
+                    """)
 
                 for row in cursor.fetchall():
                     key, file_path, timestamp_str, ttl_seconds = row

@@ -2,6 +2,7 @@
 
 Compares current benchmark results against baseline and detects regressions.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,7 +20,7 @@ def load_benchmark_results(file_path: str) -> Dict[str, Any]:
     Returns:
         Dictionary with benchmark results
     """
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return json.load(f)
 
 
@@ -52,11 +53,13 @@ def compare_benchmarks(
 
     for name, current_data in current_benchmarks.items():
         if name not in baseline_benchmarks:
-            comparison["benchmarks"].append({
-                "name": name,
-                "status": "new",
-                "current": current_data,
-            })
+            comparison["benchmarks"].append(
+                {
+                    "name": name,
+                    "status": "new",
+                    "current": current_data,
+                }
+            )
             continue
 
         baseline_data = baseline_benchmarks[name]
@@ -182,13 +185,16 @@ def main():
     parser = argparse.ArgumentParser(description="Compare benchmark results")
     parser.add_argument("--current", required=True, help="Current benchmark results file")
     parser.add_argument("--baseline", required=True, help="Baseline benchmark results file")
-    parser.add_argument("--threshold-warning", type=float, default=0.10,
-                        help="Warning threshold (default: 0.10)")
-    parser.add_argument("--threshold-fail", type=float, default=0.20,
-                        help="Failure threshold (default: 0.20)")
+    parser.add_argument(
+        "--threshold-warning", type=float, default=0.10, help="Warning threshold (default: 0.10)"
+    )
+    parser.add_argument(
+        "--threshold-fail", type=float, default=0.20, help="Failure threshold (default: 0.20)"
+    )
     parser.add_argument("--output", help="Output file for comparison report")
-    parser.add_argument("--fail-on-regression", action="store_true",
-                        help="Exit with error if regression detected")
+    parser.add_argument(
+        "--fail-on-regression", action="store_true", help="Exit with error if regression detected"
+    )
 
     args = parser.parse_args()
 
@@ -208,7 +214,7 @@ def main():
     report = generate_markdown_report(comparison)
 
     if args.output:
-        with open(args.output, 'w') as f:
+        with open(args.output, "w") as f:
             f.write(report)
     else:
         print(report)
@@ -217,7 +223,9 @@ def main():
     if args.fail_on_regression and comparison["has_regression"]:
         critical_regressions = [r for r in comparison["regressions"] if r["severity"] == "critical"]
         if critical_regressions:
-            print("ERROR: Critical performance regressions detected!", file=__import__('sys').stderr)
+            print(
+                "ERROR: Critical performance regressions detected!", file=__import__("sys").stderr
+            )
             exit(1)
 
 

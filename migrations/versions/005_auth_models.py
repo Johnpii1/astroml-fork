@@ -6,6 +6,7 @@ Create Date: 2026-06-02
 
 Closes #240 — Authentication & API Keys
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -29,8 +30,12 @@ def upgrade() -> None:
         sa.Column("hashed_password", sa.String(256), nullable=False),
         sa.Column("scopes", _JSON, nullable=False, server_default="[]"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.UniqueConstraint("username"),
     )
 
@@ -43,8 +48,12 @@ def upgrade() -> None:
         sa.Column("scopes", _JSON, nullable=False, server_default="[]"),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.UniqueConstraint("key_hash"),
     )
     op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"])

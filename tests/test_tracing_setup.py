@@ -1,6 +1,7 @@
 """Tests for the API tracing configuration."""
 
 from __future__ import annotations
+from api import tracing
 
 import pytest
 
@@ -8,8 +9,6 @@ pytest.importorskip("opentelemetry")
 pytest.importorskip("opentelemetry.instrumentation.fastapi")
 pytest.importorskip("opentelemetry.instrumentation.httpx")
 pytest.importorskip("opentelemetry.instrumentation.sqlalchemy")
-
-from api import tracing
 
 
 def test_build_resource_includes_environment(monkeypatch) -> None:

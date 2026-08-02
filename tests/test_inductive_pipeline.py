@@ -1,4 +1,5 @@
 from __future__ import annotations
+from astroml.features.graph.snapshot import Edge
 
 import torch
 
@@ -62,7 +63,6 @@ def test_embed_nodes_single_transaction_account():
 
 
 # Also test embed_snapshot:
-from astroml.features.graph.snapshot import Edge
 
 
 def test_embed_snapshot_filters_by_time():

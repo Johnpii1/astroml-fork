@@ -12,6 +12,7 @@ Dependencies:
 - StateStore: Persistent state management
 - observability.metrics: Job tracking metrics
 """
+
 from __future__ import annotations
 
 import logging
@@ -264,5 +265,7 @@ class IngestionService(Ingestor):
         return {
             "last_processed_ledger": state.last_processed_ledger,
             "processed_ledger_count": len(state.processed_ledgers),
-            "state_store_path": str(self.state.state_file) if hasattr(self.state, "state_file") else "memory",
+            "state_store_path": (
+                str(self.state.state_file) if hasattr(self.state, "state_file") else "memory"
+            ),
         }

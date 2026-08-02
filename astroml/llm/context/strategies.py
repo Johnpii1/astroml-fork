@@ -26,7 +26,7 @@ class WindowPruner:
         """Keep only recent messages."""
         if len(messages) <= self.window_size:
             return messages
-        return messages[-self.window_size :]
+        return messages[-self.window_size:]
 
 
 class ImportancePruner:

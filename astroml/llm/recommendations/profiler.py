@@ -1,4 +1,5 @@
 """User profiling for LLM-based recommendations (issue #474)."""
+
 from __future__ import annotations
 
 import logging
@@ -183,9 +184,7 @@ class UserProfiler:
             ActivityType.CONFIGURE_FEATURE,
             ActivityType.QUERY_DATA,
         ]
-        advanced_count = sum(
-            summary.get(activity.value, 0) for activity in advanced_activities
-        )
+        advanced_count = sum(summary.get(activity.value, 0) for activity in advanced_activities)
 
         total_activities = sum(summary.values())
 
@@ -224,6 +223,4 @@ class UserProfiler:
         """
         cutoff = datetime.utcnow() - timedelta(days=days)
         for profile in self.profiles.values():
-            profile.activities = [
-                a for a in profile.activities if a.timestamp >= cutoff
-            ]
+            profile.activities = [a for a in profile.activities if a.timestamp >= cutoff]

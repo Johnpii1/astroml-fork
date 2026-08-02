@@ -4,6 +4,20 @@ Resolves #457: Exposes structured NL-to-SQL/NL-to-API query capabilities.
 """
 
 from __future__ import annotations
+from astroml.llm.providers.factory import get_llm_provider
+from fastapi import APIRouter, HTTPException, Query
+import re
+import json
+from astroml.llm.query import (
+    execute_safe_query,
+    format_query_results,
+    generate_pipeline_config,
+    generate_sql,
+    get_query_suggestions,
+)
+from astroml.llm.cost import check_budget, track_request
+from api.database import get_db
+from api.auth.dependencies import AuthContext, get_current_auth
 
 import logging
 from typing import Any, Dict, List, Optional
@@ -69,17 +83,6 @@ async def nl_query(
         latency_ms=result["latency_ms"],
     )
 
-
-from api.auth.dependencies import AuthContext, get_current_auth
-from api.database import get_db
-from astroml.llm.cost import check_budget, track_request
-from astroml.llm.query import (
-    execute_safe_query,
-    format_query_results,
-    generate_pipeline_config,
-    generate_sql,
-    get_query_suggestions,
-)
 
 router = APIRouter(prefix="/api/v1/query", tags=["query"])
 
@@ -172,13 +175,7 @@ async def post_natural_query(
 
 
 """LLM-powered SQL query optimization engine."""
-import json
-import logging
-import re
 
-from fastapi import APIRouter, HTTPException, Query
-
-from astroml.llm.providers.factory import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +261,7 @@ async def optimize_query(query: str = Query(..., description="The SQL query to o
         start = llm_response.find("{")
         end = llm_response.rfind("}")
         if start != -1 and end != -1:
-            json_str = llm_response[start : end + 1]
+            json_str = llm_response[start: end + 1]
             data = json.loads(json_str)
 
             # Enforce >30% time saving criteria

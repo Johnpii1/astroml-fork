@@ -7,6 +7,7 @@ the contracts for key services in the system, enabling:
 - Mock implementations for testing
 - Clear interface documentation
 """
+
 from __future__ import annotations
 
 from .abstracts import (

@@ -169,7 +169,7 @@ class DaskGraphBuilder:
 
         # Partition nodes
         node_partitions = [
-            nodes[i : i + partition_nodes] for i in range(0, n_nodes, partition_nodes)
+            nodes[i: i + partition_nodes] for i in range(0, n_nodes, partition_nodes)
         ]
 
         def compute_partition_features(node_list):

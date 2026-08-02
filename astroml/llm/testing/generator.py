@@ -215,8 +215,7 @@ class TestGenerator:
 
     def _fallback_generate(self, prompt: str) -> str:
         """Fallback test generation when LLM is unavailable."""
-        return textwrap.dedent(
-            """\
+        return textwrap.dedent("""\
             import pytest
 
             def test_generated_function():
@@ -228,8 +227,7 @@ class TestGenerator:
             def test_negative_case():
                 with pytest.raises((ValueError, TypeError)):
                     pass
-        """
-        )
+        """)
 
     def _parse_response(
         self,
@@ -272,13 +270,11 @@ class TestGenerator:
             tests.append(
                 GeneratedTest(
                     name=f"test_{source_name}_auto",
-                    body=textwrap.dedent(
-                        f"""\
+                    body=textwrap.dedent(f"""\
                     def test_{source_name}_auto():
                         result = {source_name}()
                         assert result is not None
-                """
-                    ),
+                """),
                     test_type=self.config.test_type,
                     source_function=source_name,
                 )

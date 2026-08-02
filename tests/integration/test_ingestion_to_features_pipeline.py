@@ -6,6 +6,7 @@ error recovery scenarios.
 
 Issue: #513
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -51,7 +52,7 @@ class TestIngestionToFeaturesPipeline:
             ledger = parse_ledger(ledger_data)
             test_session.add(ledger)
             ledgers.append(ledger)
-        
+
         test_session.commit()
 
         # Step 2: Ingest transactions for each ledger
@@ -71,7 +72,7 @@ class TestIngestionToFeaturesPipeline:
                 }
                 tx = parse_transaction(tx_data)
                 test_session.add(tx)
-        
+
         test_session.commit()
 
         # Step 3: Ingest operations
@@ -89,7 +90,7 @@ class TestIngestionToFeaturesPipeline:
             }
             op = parse_operation(op_data, application_order=0)
             test_session.add(op)
-        
+
         test_session.commit()
 
         # Step 4: Validate data integrity at each step
@@ -110,22 +111,24 @@ class TestIngestionToFeaturesPipeline:
         edges = []
         for op in operations:
             if op.destination_account:
-                edges.append({
-                    'src': op.source_account,
-                    'dst': op.destination_account,
-                    'amount': float(op.amount) if op.amount else 0.0,
-                    'timestamp': op.created_at.timestamp(),
-                    'asset': op.asset_code or 'XLM',
-                })
+                edges.append(
+                    {
+                        "src": op.source_account,
+                        "dst": op.destination_account,
+                        "amount": float(op.amount) if op.amount else 0.0,
+                        "timestamp": op.created_at.timestamp(),
+                        "asset": op.asset_code or "XLM",
+                    }
+                )
 
         # Step 6: Compute features
         features_df = compute_node_features(edges)
-        
+
         # Validate feature computation
         assert not features_df.empty, "Feature DataFrame should not be empty"
         assert len(features_df) > 0, "Should have features for at least one node"
         assert all(features_df.columns), "All feature columns should be non-empty"
-        
+
         # Verify features are finite
         assert np.all(np.isfinite(features_df.values)), "All feature values should be finite"
 
@@ -133,10 +136,10 @@ class TestIngestionToFeaturesPipeline:
         graph = TransactionGraph()
         for edge in edges:
             graph.add_transaction(
-                from_account=edge['src'],
-                to_account=edge['dst'],
-                amount=edge['amount'],
-                asset=edge['asset'],
+                from_account=edge["src"],
+                to_account=edge["dst"],
+                amount=edge["amount"],
+                asset=edge["asset"],
             )
 
         summary = graph.summary()
@@ -144,16 +147,18 @@ class TestIngestionToFeaturesPipeline:
         assert summary["transaction_count"] == len(edges), "Transaction count should match edges"
 
         # Step 8: Test frequency features
-        tx_df = pd.DataFrame([
-            {
-                'account_id': tx.source_account,
-                'timestamp': tx.created_at,
-            }
-            for tx in test_session.query(Transaction).all()
-        ])
-        
+        tx_df = pd.DataFrame(
+            [
+                {
+                    "account_id": tx.source_account,
+                    "timestamp": tx.created_at,
+                }
+                for tx in test_session.query(Transaction).all()
+            ]
+        )
+
         if not tx_df.empty:
-            daily_counts = compute_daily_transaction_counts(tx_df, 'account_id', 'timestamp')
+            daily_counts = compute_daily_transaction_counts(tx_df, "account_id", "timestamp")
             assert not daily_counts.empty, "Daily counts should not be empty"
             assert np.all(np.isfinite(daily_counts.values)), "Daily counts should be finite"
 
@@ -286,7 +291,7 @@ class TestIngestionToFeaturesPipeline:
 
         # Should complete successfully
         assert len(result.processed) > 0, "Should process remaining ledgers"
-        
+
         # Verify database state
         ledger_count = test_session.query(Ledger).count()
         assert ledger_count == 5, f"Should have 5 ledgers after recovery, got {ledger_count}"
@@ -298,27 +303,31 @@ class TestIngestionToFeaturesPipeline:
         """Test feature computation handles empty data gracefully."""
         # Empty operations
         edges = []
-        
+
         features_df = compute_node_features(edges)
-        
+
         # Should return empty DataFrame or handle gracefully
-        assert features_df.empty or len(features_df) == 0, "Empty edges should produce empty features"
+        assert (
+            features_df.empty or len(features_df) == 0
+        ), "Empty edges should produce empty features"
 
     def test_feature_computation_with_single_node(
         self,
         test_session: Session,
     ) -> None:
         """Test feature computation with single node (edge case)."""
-        edges = [{
-            'src': 'GAAAA',
-            'dst': 'GBBBB',
-            'amount': 100.0,
-            'timestamp': 1000,
-            'asset': 'XLM',
-        }]
-        
+        edges = [
+            {
+                "src": "GAAAA",
+                "dst": "GBBBB",
+                "amount": 100.0,
+                "timestamp": 1000,
+                "asset": "XLM",
+            }
+        ]
+
         features_df = compute_node_features(edges)
-        
+
         # Should compute features for both nodes
         assert len(features_df) == 2, "Should have features for 2 nodes"
         assert np.all(np.isfinite(features_df.values)), "All features should be finite"
@@ -329,35 +338,37 @@ class TestIngestionToFeaturesPipeline:
     ) -> None:
         """Test graph building produces consistent results."""
         edges = [
-            {'src': 'A', 'dst': 'B', 'amount': 100.0, 'timestamp': 1000, 'asset': 'XLM'},
-            {'src': 'B', 'dst': 'C', 'amount': 50.0, 'timestamp': 1001, 'asset': 'XLM'},
-            {'src': 'C', 'dst': 'A', 'amount': 75.0, 'timestamp': 1002, 'asset': 'XLM'},
+            {"src": "A", "dst": "B", "amount": 100.0, "timestamp": 1000, "asset": "XLM"},
+            {"src": "B", "dst": "C", "amount": 50.0, "timestamp": 1001, "asset": "XLM"},
+            {"src": "C", "dst": "A", "amount": 75.0, "timestamp": 1002, "asset": "XLM"},
         ]
-        
+
         # Build graph twice
         graph1 = TransactionGraph()
         for edge in edges:
             graph1.add_transaction(
-                from_account=edge['src'],
-                to_account=edge['dst'],
-                amount=edge['amount'],
-                asset=edge['asset'],
+                from_account=edge["src"],
+                to_account=edge["dst"],
+                amount=edge["amount"],
+                asset=edge["asset"],
             )
-        
+
         graph2 = TransactionGraph()
         for edge in edges:
             graph2.add_transaction(
-                from_account=edge['src'],
-                to_account=edge['dst'],
-                amount=edge['amount'],
-                asset=edge['asset'],
+                from_account=edge["src"],
+                to_account=edge["dst"],
+                amount=edge["amount"],
+                asset=edge["asset"],
             )
-        
+
         summary1 = graph1.summary()
         summary2 = graph2.summary()
-        
+
         assert summary1["node_count"] == summary2["node_count"], "Node count should be consistent"
-        assert summary1["transaction_count"] == summary2["transaction_count"], "Transaction count should be consistent"
+        assert (
+            summary1["transaction_count"] == summary2["transaction_count"]
+        ), "Transaction count should be consistent"
 
     def test_centrality_features_computation(
         self,
@@ -367,7 +378,7 @@ class TestIngestionToFeaturesPipeline:
         # Create test operations
         accounts = ["G" + chr(65 + i) * 55 for i in range(4)]
         base_time = datetime(2024, 1, 1)
-        
+
         for i in range(6):
             ledger = Ledger(
                 sequence=1000 + i,
@@ -378,7 +389,7 @@ class TestIngestionToFeaturesPipeline:
                 operation_count=1,
             )
             test_session.add(ledger)
-            
+
             tx = Transaction(
                 hash=f"tx{i}" + "a" * 60,
                 ledger_sequence=1000 + i,
@@ -391,7 +402,7 @@ class TestIngestionToFeaturesPipeline:
                 memo_type="none",
             )
             test_session.add(tx)
-            
+
             op = Operation(
                 id=i + 1,
                 transaction_hash=tx.hash,
@@ -404,18 +415,18 @@ class TestIngestionToFeaturesPipeline:
                 created_at=tx.created_at,
             )
             test_session.add(op)
-        
+
         test_session.commit()
 
         # Extract edges
         operations = test_session.query(Operation).all()
         edges = [
             {
-                'src': op.source_account,
-                'dst': op.destination_account,
-                'amount': float(op.amount) if op.amount else 0.0,
-                'timestamp': op.created_at.timestamp(),
-                'asset': op.asset_code or 'XLM',
+                "src": op.source_account,
+                "dst": op.destination_account,
+                "amount": float(op.amount) if op.amount else 0.0,
+                "timestamp": op.created_at.timestamp(),
+                "asset": op.asset_code or "XLM",
             }
             for op in operations
             if op.destination_account
@@ -423,7 +434,7 @@ class TestIngestionToFeaturesPipeline:
 
         # Compute centrality features
         degree_centrality = compute_degree_centrality(edges, weighted=False)
-        
+
         # Validate centrality
         assert not degree_centrality.empty, "Centrality should not be empty"
         assert np.all(degree_centrality.values >= 0), "Centrality values should be non-negative"

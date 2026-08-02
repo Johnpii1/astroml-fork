@@ -6,18 +6,6 @@ Tests the acceptance criteria:
   - Drift detected >90% when injected
   - False positive rate <10%
 """
-import sys, random, math
-sys.path.insert(0, '.')
-
-# --- we need numpy/scipy for the actual code; skip gracefully if missing ---
-try:
-    import numpy as np
-    from scipy import stats
-    HAS_DEPS = True
-except ImportError:
-    HAS_DEPS = False
-    print("SKIP: numpy/scipy not available in this environment")
-    sys.exit(0)
 
 from astroml.llm.embedding_drift import (
     EmbeddingDriftMonitor,
@@ -25,12 +13,30 @@ from astroml.llm.embedding_drift import (
     DriftDetector,
     _compute_psi,
 )
+import sys
+import random
+import math
+
+sys.path.insert(0, ".")
+
+# --- we need numpy/scipy for the actual code; skip gracefully if missing ---
+try:
+    import numpy as np
+    from scipy import stats
+
+    HAS_DEPS = True
+except ImportError:
+    HAS_DEPS = False
+    print("SKIP: numpy/scipy not available in this environment")
+    sys.exit(0)
+
 
 SEED = 42
 rng = np.random.default_rng(SEED)
 N_DIMS = 32
 BASELINE = 300
-WINDOW   = 500
+WINDOW = 500
+
 
 # ─── helper to make unit-normalised vectors ─────────────────────────────────
 def make_vectors(n, mean=0.0, std=1.0, dims=N_DIMS):
@@ -38,6 +44,7 @@ def make_vectors(n, mean=0.0, std=1.0, dims=N_DIMS):
     norms = np.linalg.norm(vecs, axis=1, keepdims=True)
     norms = np.where(norms < 1e-9, 1.0, norms)
     return (vecs / norms).tolist()
+
 
 # ─── Test 1: PSI helper ──────────────────────────────────────────────────────
 base = rng.normal(0, 1, 500).astype(np.float32)
@@ -91,7 +98,10 @@ for _ in range(TRIALS_DRIFT):
 
 detection_rate = detected_count / TRIALS_DRIFT
 assert detection_rate >= 0.90, "Drift detection rate %.2f%% < 90%%" % (detection_rate * 100)
-print("PASS: Drift detection rate = %.1f%% (>= 90%%) over %d trials" % (detection_rate * 100, TRIALS_DRIFT))
+print(
+    "PASS: Drift detection rate = %.1f%% (>= 90%%) over %d trials"
+    % (detection_rate * 100, TRIALS_DRIFT)
+)
 
 # ─── Test 4: Auto-check fires and callback invoked ──────────────────────────
 alerts_received = []
@@ -112,8 +122,10 @@ for v in make_vectors(200, mean=3.0, std=0.3):
 assert monitor.baseline_ready, "baseline should be ready"
 # At least one auto-check should have fired.
 assert monitor.n_observed > 0
-print("PASS: auto-check wiring OK, n_observed=%d, n_alerts=%d" % (
-    monitor.n_observed, len(monitor.get_alert_history())))
+print(
+    "PASS: auto-check wiring OK, n_observed=%d, n_alerts=%d"
+    % (monitor.n_observed, len(monitor.get_alert_history()))
+)
 
 # ─── Test 5: Reset baseline ──────────────────────────────────────────────────
 monitor.reset_baseline()

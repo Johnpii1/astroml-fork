@@ -11,8 +11,11 @@ from pydantic import BaseModel
 
 from astroml.infrastructure.cost_optimizer import CostAllocation, CostOptimizer
 from astroml.infrastructure.recommendations import OptimizationRecommendation, RecommendationEngine
-from astroml.infrastructure.resource_analyzer import ResourceAnalyzer, ResourceMetrics, WorkloadResourceProfile
-
+from astroml.infrastructure.resource_analyzer import (
+    ResourceAnalyzer,
+    ResourceMetrics,
+    WorkloadResourceProfile,
+)
 
 # ---------------------------------------------------------------------------
 # Pydantic response models
@@ -21,6 +24,7 @@ from astroml.infrastructure.resource_analyzer import ResourceAnalyzer, ResourceM
 
 class CostAllocationResponse(BaseModel):
     """Cost allocation for a single workload."""
+
     workload_id: str
     instance_type: str
     duration_hours: float
@@ -30,6 +34,7 @@ class CostAllocationResponse(BaseModel):
 
 class OptimizationRecommendationResponse(BaseModel):
     """Cost saving recommendation."""
+
     workload_id: str
     recommendation_type: str
     description: str
@@ -38,6 +43,7 @@ class OptimizationRecommendationResponse(BaseModel):
 
 class CostOptimizationSummary(BaseModel):
     """Summary of cost allocations and recommendations."""
+
     total_cost: float
     allocations: List[CostAllocationResponse]
     recommendations: List[OptimizationRecommendationResponse]
@@ -56,46 +62,66 @@ def _get_mock_profiles() -> List[WorkloadResourceProfile]:
         WorkloadResourceProfile(
             workload_id="training-job-123",
             workload_type="training",
-            metrics=ResourceMetrics(cpu_utilization_percent=85.0, memory_utilization_percent=90.0, gpu_utilization_percent=95.0),
+            metrics=ResourceMetrics(
+                cpu_utilization_percent=85.0,
+                memory_utilization_percent=90.0,
+                gpu_utilization_percent=95.0,
+            ),
             instance_type="ml.p3.2xlarge",
             duration_seconds=7200,
         ),
         WorkloadResourceProfile(
             workload_id="inference-svc-456",
             workload_type="inference",
-            metrics=ResourceMetrics(cpu_utilization_percent=15.0, memory_utilization_percent=25.0, gpu_utilization_percent=None),
+            metrics=ResourceMetrics(
+                cpu_utilization_percent=15.0,
+                memory_utilization_percent=25.0,
+                gpu_utilization_percent=None,
+            ),
             instance_type="ml.m5.xlarge",
             duration_seconds=86400,
         ),
         WorkloadResourceProfile(
             workload_id="batch-job-789",
             workload_type="batch",
-            metrics=ResourceMetrics(cpu_utilization_percent=45.0, memory_utilization_percent=50.0, gpu_utilization_percent=None),
+            metrics=ResourceMetrics(
+                cpu_utilization_percent=45.0,
+                memory_utilization_percent=50.0,
+                gpu_utilization_percent=None,
+            ),
             instance_type="ml.c5.xlarge",
             duration_seconds=3600,
         ),
         WorkloadResourceProfile(
             workload_id="idle-job-000",
             workload_type="training",
-            metrics=ResourceMetrics(cpu_utilization_percent=5.0, memory_utilization_percent=10.0, gpu_utilization_percent=0.0),
+            metrics=ResourceMetrics(
+                cpu_utilization_percent=5.0,
+                memory_utilization_percent=10.0,
+                gpu_utilization_percent=0.0,
+            ),
             instance_type="ml.g4dn.xlarge",
             duration_seconds=18000,
-        )
+        ),
     ]
 
 
-@router.get("/api/v1/infrastructure/cost-optimization", response_model=CostOptimizationSummary, tags=["infrastructure"])
+@router.get(
+    "/api/v1/infrastructure/cost-optimization",
+    response_model=CostOptimizationSummary,
+    tags=["infrastructure"],
+)
 async def get_cost_optimization_summary() -> CostOptimizationSummary:
     """Get a summary of cost allocations and optimization recommendations."""
     profiles = _get_mock_profiles()
-    
+
     resource_analyzer = ResourceAnalyzer()
     cost_optimizer = CostOptimizer()
     recommendation_engine = RecommendationEngine(resource_analyzer)
 
     allocations_dict = cost_optimizer.build_cost_allocation(profiles)
     recommendations = recommendation_engine.generate_all_recommendations(profiles, allocations_dict)
-    
+
     total_cost = cost_optimizer.calculate_total_cost(allocations_dict)
 
     allocation_responses = [

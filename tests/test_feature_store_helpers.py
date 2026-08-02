@@ -1,4 +1,5 @@
 """Tests for FeatureStore helper methods introduced in #508."""
+
 from __future__ import annotations
 
 import pytest
@@ -32,15 +33,32 @@ def test_safe_json_loads_invalid():
 
 def test_row_to_dict_deserialization(tmp_storage):
     row = (
-        "f_v1", "f", 1, "desc", "numeric",
-        '{"p": 1}', '["tag"]', "owner", "development",
-        "2024-01-01T00:00:00", "2024-01-01T00:00:00",
+        "f_v1",
+        "f",
+        1,
+        "desc",
+        "numeric",
+        '{"p": 1}',
+        '["tag"]',
+        "owner",
+        "development",
+        "2024-01-01T00:00:00",
+        "2024-01-01T00:00:00",
         '{"m": 1}',
     )
     cols = [
-        "feature_id", "name", "version", "description", "feature_type",
-        "parameters", "tags", "owner", "status", "created_at",
-        "updated_at", "metadata",
+        "feature_id",
+        "name",
+        "version",
+        "description",
+        "feature_type",
+        "parameters",
+        "tags",
+        "owner",
+        "status",
+        "created_at",
+        "updated_at",
+        "metadata",
     ]
     data = FeatureStorage._row_to_dict(row, cols)
     assert data["parameters"] == {"p": 1}
@@ -49,13 +67,13 @@ def test_row_to_dict_deserialization(tmp_storage):
 
 
 def test_deserialize_feature_definition(tmp_storage):
-    fd = FeatureDefinition(
-        name="test", description="d", feature_type=FeatureType.NUMERIC
-    )
+    fd = FeatureDefinition(name="test", description="d", feature_type=FeatureType.NUMERIC)
     tmp_storage.store_feature_definition(fd)
-    row = tmp_storage.db_path.connect().execute(
-        "SELECT * FROM feature_definitions WHERE feature_id = ?", (fd.feature_id,)
-    ).fetchone()
+    row = (
+        tmp_storage.db_path.connect()
+        .execute("SELECT * FROM feature_definitions WHERE feature_id = ?", (fd.feature_id,))
+        .fetchone()
+    )
     result = FeatureStorage._deserialize_feature_definition(row)
     assert result.name == "test"
     assert result.feature_type == FeatureType.NUMERIC

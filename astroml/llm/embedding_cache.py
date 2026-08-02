@@ -454,7 +454,7 @@ class EmbeddingCache:
 
         # Evict oldest entries if index is full.
         if len(index) >= self.max_index_size:
-            index = index[-(self.max_index_size - 1) :]
+            index = index[-(self.max_index_size - 1):]
 
         index.append({"hash": text_hash, "vector": vector})
         self._write_index(index)

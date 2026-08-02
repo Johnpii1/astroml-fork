@@ -155,8 +155,8 @@ class ModelBenchmark:
         val_size = int(self.config.data.val_ratio * num_nodes)
 
         train_indices = indices[:train_size]
-        val_indices = indices[train_size : train_size + val_size]
-        test_indices = indices[train_size + val_size :]
+        val_indices = indices[train_size: train_size + val_size]
+        test_indices = indices[train_size + val_size:]
 
         train_mask = torch.zeros(num_nodes, dtype=torch.bool)
         val_mask = torch.zeros(num_nodes, dtype=torch.bool)

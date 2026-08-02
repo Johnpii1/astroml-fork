@@ -66,7 +66,9 @@ def test_execute_rollback_restores_snapshot() -> None:
         auto_approve=True,
     )
 
-    result = manager.execute_rollback(record.rollback_id, apply_fn=lambda state: state["route"] == "v2")
+    result = manager.execute_rollback(
+        record.rollback_id, apply_fn=lambda state: state["route"] == "v2"
+    )
     assert result.status == "executed"
     assert result.metadata["restored_state"] == {"route": "v2"}
 

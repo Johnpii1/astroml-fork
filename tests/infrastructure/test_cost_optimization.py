@@ -1,7 +1,11 @@
 import pytest
 from astroml.infrastructure.cost_optimizer import CostOptimizer, CostAllocation
 from astroml.infrastructure.recommendations import RecommendationEngine
-from astroml.infrastructure.resource_analyzer import ResourceAnalyzer, ResourceMetrics, WorkloadResourceProfile
+from astroml.infrastructure.resource_analyzer import (
+    ResourceAnalyzer,
+    ResourceMetrics,
+    WorkloadResourceProfile,
+)
 
 
 @pytest.fixture
@@ -39,17 +43,25 @@ def mock_profiles():
         WorkloadResourceProfile(
             workload_id="test-idle-1",
             workload_type="training",
-            metrics=ResourceMetrics(cpu_utilization_percent=5.0, memory_utilization_percent=5.0, gpu_utilization_percent=0.0),
+            metrics=ResourceMetrics(
+                cpu_utilization_percent=5.0,
+                memory_utilization_percent=5.0,
+                gpu_utilization_percent=0.0,
+            ),
             instance_type="ml.p3.2xlarge",
             duration_seconds=18000,
         ),
         WorkloadResourceProfile(
             workload_id="test-gpu-1",
             workload_type="training",
-            metrics=ResourceMetrics(cpu_utilization_percent=80.0, memory_utilization_percent=85.0, gpu_utilization_percent=90.0),
+            metrics=ResourceMetrics(
+                cpu_utilization_percent=80.0,
+                memory_utilization_percent=85.0,
+                gpu_utilization_percent=90.0,
+            ),
             instance_type="ml.p3.2xlarge",
             duration_seconds=7200,
-        )
+        ),
     ]
 
 
@@ -74,7 +86,7 @@ def test_resource_analyzer_underutilized(resource_analyzer, mock_profiles):
 def test_cost_optimizer(cost_optimizer, mock_profiles):
     allocations = cost_optimizer.build_cost_allocation(mock_profiles)
     assert len(allocations) == 4
-    
+
     batch_alloc = allocations["test-batch-1"]
     assert batch_alloc.duration_hours == 2.0
     assert batch_alloc.hourly_rate == 0.204
@@ -86,7 +98,9 @@ def test_cost_optimizer(cost_optimizer, mock_profiles):
 
 def test_recommendation_engine_spot(recommendation_engine, cost_optimizer, mock_profiles):
     allocations = cost_optimizer.build_cost_allocation(mock_profiles)
-    rec = recommendation_engine.add_spot_instance_recommendation(mock_profiles[0], allocations["test-batch-1"])
+    rec = recommendation_engine.add_spot_instance_recommendation(
+        mock_profiles[0], allocations["test-batch-1"]
+    )
     assert rec is not None
     assert rec.recommendation_type == "spot_instance"
     assert "save up to 70%" in rec.description
@@ -94,7 +108,9 @@ def test_recommendation_engine_spot(recommendation_engine, cost_optimizer, mock_
 
 def test_recommendation_engine_auto_scaling(recommendation_engine, cost_optimizer, mock_profiles):
     allocations = cost_optimizer.build_cost_allocation(mock_profiles)
-    rec = recommendation_engine.implement_auto_scaling_optimization(mock_profiles[1], allocations["test-inference-1"])
+    rec = recommendation_engine.implement_auto_scaling_optimization(
+        mock_profiles[1], allocations["test-inference-1"]
+    )
     assert rec is not None
     assert rec.recommendation_type == "auto_scaling"
     assert "auto-scaling" in rec.description
@@ -108,12 +124,19 @@ def test_recommendation_engine_auto_scaling(recommendation_engine, cost_optimize
         duration_seconds=36000,
     )
     high_util_alloc = cost_optimizer.calculate_workload_cost(high_util_profile)
-    assert recommendation_engine.implement_auto_scaling_optimization(high_util_profile, high_util_alloc) is None
+    assert (
+        recommendation_engine.implement_auto_scaling_optimization(
+            high_util_profile, high_util_alloc
+        )
+        is None
+    )
 
 
 def test_recommendation_engine_right_sizing(recommendation_engine, cost_optimizer, mock_profiles):
     allocations = cost_optimizer.build_cost_allocation(mock_profiles)
-    rec = recommendation_engine.add_savings_opportunity_identification(mock_profiles[2], allocations["test-idle-1"])
+    rec = recommendation_engine.add_savings_opportunity_identification(
+        mock_profiles[2], allocations["test-idle-1"]
+    )
     assert rec is not None
     assert rec.recommendation_type == "right_sizing"
     assert "Downsize instance" in rec.description

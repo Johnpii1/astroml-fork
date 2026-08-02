@@ -1,4 +1,5 @@
 """Logging tests for #506."""
+
 from __future__ import annotations
 
 import logging
@@ -24,8 +25,13 @@ def test_module_logger_emits_info(caplog: pytest.LogCaptureFixture):
 def test_json_formatter_produces_valid_json():
     formatter = StructuredJsonFormatter()
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname="", lineno=0,
-        msg="hello %s", args=("world",), exc_info=None
+        name="test",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="hello %s",
+        args=("world",),
+        exc_info=None,
     )
     out = formatter.format(record)
     assert '"message": "hello world"' in out

@@ -16,7 +16,6 @@ from typing import List, Optional, Sequence
 
 import numpy as np
 
-
 # ── Result data class ─────────────────────────────────────────────────────────
 
 
@@ -54,8 +53,7 @@ def check_no_nan_or_inf(X: np.ndarray) -> DataValidationResult:
             check_name="no_nan_or_inf",
             passed=False,
             error_message=(
-                f"Feature matrix contains {nan_count} NaN(s) and "
-                f"{inf_count} infinite value(s)."
+                f"Feature matrix contains {nan_count} NaN(s) and " f"{inf_count} infinite value(s)."
             ),
         )
     return DataValidationResult(check_name="no_nan_or_inf", passed=True)
@@ -84,9 +82,7 @@ def check_feature_matrix_shape(
         return DataValidationResult(
             check_name="feature_matrix_shape",
             passed=False,
-            error_message=(
-                f"Expected {expected_features} features, got {X.shape[1]}."
-            ),
+            error_message=(f"Expected {expected_features} features, got {X.shape[1]}."),
         )
     return DataValidationResult(check_name="feature_matrix_shape", passed=True)
 
@@ -114,10 +110,7 @@ def check_label_array_shape(
         return DataValidationResult(
             check_name="label_array_shape",
             passed=False,
-            error_message=(
-                f"Label count {len(y)} does not match sample count "
-                f"{X.shape[0]}."
-            ),
+            error_message=(f"Label count {len(y)} does not match sample count " f"{X.shape[0]}."),
         )
     return DataValidationResult(check_name="label_array_shape", passed=True)
 
@@ -166,8 +159,7 @@ def check_minimum_samples(
             check_name="minimum_samples",
             passed=False,
             error_message=(
-                f"Dataset has {X.shape[0]} sample(s); at least "
-                f"{min_samples} required."
+                f"Dataset has {X.shape[0]} sample(s); at least " f"{min_samples} required."
             ),
         )
     return DataValidationResult(check_name="minimum_samples", passed=True)
@@ -196,16 +188,12 @@ def check_feature_variance(
             passed=True,
         )
     variances = X.var(axis=0)
-    low_var_cols: List[int] = [
-        int(i) for i, v in enumerate(variances) if v <= min_variance
-    ]
+    low_var_cols: List[int] = [int(i) for i, v in enumerate(variances) if v <= min_variance]
     if low_var_cols:
         return DataValidationResult(
             check_name="feature_variance",
             passed=False,
-            error_message=(
-                f"Columns {low_var_cols} have variance <= {min_variance}."
-            ),
+            error_message=(f"Columns {low_var_cols} have variance <= {min_variance}."),
         )
     return DataValidationResult(check_name="feature_variance", passed=True)
 
@@ -255,20 +243,14 @@ class DataPropertyValidator:
         results: List[DataValidationResult] = []
 
         results.append(check_no_nan_or_inf(X))
-        results.append(
-            check_feature_matrix_shape(X, expected_features=self.expected_features)
-        )
+        results.append(check_feature_matrix_shape(X, expected_features=self.expected_features))
         results.append(check_minimum_samples(X, min_samples=self.min_samples))
-        results.append(
-            check_feature_variance(X, min_variance=self.min_variance)
-        )
+        results.append(check_feature_variance(X, min_variance=self.min_variance))
 
         if y is not None:
             results.append(check_label_array_shape(y, X))
             if self.n_classes is not None:
-                results.append(
-                    check_class_labels_in_range(y, n_classes=self.n_classes)
-                )
+                results.append(check_class_labels_in_range(y, n_classes=self.n_classes))
 
         return results
 
