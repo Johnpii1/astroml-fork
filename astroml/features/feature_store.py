@@ -257,6 +257,22 @@ def _safe_json_loads(value: Optional[str], default: Any) -> Any:
 class FeatureStorage:
     """Storage backend for feature values and metadata."""
 
+    # Column names used across multiple methods for feature definition queries.
+    _FEATURE_DEFINITION_COLUMNS: list[str] = [
+        "feature_id",
+        "name",
+        "version",
+        "description",
+        "feature_type",
+        "parameters",
+        "tags",
+        "owner",
+        "status",
+        "created_at",
+        "updated_at",
+        "metadata",
+    ]
+
     def __init__(self, storage_path: str | Path):
         """Initialize storage backend.
 
@@ -360,21 +376,7 @@ class FeatureStorage:
     @staticmethod
     def _deserialize_feature_definition(row: tuple[Any, ...]) -> FeatureDefinition:
         """Deserialize a feature definition row into a dataclass."""
-        columns = [
-            "feature_id",
-            "name",
-            "version",
-            "description",
-            "feature_type",
-            "parameters",
-            "tags",
-            "owner",
-            "status",
-            "created_at",
-            "updated_at",
-            "metadata",
-        ]
-        data = FeatureStorage._row_to_dict(row, columns)
+        data = FeatureStorage._row_to_dict(row, FeatureStorage._FEATURE_DEFINITION_COLUMNS)
         data.pop("feature_id", None)
         data["created_at"] = datetime.fromisoformat(data["created_at"])
         data["updated_at"] = datetime.fromisoformat(data["updated_at"])
@@ -400,6 +402,12 @@ class FeatureStorage:
                 return FeatureStorage._deserialize_feature_definition(row)
             return None
 
+    @staticmethod
+    def _matches_tags(feature_tags: list[str], required_tags: list[str]) -> bool:
+        """Return True if *feature_tags* contains all *required_tags*."""
+        tag_set = set(feature_tags)
+        return all(tag in tag_set for tag in required_tags)
+
     def list_feature_definitions(
         self,
         status: FeatureStatus | None = None,
@@ -416,6 +424,27 @@ class FeatureStorage:
         Returns:
             List of feature definitions
         """
+        query, params = self._build_feature_list_query(status, owner)
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
+
+            features: List[FeatureDefinition] = []
+            for row in rows:
+                data = FeatureStorage._row_to_dict(row, self._FEATURE_DEFINITION_COLUMNS)
+                if tags and not self._matches_tags(data["tags"], tags):
+                    continue
+                features.append(FeatureDefinition.from_dict(data))
+
+            return features
+
+    @staticmethod
+    def _build_feature_list_query(
+        status: FeatureStatus | None,
+        owner: str | None,
+    ) -> tuple[str, list[Any]]:
+        """Build a parameterized SQL query for listing feature definitions."""
         query = "SELECT * FROM feature_definitions WHERE 1=1"
         params: List[Any] = []
 
@@ -427,37 +456,7 @@ class FeatureStorage:
             query += " AND owner = ?"
             params.append(owner)
 
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(query, params)
-            rows = cursor.fetchall()
-
-            features: List[FeatureDefinition] = []
-            columns = [
-                "feature_id",
-                "name",
-                "version",
-                "description",
-                "feature_type",
-                "parameters",
-                "tags",
-                "owner",
-                "status",
-                "created_at",
-                "updated_at",
-                "metadata",
-            ]
-            for row in rows:
-                data = FeatureStorage._row_to_dict(row, columns)
-
-                # Filter by tags if specified
-                if tags:
-                    feature_tags = set(data["tags"])
-                    if not all(tag in feature_tags for tag in tags):
-                        continue
-
-                features.append(FeatureDefinition.from_dict(data))
-
-            return features
+        return query, params
 
     def store_feature_values(
         self,
@@ -656,7 +655,6 @@ class FeatureRegistry:
     def _register_builtin_features(self) -> None:
         """Register built-in feature computers from existing modules."""
         try:
-            # Import existing feature modules
             from astroml.features import (
                 asset_diversity,
                 frequency,
@@ -664,79 +662,69 @@ class FeatureRegistry:
                 structural_importance,
             )
 
-            # Register frequency features
-            self.register_computer(
-                "daily_transaction_count",
-                frequency.compute_daily_transaction_counts,
-                {
-                    "description": "Daily transaction count per account",
-                    "feature_type": FeatureType.NUMERIC,
-                    "tags": ["frequency", "activity"],
-                },
-            )
+            # Feature descriptors: (name, computer_fn, description, feature_type, tags)
+            builtin_features = [
+                (
+                    "daily_transaction_count",
+                    frequency.compute_daily_transaction_counts,
+                    "Daily transaction count per account",
+                    FeatureType.NUMERIC,
+                    ["frequency", "activity"],
+                ),
+                (
+                    "transaction_burstiness",
+                    frequency.compute_burstiness,
+                    "Transaction burstiness metric",
+                    FeatureType.NUMERIC,
+                    ["frequency", "behavior"],
+                ),
+                (
+                    "degree_centrality",
+                    structural_importance.compute_degree_centrality,
+                    "Degree centrality in transaction graph",
+                    FeatureType.NUMERIC,
+                    ["graph", "centrality"],
+                ),
+                (
+                    "betweenness_centrality",
+                    structural_importance.compute_betweenness_centrality,
+                    "Betweenness centrality in transaction graph",
+                    FeatureType.NUMERIC,
+                    ["graph", "centrality"],
+                ),
+                (
+                    "pagerank",
+                    structural_importance.compute_pagerank,
+                    "PageRank score in transaction graph",
+                    FeatureType.NUMERIC,
+                    ["graph", "importance"],
+                ),
+                (
+                    "node_features",
+                    node_features.compute_node_features,
+                    "Basic node features (degree, volume, age)",
+                    FeatureType.TIME_SERIES,
+                    ["node", "basic"],
+                ),
+                (
+                    "asset_diversity",
+                    asset_diversity.compute_asset_diversity,
+                    "Asset diversity metrics",
+                    FeatureType.NUMERIC,
+                    ["asset", "diversity"],
+                ),
+            ]
 
-            self.register_computer(
-                "transaction_burstiness",
-                frequency.compute_burstiness,
-                {
-                    "description": "Transaction burstiness metric",
-                    "feature_type": FeatureType.NUMERIC,
-                    "tags": ["frequency", "behavior"],
-                },
-            )
-
-            # Register structural importance features
-            self.register_computer(
-                "degree_centrality",
-                structural_importance.compute_degree_centrality,
-                {
-                    "description": "Degree centrality in transaction graph",
-                    "feature_type": FeatureType.NUMERIC,
-                    "tags": ["graph", "centrality"],
-                },
-            )
-
-            self.register_computer(
-                "betweenness_centrality",
-                structural_importance.compute_betweenness_centrality,
-                {
-                    "description": "Betweenness centrality in transaction graph",
-                    "feature_type": FeatureType.NUMERIC,
-                    "tags": ["graph", "centrality"],
-                },
-            )
-
-            self.register_computer(
-                "pagerank",
-                structural_importance.compute_pagerank,
-                {
-                    "description": "PageRank score in transaction graph",
-                    "feature_type": FeatureType.NUMERIC,
-                    "tags": ["graph", "importance"],
-                },
-            )
-
-            # Register node features
-            self.register_computer(
-                "node_features",
-                node_features.compute_node_features,
-                {
-                    "description": "Basic node features (degree, volume, age)",
-                    "feature_type": FeatureType.TIME_SERIES,
-                    "tags": ["node", "basic"],
-                },
-            )
-
-            # Register asset diversity features
-            self.register_computer(
-                "asset_diversity",
-                asset_diversity.compute_asset_diversity,
-                {
-                    "description": "Asset diversity metrics",
-                    "feature_type": FeatureType.NUMERIC,
-                    "tags": ["asset", "diversity"],
-                },
-            )
+            for name, computer_fn, desc, ftype, ftags in builtin_features:
+                self.register_computer(
+                    name,
+                    computer_fn,
+                    {
+                        "description": desc,
+                        "feature_type": ftype,
+                        "tags": ftags,
+                    },
+                )
 
             logger.info("Registered built-in feature computers")
 
@@ -847,9 +835,17 @@ class FeatureStore:
         # Lightweight metadata cache (feature definitions rarely change).
         self._metadata_cache: dict[str, FeatureDefinition] = {}
 
-        # Primary value cache: TTLCache provides automatic TTL expiry *and*
-        # LRU eviction when maxsize is reached.  A threading.Lock makes all
-        # mutations atomic.
+        # Cache and parallel settings
+        self._init_cache_settings(cache_maxsize, cache_ttl_seconds, max_cache_size_mb)
+        self._init_parallel_settings(max_workers, chunk_size, enable_parallel)
+
+    def _init_cache_settings(
+        self,
+        cache_maxsize: int,
+        cache_ttl_seconds: int,
+        max_cache_size_mb: int,
+    ) -> None:
+        """Initialize the value cache (TTL+LRU) and related metrics."""
         self._cache_lock: threading.Lock = threading.Lock()
         self._cache_ttl_seconds: int = cache_ttl_seconds
         self._cache_maxsize: int = cache_maxsize
@@ -868,7 +864,13 @@ class FeatureStore:
         self._cache_misses: int = 0
         self._cache_evictions: int = 0
 
-        # Parallel computation settings
+    def _init_parallel_settings(
+        self,
+        max_workers: int,
+        chunk_size: int,
+        enable_parallel: bool,
+    ) -> None:
+        """Initialize parallel computation settings."""
         self._max_workers: int = max_workers
         self._chunk_size: int = chunk_size
         self._enable_parallel: bool = enable_parallel and max_workers > 1
@@ -939,28 +941,11 @@ class FeatureStore:
             raise ValueError(f"Feature '{feature_name}' not found")
 
         logger.info(f"Computing feature: {feature_name}")
+        self._validate_input_columns(data, entity_col, timestamp_col)
 
-        # Validate input data
-        required_cols = [entity_col, timestamp_col]
-        missing_cols = [col for col in required_cols if col not in data.columns]
-        if missing_cols:
-            raise ValueError(f"Missing required columns: {missing_cols}")
-
-        # Compute feature with parallelism if enabled and data is large enough
-        if self._enable_parallel and len(data) > self._chunk_size:
-            try:
-                result = self._compute_feature_parallel(
-                    computer, feature_name, data, entity_col, timestamp_col, **kwargs
-                )
-            except Exception as e:
-                logger.warning(f"Parallel computation failed, falling back to sequential: {e}")
-                result = self._compute_feature_sequential(
-                    computer, feature_name, data, entity_col, timestamp_col, **kwargs
-                )
-        else:
-            result = self._compute_feature_sequential(
-                computer, feature_name, data, entity_col, timestamp_col, **kwargs
-            )
+        result = self._compute_with_parallel_fallback(
+            computer, feature_name, data, entity_col, timestamp_col, **kwargs
+        )
 
         # Ensure result is indexed by entity
         if entity_col in result.columns:
@@ -968,6 +953,36 @@ class FeatureStore:
 
         logger.info(f"Computed {len(result)} feature values for {feature_name}")
         return result
+
+    @staticmethod
+    def _validate_input_columns(
+        data: pd.DataFrame, entity_col: str, timestamp_col: str
+    ) -> None:
+        """Raise ValueError if required columns are missing from *data*."""
+        missing_cols = [col for col in [entity_col, timestamp_col] if col not in data.columns]
+        if missing_cols:
+            raise ValueError(f"Missing required columns: {missing_cols}")
+
+    def _compute_with_parallel_fallback(
+        self,
+        computer: FeatureComputer,
+        feature_name: str,
+        data: pd.DataFrame,
+        entity_col: str,
+        timestamp_col: str,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
+        """Compute feature, using parallel execution when appropriate."""
+        if self._enable_parallel and len(data) > self._chunk_size:
+            try:
+                return self._compute_feature_parallel(
+                    computer, feature_name, data, entity_col, timestamp_col, **kwargs
+                )
+            except Exception as e:
+                logger.warning(f"Parallel computation failed, falling back to sequential: {e}")
+        return self._compute_feature_sequential(
+            computer, feature_name, data, entity_col, timestamp_col, **kwargs
+        )
 
     def _compute_feature_sequential(
         self,
@@ -1011,67 +1026,62 @@ class FeatureStore:
 
         Splits the input data into chunks and processes them in parallel
         using ThreadPoolExecutor. Results are combined after all chunks complete.
-
-        Args:
-            computer: Feature computation function
-            feature_name: Name of feature to compute
-            data: Input data
-            entity_col: Entity identifier column
-            timestamp_col: Timestamp column
-            **kwargs: Additional parameters
-
-        Returns:
-            DataFrame with computed feature values from all chunks combined
-
-        Raises:
-            Exception: If parallel computation fails
         """
-        # Split data into chunks by entity
-        unique_entities = data[entity_col].unique()
-        chunks = []
-        for i in range(0, len(unique_entities), self._chunk_size):
-            chunk_entities = unique_entities[i: i + self._chunk_size]
-            chunk_data = data[data[entity_col].isin(chunk_entities)].copy()
-            chunks.append(chunk_data)
+        chunks = self._split_data_into_chunks(data, entity_col)
 
         logger.info(
             f"Processing {len(data)} rows in {len(chunks)} chunks "
             f"with {self._max_workers} workers"
         )
 
-        # Process chunks in parallel
+        results = self._process_chunks_parallel(
+            chunks, computer, entity_col, timestamp_col, **kwargs
+        )
+
+        if results:
+            return pd.concat(results, axis=0)
+        return pd.DataFrame()
+
+    def _split_data_into_chunks(
+        self, data: pd.DataFrame, entity_col: str
+    ) -> list[pd.DataFrame]:
+        """Split *data* into chunks of at most ``_chunk_size`` unique entities."""
+        unique_entities = data[entity_col].unique()
+        chunks: list[pd.DataFrame] = []
+        for i in range(0, len(unique_entities), self._chunk_size):
+            chunk_entities = unique_entities[i : i + self._chunk_size]
+            chunks.append(data[data[entity_col].isin(chunk_entities)].copy())
+        return chunks
+
+    def _process_chunks_parallel(
+        self,
+        chunks: list[pd.DataFrame],
+        computer: FeatureComputer,
+        entity_col: str,
+        timestamp_col: str,
+        **kwargs: Any,
+    ) -> list[pd.DataFrame]:
+        """Process data chunks in parallel using ThreadPoolExecutor."""
         def process_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
-            """Process a single chunk of data."""
             try:
-                result = computer(chunk, entity_col, timestamp_col, **kwargs)
-                return result
+                return computer(chunk, entity_col, timestamp_col, **kwargs)
             except Exception as e:
                 logger.error(f"Error processing chunk: {e}")
                 raise
 
-        results = []
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                future_to_chunk = {executor.submit(process_chunk, chunk): chunk for chunk in chunks}
+        results: list[pd.DataFrame] = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+            future_to_chunk = {
+                executor.submit(process_chunk, chunk): chunk for chunk in chunks
+            }
+            for future in concurrent.futures.as_completed(future_to_chunk):
+                try:
+                    results.append(future.result())
+                except Exception as e:
+                    logger.error(f"Chunk processing failed: {e}")
+                    raise
 
-                for future in concurrent.futures.as_completed(future_to_chunk):
-                    try:
-                        chunk_result = future.result()
-                        results.append(chunk_result)
-                    except Exception as e:
-                        logger.error(f"Chunk processing failed: {e}")
-                        raise
-
-        except Exception as e:
-            logger.error(f"Parallel computation failed: {e}")
-            raise
-
-        # Combine results from all chunks
-        if results:
-            combined_result = pd.concat(results, axis=0)
-            return combined_result
-        else:
-            return pd.DataFrame()
+        return results
 
     def store_feature(
         self,
@@ -1180,73 +1190,91 @@ class FeatureStore:
         Uses lazy loading: only loads feature values on-demand and caches
         recently accessed features.  The underlying :class:`cachetools.TTLCache`
         provides both TTL-based expiry and LRU eviction automatically.
-
-        Args:
-            feature_name: Feature name.
-            entity_ids: Optional entity IDs to filter.
-            timestamp: Optional timestamp for point-in-time queries.
-            use_cache: Whether to use the in-process value cache.
-
-        Returns:
-            Feature values if found, None otherwise.
         """
-        # ── 1. Resolve feature definition (lightweight metadata cache) ────────
-        if feature_name in self._metadata_cache:
-            feature_def = self._metadata_cache[feature_name]
-        else:
-            feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
-            if feature_def is None:
-                raise ValueError(f"Feature '{feature_name}' not found")
-            self._metadata_cache[feature_name] = feature_def
-
+        feature_def = self._resolve_feature_def(feature_name)
         feature_id = feature_def.feature_id
 
-        # ── 2. Cache lookup ───────────────────────────────────────────────────
-        if use_cache:
-            with self._cache_lock:
-                cache_entry = self._value_cache.get(feature_id)
+        # Cache lookup
+        cached_values = self._lookup_cached_values(feature_id, feature_name, entity_ids, use_cache)
+        if cached_values is not None:
+            return cached_values
 
-            if cache_entry is not None:
-                self._cache_hits += 1
-                values = cache_entry["data"].copy()
-                logger.debug(f"Cache hit for feature '{feature_name}'")
-                if entity_ids:
-                    values = values[values.index.isin(entity_ids)]
-                return values
-
-        # ── 3. Cache miss — load from storage ─────────────────────────────────
+        # Cache miss — load from storage
         self._cache_misses += 1
         logger.debug(f"Cache miss for feature '{feature_name}' — loading from storage")
         values = self.storage.get_feature_values(feature_id, entity_ids, timestamp)
 
         if values is not None and use_cache:
-            value_size_bytes = self._get_dataframe_size_bytes(values)
-
-            # Enforce soft memory cap before inserting.
-            with self._cache_lock:
-                if self._current_cache_size_bytes + value_size_bytes > self._max_cache_size_bytes:
-                    required_space = (
-                        self._current_cache_size_bytes
-                        + value_size_bytes
-                        - self._max_cache_size_bytes
-                    )
-                    logger.debug(f"Cache at memory cap, freeing {required_space} bytes")
-                    self._evict_lru_features(required_space)
-
-                self._value_cache[feature_id] = {
-                    "data": values.copy(),
-                    "size_bytes": value_size_bytes,
-                    "loaded_at": datetime.now(),
-                }
-                self._current_cache_size_bytes += value_size_bytes
-
-            logger.debug(
-                f"Cached feature '{feature_name}' "
-                f"({value_size_bytes / 1024 / 1024:.2f} MB, "
-                f"total: {self._current_cache_size_bytes / 1024 / 1024:.2f} MB)"
-            )
+            self._cache_feature_values(feature_id, feature_name, values)
 
         return values
+
+    def _resolve_feature_def(self, feature_name: str) -> FeatureDefinition:
+        """Resolve a feature definition, using the metadata cache when possible."""
+        if feature_name in self._metadata_cache:
+            return self._metadata_cache[feature_name]
+
+        feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
+        if feature_def is None:
+            raise ValueError(f"Feature '{feature_name}' not found")
+        self._metadata_cache[feature_name] = feature_def
+        return feature_def
+
+    def _lookup_cached_values(
+        self,
+        feature_id: str,
+        feature_name: str,
+        entity_ids: list[str] | None,
+        use_cache: bool,
+    ) -> pd.DataFrame | None:
+        """Try to return cached values. Returns None on cache miss or if caching is disabled."""
+        if not use_cache:
+            return None
+
+        with self._cache_lock:
+            cache_entry = self._value_cache.get(feature_id)
+
+        if cache_entry is None:
+            return None
+
+        self._cache_hits += 1
+        values = cache_entry["data"].copy()
+        logger.debug(f"Cache hit for feature '{feature_name}'")
+        if entity_ids:
+            values = values[values.index.isin(entity_ids)]
+        return values
+
+    def _cache_feature_values(
+        self,
+        feature_id: str,
+        feature_name: str,
+        values: pd.DataFrame,
+    ) -> None:
+        """Insert *values* into the cache, evicting LRU entries if the memory cap is exceeded."""
+        value_size_bytes = self._get_dataframe_size_bytes(values)
+
+        with self._cache_lock:
+            if self._current_cache_size_bytes + value_size_bytes > self._max_cache_size_bytes:
+                required_space = (
+                    self._current_cache_size_bytes
+                    + value_size_bytes
+                    - self._max_cache_size_bytes
+                )
+                logger.debug(f"Cache at memory cap, freeing {required_space} bytes")
+                self._evict_lru_features(required_space)
+
+            self._value_cache[feature_id] = {
+                "data": values.copy(),
+                "size_bytes": value_size_bytes,
+                "loaded_at": datetime.now(),
+            }
+            self._current_cache_size_bytes += value_size_bytes
+
+        logger.debug(
+            f"Cached feature '{feature_name}' "
+            f"({value_size_bytes / 1024 / 1024:.2f} MB, "
+            f"total: {self._current_cache_size_bytes / 1024 / 1024:.2f} MB)"
+        )
 
     def compute_and_store(
         self,
@@ -1345,59 +1373,75 @@ class FeatureStore:
         feature_data: Dict[str, Any] = {}
 
         if parallel and self._enable_parallel and len(feature_names) > 1:
-            # Fetch features in parallel
-            def fetch_feature(feature_name: str) -> tuple[str, pd.DataFrame | None]:
-                """Fetch a single feature."""
-                values = self.get_feature(feature_name, entity_ids, timestamp)
-                return feature_name, values
-
-            try:
-                with concurrent.futures.ThreadPoolExecutor(
-                    max_workers=min(self._max_workers, len(feature_names))
-                ) as executor:
-                    future_to_feature = {
-                        executor.submit(fetch_feature, fn): fn for fn in feature_names
-                    }
-
-                    for future in concurrent.futures.as_completed(future_to_feature):
-                        feature_name = future_to_feature[future]
-                        try:
-                            fn, values = future.result()
-                            if values is not None:
-                                if len(values.columns) == 1:
-                                    feature_data[feature_name] = values.iloc[:, 0]
-                                else:
-                                    for col in values.columns:
-                                        feature_data[f"{feature_name}_{col}"] = values[col]
-                        except Exception as e:
-                            logger.error(f"Failed to fetch feature {feature_name}: {e}")
-            except Exception as e:
-                logger.warning(f"Parallel fetch failed, falling back to sequential: {e}")
-                # Fallback to sequential
-                for feature_name in feature_names:
-                    values = self.get_feature(feature_name, entity_ids, timestamp)
-                    if values is not None:
-                        if len(values.columns) == 1:
-                            feature_data[feature_name] = values.iloc[:, 0]
-                        else:
-                            for col in values.columns:
-                                feature_data[f"{feature_name}_{col}"] = values[col]
+            feature_data = self._fetch_features_parallel(feature_names, entity_ids, timestamp)
         else:
-            # Sequential fetch
-            for feature_name in feature_names:
-                values = self.get_feature(feature_name, entity_ids, timestamp)
-                if values is not None:
-                    if len(values.columns) == 1:
-                        feature_data[feature_name] = values.iloc[:, 0]
-                    else:
-                        for col in values.columns:
-                            feature_data[f"{feature_name}_{col}"] = values[col]
+            feature_data = self._fetch_features_sequential(feature_names, entity_ids, timestamp)
 
         if not feature_data:
             return pd.DataFrame()
 
-        result = pd.DataFrame(feature_data, index=entity_ids)
-        return result
+        return pd.DataFrame(feature_data, index=entity_ids)
+
+    @staticmethod
+    def _add_feature_values_to_dict(
+        feature_data: dict[str, Any],
+        feature_name: str,
+        values: pd.DataFrame,
+    ) -> None:
+        """Add feature values to *feature_data* dict, handling multi-column results."""
+        if len(values.columns) == 1:
+            feature_data[feature_name] = values.iloc[:, 0]
+        else:
+            for col in values.columns:
+                feature_data[f"{feature_name}_{col}"] = values[col]
+
+    def _fetch_features_sequential(
+        self,
+        feature_names: list[str],
+        entity_ids: list[str],
+        timestamp: datetime | None,
+    ) -> dict[str, Any]:
+        """Fetch features one at a time."""
+        feature_data: dict[str, Any] = {}
+        for feature_name in feature_names:
+            values = self.get_feature(feature_name, entity_ids, timestamp)
+            if values is not None:
+                self._add_feature_values_to_dict(feature_data, feature_name, values)
+        return feature_data
+
+    def _fetch_features_parallel(
+        self,
+        feature_names: list[str],
+        entity_ids: list[str],
+        timestamp: datetime | None,
+    ) -> dict[str, Any]:
+        """Fetch features concurrently using ThreadPoolExecutor."""
+        feature_data: dict[str, Any] = {}
+
+        def fetch_feature(feature_name: str) -> tuple[str, pd.DataFrame | None]:
+            values = self.get_feature(feature_name, entity_ids, timestamp)
+            return feature_name, values
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=min(self._max_workers, len(feature_names))
+            ) as executor:
+                future_to_feature = {
+                    executor.submit(fetch_feature, fn): fn for fn in feature_names
+                }
+                for future in concurrent.futures.as_completed(future_to_feature):
+                    feature_name = future_to_feature[future]
+                    try:
+                        fn, values = future.result()
+                        if values is not None:
+                            self._add_feature_values_to_dict(feature_data, fn, values)
+                    except Exception as e:
+                        logger.error(f"Failed to fetch feature {feature_name}: {e}")
+        except Exception as e:
+            logger.warning(f"Parallel fetch failed, falling back to sequential: {e}")
+            return self._fetch_features_sequential(feature_names, entity_ids, timestamp)
+
+        return feature_data
 
     def list_features(
         self,
