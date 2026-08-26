@@ -24,7 +24,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from astroml.api.routers import accounts, fraud
+from astroml.api.routers import accounts, compression, features, fraud
 from astroml.api.scheduler import start_scheduler, stop_scheduler
 
 # ─── Database setup ───────────────────────────────────────────────────────────
@@ -67,6 +67,9 @@ app = FastAPI(
 
 app.include_router(accounts.router, tags=["accounts"])
 app.include_router(fraud.router, tags=["fraud"])
+app.include_router(features.router, tags=["feature-store"])
+app.include_router(compression.router, tags=["model-compression"])
+
 
 
 @app.get("/health", tags=["ops"])

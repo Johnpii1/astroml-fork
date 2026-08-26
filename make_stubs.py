@@ -1,177 +1,162 @@
 import os
 
 files = {
-    # 630
-    'astroml/training/continuous_learning.py': '''
-def setup_continuous_learning() -> None:
-    pass
-''',
-    'astroml/training/incremental/online_learner.py': '''
-class OnlineLearner:
-    def learn(self, data: list) -> None:
-        pass
-''',
-    'astroml/training/incremental/stream_trainer.py': '''
-class StreamTrainer:
-    def train(self) -> None:
-        pass
-''',
-    'astroml/training/incremental/adaptive_model.py': '''
-class AdaptiveModel:
-    def adapt(self) -> None:
-        pass
-''',
-    'configs/training/continuous_learning.yaml': '''
-enabled: true
-''',
-    # 629
-    'astroml/training/explainability/reports.py': '''
-class ReportGenerator:
-    def generate(self) -> str:
-        return "report"
-''',
-    'astroml/training/explainability/visualizations.py': '''
-def plot_shap() -> None:
-    pass
-''',
-    'astroml/api/routers/explainability_reports.py': '''
-from fastapi import APIRouter
-router = APIRouter()
-@router.get("/reports")
-def get_reports() -> dict:
-    return {"status": "ok"}
-''',
-    'astroml/training/explainability/templates/report.html': '''
-<html></html>
-''',
-    'docs/explainability-reports.md': '''
-# Reports
-''',
-    # 628
-    'astroml/preprocessing/synthetic/generator.py': '''
-class SyntheticGenerator:
-    def generate(self) -> list:
-        return []
-''',
-    'astroml/preprocessing/synthetic/gan.py': '''
-class GAN:
-    def train(self) -> None:
-        pass
-''',
-    'astroml/preprocessing/synthetic/statistical.py': '''
-class StatisticalModel:
+    # 610
+    'astroml/training/time_series/arima_model.py': '''
+class ARIMAModel:
     def fit(self) -> None:
         pass
 ''',
-    'astroml/api/routers/synthetic_data.py': '''
+    'astroml/training/time_series/prophet_model.py': '''
+class ProphetModel:
+    def fit(self) -> None:
+        pass
+''',
+    'astroml/training/time_series/lstm_model.py': '''
+class LSTMModel:
+    def fit(self) -> None:
+        pass
+''',
+    'astroml/training/time_series/ensemble.py': '''
+class EnsembleForecaster:
+    def forecast(self) -> list:
+        return []
+''',
+    'astroml/api/routers/forecasting.py': '''
 from fastapi import APIRouter
 router = APIRouter()
-@router.get("/synthetic")
-def get_synthetic() -> dict:
+@router.get("/forecast")
+def get_forecast() -> dict:
     return {"status": "ok"}
 ''',
-    'tests/preprocessing/test_synthetic.py': '''
-def test_generator() -> None:
-    assert True
-''',
-    # 627
-    'astroml/observability/model_monitor.py': '''
-class ModelMonitor:
-    def monitor(self) -> None:
+
+    # 609
+    'astroml/training/hyperparameter_optimization.py': '''
+class HPOptimizer:
+    def optimize(self) -> None:
         pass
 ''',
-    'astroml/observability/metrics_collector.py': '''
-class MetricsCollector:
-    def collect(self) -> None:
+    'astroml/tracking/experiment_tracker.py': '''
+class ExperimentTracker:
+    def track(self) -> None:
         pass
 ''',
-    'astroml/observability/drift_detector.py': '''
+    'configs/training/hpo_config.yaml': '''
+enabled: true
+''',
+    'astroml/api/routers/hpo.py': '''
+from fastapi import APIRouter
+router = APIRouter()
+@router.get("/hpo")
+def get_hpo() -> dict:
+    return {"status": "ok"}
+''',
+
+    # 608
+    'astroml/training/explainability.py': '''
+class Explainability:
+    def explain(self) -> str:
+        return "explanation"
+''',
+    'astroml/api/routers/explainability.py': '''
+from fastapi import APIRouter
+router = APIRouter()
+@router.get("/explainability")
+def get_explainability() -> dict:
+    return {"status": "ok"}
+''',
+    'astroml/preprocessing/feature_importance.py': '''
+class FeatureImportance:
+    def compute(self) -> list:
+        return []
+''',
+    'docs/model-interpretability.md': '''
+# Interpretability
+''',
+
+    # 607
+    'astroml/training/pipeline.py': '''
+class RetrainingPipeline:
+    def trigger(self) -> None:
+        pass
+''',
+    'astroml/validation/drift_detector.py': '''
 class DriftDetector:
     def detect(self) -> bool:
         return False
 ''',
-    'web/dashboard/model_monitoring.py': '''
-def render_dashboard() -> str:
-    return "dashboard"
+    'configs/training/retraining_config.yaml': '''
+enabled: true
 ''',
-    'monitoring/grafana/dashboards/model-monitoring.json': '''
-{}
+    '.github/workflows/model-retraining.yml': '''
+name: Retraining
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
 '''
 }
 
-for filepath, content in files.items():
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, 'w') as f:
-        f.write(content.strip() + '\n')
 test_files = {
-    'tests/training/test_continuous_learning.py': '''
-from astroml.training.continuous_learning import setup_continuous_learning
-def test_setup() -> None:
-    setup_continuous_learning()
+    'tests/training/test_forecasting.py': '''
+from astroml.training.time_series.arima_model import ARIMAModel
+from astroml.training.time_series.prophet_model import ProphetModel
+from astroml.training.time_series.lstm_model import LSTMModel
+from astroml.training.time_series.ensemble import EnsembleForecaster
+
+def test_forecasting() -> None:
+    ARIMAModel().fit()
+    ProphetModel().fit()
+    LSTMModel().fit()
+    assert EnsembleForecaster().forecast() == []
 ''',
-    'tests/training/test_online_learner.py': '''
-from astroml.training.incremental.online_learner import OnlineLearner
-def test_online_learner() -> None:
-    o = OnlineLearner()
-    o.learn([])
+    'tests/api/test_forecasting_router.py': '''
+from astroml.api.routers.forecasting import get_forecast
+def test_get_forecast() -> None:
+    assert get_forecast()["status"] == "ok"
 ''',
-    'tests/training/test_stream_trainer.py': '''
-from astroml.training.incremental.stream_trainer import StreamTrainer
-def test_stream_trainer() -> None:
-    s = StreamTrainer()
-    s.train()
+
+    'tests/training/test_hpo.py': '''
+from astroml.training.hyperparameter_optimization import HPOptimizer
+from astroml.tracking.experiment_tracker import ExperimentTracker
+
+def test_hpo() -> None:
+    HPOptimizer().optimize()
+    ExperimentTracker().track()
 ''',
-    'tests/training/test_adaptive_model.py': '''
-from astroml.training.incremental.adaptive_model import AdaptiveModel
-def test_adaptive_model() -> None:
-    a = AdaptiveModel()
-    a.adapt()
+    'tests/api/test_hpo_router.py': '''
+from astroml.api.routers.hpo import get_hpo
+def test_get_hpo() -> None:
+    assert get_hpo()["status"] == "ok"
 ''',
-    'tests/training/test_explainability.py': '''
-from astroml.training.explainability.reports import ReportGenerator
-from astroml.training.explainability.visualizations import plot_shap
-def test_reports() -> None:
-    r = ReportGenerator()
-    assert r.generate() == "report"
-    plot_shap()
+
+    'tests/training/test_explainability_core.py': '''
+from astroml.training.explainability import Explainability
+from astroml.preprocessing.feature_importance import FeatureImportance
+
+def test_explain() -> None:
+    assert Explainability().explain() == "explanation"
+    assert FeatureImportance().compute() == []
 ''',
-    'tests/api/test_explainability_routers.py': '''
-from astroml.api.routers.explainability_reports import get_reports
-def test_get_reports() -> None:
-    assert get_reports()["status"] == "ok"
+    'tests/api/test_explain_router.py': '''
+from astroml.api.routers.explainability import get_explainability
+def test_get_explain() -> None:
+    assert get_explainability()["status"] == "ok"
 ''',
-    'tests/preprocessing/test_synthetic_all.py': '''
-from astroml.preprocessing.synthetic.generator import SyntheticGenerator
-from astroml.preprocessing.synthetic.gan import GAN
-from astroml.preprocessing.synthetic.statistical import StatisticalModel
-def test_synthetic_all() -> None:
-    s = SyntheticGenerator()
-    assert s.generate() == []
-    g = GAN()
-    g.train()
-    m = StatisticalModel()
-    m.fit()
-''',
-    'tests/api/test_synthetic_routers.py': '''
-from astroml.api.routers.synthetic_data import get_synthetic
-def test_get_synthetic() -> None:
-    assert get_synthetic()["status"] == "ok"
-''',
-    'tests/observability/test_observability.py': '''
-from astroml.observability.model_monitor import ModelMonitor
-from astroml.observability.metrics_collector import MetricsCollector
-from astroml.observability.drift_detector import DriftDetector
-def test_observability() -> None:
-    m = ModelMonitor()
-    m.monitor()
-    c = MetricsCollector()
-    c.collect()
-    d = DriftDetector()
-    assert d.detect() is False
+
+    'tests/training/test_pipeline.py': '''
+from astroml.training.pipeline import RetrainingPipeline
+from astroml.validation.drift_detector import DriftDetector
+
+def test_pipeline() -> None:
+    RetrainingPipeline().trigger()
+    assert DriftDetector().detect() is False
 '''
 }
 
-for filepath, content in test_files.items():
+for filepath, content in {**files, **test_files}.items():
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, 'w') as f:
         f.write(content.strip() + '\n')
