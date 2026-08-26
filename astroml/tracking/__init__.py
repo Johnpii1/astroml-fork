@@ -8,6 +8,11 @@ from __future__ import annotations
 from importlib import import_module
 
 from .ab_testing import ABTestingFramework
+from .experiment_dashboard import (
+    Experiment,
+    ExperimentDashboard,
+    ExperimentReport,
+)
 from .llm_usage_tracker import (
     LLMPrices,
     LLMUsage,
@@ -16,15 +21,24 @@ from .llm_usage_tracker import (
 )
 from .mlflow_tracker import MLflowTracker
 from .model_registry import ModelRegistry
+from .run_comparator import RunComparator, RunMetrics
+from .visualizations import ChartData, ExperimentVisualizer
 
 __all__ = [
     "ABTestingFramework",
+    "Experiment",
+    "ExperimentDashboard",
+    "ExperimentReport",
     "MLflowTracker",
     "ModelRegistry",
     "LLMUsage",
     "LLMPrices",
     "LLMUsageTracker",
     "default_llm_usage_tracker",
+    "RunComparator",
+    "RunMetrics",
+    "ChartData",
+    "ExperimentVisualizer",
     "DataLineageTracker",
     "ProvenanceTracker",
     "LineageVisualizer",
