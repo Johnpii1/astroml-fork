@@ -24,7 +24,8 @@ import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
@@ -35,6 +36,11 @@ from api.database import get_async_session_factory
 from api.graphql.context import get_graphql_context
 from api.graphql.schema import schema
 from api.middleware.csp import CSPMiddleware
+from api.middleware.errors import (
+    http_exception_handler,
+    request_validation_exception_handler,
+    unhandled_exception_handler,
+)
 from api.middleware.https import HSTSMiddleware, HTTPSRedirectMiddleware
 from api.routers import (
     accounts_router,
@@ -165,6 +171,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_middleware(VersionMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(ValidationMiddleware)
