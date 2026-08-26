@@ -29,6 +29,15 @@ __all__ = [
     "ProvenanceTracker",
     "LineageVisualizer",
     "MetadataStore",
+    "Budget",
+    "BudgetManager",
+    "BudgetPeriod",
+    "CostRecord",
+    "CostTracker",
+    "ResourceOptimizer",
+    "ResourceType",
+    "ResourceUsageSample",
+    "default_cost_tracker",
 ]
 
 _LAZY: dict[str, tuple[str, str]] = {
@@ -36,6 +45,15 @@ _LAZY: dict[str, tuple[str, str]] = {
     "ProvenanceTracker": ("astroml.tracking.lineage.provenance", "ProvenanceTracker"),
     "LineageVisualizer": ("astroml.tracking.lineage.visualizer", "LineageVisualizer"),
     "MetadataStore": ("astroml.tracking.lineage.metadata_store", "MetadataStore"),
+    "Budget": ("astroml.tracking.budget_manager", "Budget"),
+    "BudgetManager": ("astroml.tracking.budget_manager", "BudgetManager"),
+    "BudgetPeriod": ("astroml.tracking.budget_manager", "BudgetPeriod"),
+    "CostRecord": ("astroml.tracking.cost_tracker", "CostRecord"),
+    "CostTracker": ("astroml.tracking.cost_tracker", "CostTracker"),
+    "ResourceType": ("astroml.tracking.cost_tracker", "ResourceType"),
+    "default_cost_tracker": ("astroml.tracking.cost_tracker", "default_cost_tracker"),
+    "ResourceOptimizer": ("astroml.tracking.resource_optimizer", "ResourceOptimizer"),
+    "ResourceUsageSample": ("astroml.tracking.resource_optimizer", "ResourceUsageSample"),
 }
 
 
