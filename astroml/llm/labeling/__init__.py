@@ -12,11 +12,11 @@ Components:
 
 from __future__ import annotations
 
-from .labeler import DataLabeler, LabelResult
-from .schemas import LabelSchema, LabelType, LabelDefinition
-from .validators import LabelValidator, ValidationRule
 from .consensus import ConsensusLabeler, ConsensusResult
 from .human import HumanReviewQueue, ReviewTask
+from .labeler import DataLabeler, LabelResult
+from .schemas import LabelDefinition, LabelSchema, LabelType
+from .validators import LabelValidator, ValidationRule
 
 __all__ = [
     "DataLabeler",

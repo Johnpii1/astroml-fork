@@ -38,8 +38,8 @@ from astroml.testing.property_based.model_properties import (
     ModelPropertyRunner,
     PropertyCheckResult,
     binary_predictions_in_set,
-    outputs_are_finite,
     output_shape_matches_samples,
+    outputs_are_finite,
     probability_rows_sum_to_one,
     scores_in_unit_interval,
 )

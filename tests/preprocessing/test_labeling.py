@@ -24,7 +24,6 @@ from astroml.preprocessing.labeling.active_learning import (
 from astroml.preprocessing.labeling.review_queue import LabelQualityMetrics
 from astroml.preprocessing.labeling.weak_supervision import ABSTAIN, MajorityVoter
 
-
 # ---------------------------------------------------------------------------
 # Active learning
 # ---------------------------------------------------------------------------

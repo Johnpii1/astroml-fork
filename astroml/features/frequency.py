@@ -8,7 +8,6 @@ Inputs are pandas DataFrames with configurable timestamp and account columns.
 from collections.abc import Hashable
 from typing import Any, Union
 
-
 import numpy as np
 import pandas as pd
 

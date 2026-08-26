@@ -2,6 +2,7 @@ from astroml.serving.grpc_server import GrpcServer
 from astroml.serving.model_loader import ModelLoader
 from astroml.serving.tf_serving import TFServingClient
 
+
 def test_grpc_server():
     server = GrpcServer()
     server.start(50051)

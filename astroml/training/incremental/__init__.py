@@ -1,22 +1,22 @@
 """Incremental and continuous learning modules."""
 
+from .adaptive_model import (
+    AdaptiveModel,
+    AdaptiveModelConfig,
+    EWCRegularizer,
+    ExperienceReplayBuffer,
+)
 from .online_learner import (
     OnlineLearnerConfig,
-    OnlineSGDClassifier,
-    OnlineSGDRegressor,
     OnlinePassiveAggressiveClassifier,
     OnlinePassiveAggressiveRegressor,
-)
-from .adaptive_model import (
-    AdaptiveModelConfig,
-    AdaptiveModel,
-    ExperienceReplayBuffer,
-    EWCRegularizer,
+    OnlineSGDClassifier,
+    OnlineSGDRegressor,
 )
 from .stream_trainer import (
-    StreamTrainerConfig,
-    StreamTrainer,
     StreamDataIngestor,
+    StreamTrainer,
+    StreamTrainerConfig,
 )
 
 __all__ = [

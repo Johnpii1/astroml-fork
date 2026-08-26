@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Literal, Optional
 
-from astroml.core.abstracts import Ingestor, IngestionResult as BaseIngestionResult
+from astroml.core.abstracts import IngestionResult as BaseIngestionResult
+from astroml.core.abstracts import Ingestor
 from astroml.utils.validators import validate_positive_int, validate_range
 
 from .state import StateStore
