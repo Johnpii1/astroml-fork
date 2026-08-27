@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -7,12 +7,12 @@ import {
   SkeletonModelMonitoring,
   SkeletonLoyaltyDashboard,
   SkeletonTransactionHistory,
+  SkeletonCard,
 } from './components/Skeletons'
 import { LanguageSwitcher } from './components/i18n'
+import { AccountSearchBar } from './components/AccountSearchBar'
 import './styles/skeleton.css'
 
-// Lazy-load each dashboard section so the initial bundle is smaller and the
-// browser can start rendering the first panel before the others are parsed.
 const ModelMonitoringDashboard = lazy(() =>
   import('./components/ModelMonitoringDashboard/ModelMonitoringDashboard').then((m) => ({
     default: m.ModelMonitoringDashboard,
@@ -27,19 +27,39 @@ const TransactionHistoryPage = lazy(() =>
   import('./components/TransactionHistory').then((m) => ({ default: m.TransactionHistoryPage }))
 )
 
+const AccountDetailPage = lazy(() =>
+  import('./components/AccountDetailPage').then((m) => ({ default: m.AccountDetailPage }))
+)
+
+const TransactionDetailPage = lazy(() =>
+  import('./components/TransactionDetailPage').then((m) => ({ default: m.TransactionDetailPage }))
+)
+
+type View =
+  | { kind: 'home' }
+  | { kind: 'account'; publicKey: string }
+  | { kind: 'transaction'; hash: string }
+
 const sections = [
   { id: 'model-monitoring', label: 'Model Performance' },
   { id: 'loyalty', label: 'Loyalty Dashboard' },
   { id: 'transactions', label: 'Transaction History' },
 ]
 
-function NavBar() {
+function NavBar({ view, onNavigate }: { view: View; onNavigate: (v: View) => void }) {
   const { t } = useTranslation()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [menuOpen, setMenuOpen] = useState(false)
 
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+    if (view.kind !== 'home') {
+      onNavigate({ kind: 'home' })
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      })
+    } else {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+    }
     setMenuOpen(false)
   }
 
@@ -53,9 +73,12 @@ function NavBar() {
       borderBottom: '1px solid var(--border-color, #ddd)',
       position: 'relative',
     }}>
-      <h1 style={{ margin: 0, fontSize: isMobile ? 18 : 24, fontWeight: 700 }}>
+      <button
+        onClick={() => onNavigate({ kind: 'home' })}
+        style={{ margin: 0, fontSize: isMobile ? 18 : 24, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary, #1a202c)' }}
+      >
         {t('app.title')}
-      </h1>
+      </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {isMobile ? (
           <>
@@ -147,6 +170,25 @@ function NavBar() {
 export default function App() {
   const { t } = useTranslation()
   const isMobile = useMediaQuery('(max-width: 640px)')
+  const [view, setView] = useState<View>({ kind: 'home' })
+
+  const navigateToAccount = useCallback((publicKey: string) => {
+    setView({ kind: 'account', publicKey })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  const navigateToTransaction = useCallback((hash: string) => {
+    setView({ kind: 'transaction', hash })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  const handleSearchSelect = useCallback((result: { id: string; type: string }) => {
+    if (result.type === 'account') {
+      navigateToAccount(result.id)
+    } else {
+      navigateToTransaction(result.id)
+    }
+  }, [navigateToAccount, navigateToTransaction])
 
   return (
     <div style={{
@@ -155,32 +197,52 @@ export default function App() {
       maxWidth: 1200,
       margin: '0 auto',
     }}>
-      <NavBar />
+      <NavBar view={view} onNavigate={setView} />
 
-      <h1 id="model-monitoring">{t('app.title')}</h1>
-      <ErrorBoundary boundary="Model Monitoring">
-        <Suspense fallback={<SkeletonModelMonitoring />}>
-          <ModelMonitoringDashboard />
+      <div style={{ marginBottom: 24, maxWidth: 480 }}>
+        <AccountSearchBar onSelectResult={handleSearchSelect} />
+      </div>
+
+      {view.kind === 'account' && (
+        <Suspense fallback={<SkeletonCard />}>
+          <AccountDetailPage publicKey={view.publicKey} />
         </Suspense>
-      </ErrorBoundary>
+      )}
 
-      <hr style={{ margin: isMobile ? '24px 0' : '40px 0', borderColor: 'var(--border-color, #ddd)' }} />
-
-      <h1 id="loyalty">{t('app.loyalty')}</h1>
-      <ErrorBoundary boundary="Loyalty Dashboard">
-        <Suspense fallback={<SkeletonLoyaltyDashboard />}>
-          <LoyaltyDashboard />
+      {view.kind === 'transaction' && (
+        <Suspense fallback={<SkeletonCard />}>
+          <TransactionDetailPage hash={view.hash} />
         </Suspense>
-      </ErrorBoundary>
+      )}
 
-      <hr style={{ margin: isMobile ? '24px 0' : '40px 0', borderColor: 'var(--border-color, #ddd)' }} />
+      {view.kind === 'home' && (
+        <>
+          <h1 id="model-monitoring">{t('app.title')}</h1>
+          <ErrorBoundary boundary="Model Monitoring">
+            <Suspense fallback={<SkeletonModelMonitoring />}>
+              <ModelMonitoringDashboard />
+            </Suspense>
+          </ErrorBoundary>
 
-      <h1 id="transactions">{t('app.transactions')}</h1>
-      <ErrorBoundary boundary="Transaction History">
-        <Suspense fallback={<SkeletonTransactionHistory />}>
-          <TransactionHistoryPage />
-        </Suspense>
-      </ErrorBoundary>
+          <hr style={{ margin: isMobile ? '24px 0' : '40px 0', borderColor: 'var(--border-color, #ddd)' }} />
+
+          <h1 id="loyalty">{t('app.loyalty')}</h1>
+          <ErrorBoundary boundary="Loyalty Dashboard">
+            <Suspense fallback={<SkeletonLoyaltyDashboard />}>
+              <LoyaltyDashboard />
+            </Suspense>
+          </ErrorBoundary>
+
+          <hr style={{ margin: isMobile ? '24px 0' : '40px 0', borderColor: 'var(--border-color, #ddd)' }} />
+
+          <h1 id="transactions">{t('app.transactions')}</h1>
+          <ErrorBoundary boundary="Transaction History">
+            <Suspense fallback={<SkeletonTransactionHistory />}>
+              <TransactionHistoryPage onAccountClick={navigateToAccount} onTransactionClick={navigateToTransaction} />
+            </Suspense>
+          </ErrorBoundary>
+        </>
+      )}
     </div>
   )
 }

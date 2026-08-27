@@ -13,6 +13,7 @@ from importlib import import_module
 __all__ = [
     "api_validation",
     "calibration",
+    "compliance",
     "data_quality",
     "dedupe",
     "fairness",
@@ -20,7 +21,9 @@ __all__ = [
     "hashing",
     "integrity",
     "leakage",
+    "model_validator",
     "pipeline",
+    "robustness",
     "validator",
 ]
 

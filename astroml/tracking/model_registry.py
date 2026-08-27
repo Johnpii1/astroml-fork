@@ -47,6 +47,15 @@ class DeploymentEnvironment(str, Enum):
     CANARY = "canary"
 
 
+class ModelStage(str, Enum):
+    """Lifecycle stage for a model version."""
+
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"
+    ARCHIVED = "archived"
+
+
 class InvalidStatusTransitionError(ValueError):
     """Raised when an invalid status transition is attempted."""
 

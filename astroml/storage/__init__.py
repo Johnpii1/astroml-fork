@@ -14,10 +14,11 @@ from astroml.storage.config import (
     S3StorageConfig,
 )
 from astroml.storage.data_versioning import (
-    DataVersionControl,
     DatasetVersion,
+    DataVersionControl,
     VersionDiff,
 )
+from astroml.storage.model_store import ModelStore
 
 __all__ = [
     "ArtifactStore",
@@ -32,4 +33,6 @@ __all__ = [
     "DataVersionControl",
     "DatasetVersion",
     "VersionDiff",
+    "ModelStore",
 ]
+

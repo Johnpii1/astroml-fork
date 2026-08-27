@@ -13,15 +13,15 @@ Components:
 from __future__ import annotations
 
 from .engine import RecommendationEngine
-from .profiler import UserProfile, UserProfiler
-from .ranker import RecommendationRanker
 from .generators import (
-    RecommendationGenerator,
     FeatureRecommendationGenerator,
+    InsightGenerator,
     ModelRecommendationGenerator,
     QuerySuggestionGenerator,
-    InsightGenerator,
+    RecommendationGenerator,
 )
+from .profiler import UserProfile, UserProfiler
+from .ranker import RecommendationRanker
 
 __all__ = [
     "RecommendationEngine",

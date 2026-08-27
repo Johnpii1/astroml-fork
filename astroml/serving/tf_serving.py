@@ -1,5 +1,6 @@
 from typing import List
 
+
 class TFServingClient:
     def __init__(self, host: str, port: int) -> None:
         self.host = host

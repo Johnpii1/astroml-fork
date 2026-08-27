@@ -2,7 +2,7 @@
 
 import time
 
-from astroml.deployment.blue_green import BlueGreenConfig, BlueGreenManager, BGPhase
+from astroml.deployment.blue_green import BGPhase, BlueGreenConfig, BlueGreenManager
 from astroml.deployment.canary import (
     CanaryConfig,
     CanaryDeployment,
@@ -11,7 +11,6 @@ from astroml.deployment.canary import (
 )
 from astroml.deployment.rollback_manager import RollbackManager
 from astroml.deployment.traffic_router import RouteTarget, TrafficRouter
-
 
 # ---------------------------------------------------------------------------
 # CanaryManager
