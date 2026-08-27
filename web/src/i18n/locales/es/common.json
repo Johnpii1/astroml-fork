@@ -2,7 +2,8 @@
   "app": {
     "title": "Monitoreo de Rendimiento de Modelos",
     "loyalty": "Panel de Lealtad",
-    "transactions": "Historial de Transacciones"
+    "transactions": "Historial de Transacciones",
+    "skipToContent": "Saltar al contenido principal"
   },
   "monitoring": {
     "title": "Monitoreo de Rendimiento de Modelos",

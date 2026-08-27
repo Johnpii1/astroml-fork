@@ -16,7 +16,7 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+    <div role="group" aria-label="Language selector" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
       {languages.map(({ code, label, flag }) => (
         <button
           key={code}
@@ -34,9 +34,10 @@ export function LanguageSwitcher() {
             transition: 'all 0.2s',
           }}
           aria-label={`Switch to ${label}`}
+          aria-pressed={currentLang === code}
           title={`Switch to ${label}`}
         >
-          <span>{flag}</span>
+          <span aria-hidden="true">{flag}</span>
           <span style={{ fontSize: 12 }}>{label}</span>
         </button>
       ))}
