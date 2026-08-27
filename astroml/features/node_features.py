@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from astroml.features.asset_diversity import compute_asset_diversity
 
 """

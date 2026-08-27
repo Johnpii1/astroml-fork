@@ -4,7 +4,13 @@ import { useTransactionHistory } from '../../hooks/useTransactionHistory'
 import { TransactionHistoryTable } from './TransactionHistoryTable'
 import { SkeletonTransactionHistory } from '../Skeletons'
 
-export function TransactionHistoryPage() {
+export function TransactionHistoryPage({
+  onAccountClick,
+  onTransactionClick,
+}: {
+  onAccountClick?: (publicKey: string) => void
+  onTransactionClick?: (hash: string) => void
+} = {}) {
   const { t } = useTranslation()
   const [page, setPage] = useState(0)
   const pageSize = 20
@@ -158,6 +164,8 @@ export function TransactionHistoryPage() {
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
+        onAccountClick={onAccountClick}
+        onTransactionClick={onTransactionClick}
       />
 
       {history && (

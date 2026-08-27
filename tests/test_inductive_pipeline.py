@@ -1,8 +1,8 @@
 from __future__ import annotations
-from astroml.features.graph.snapshot import Edge
 
 import torch
 
+from astroml.features.graph.snapshot import Edge
 from astroml.models.sage_encoder import InductiveSAGEEncoder
 from astroml.pipeline.inductive import InductiveGraphSAGE
 

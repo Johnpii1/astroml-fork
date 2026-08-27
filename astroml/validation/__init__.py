@@ -13,15 +13,17 @@ from importlib import import_module
 __all__ = [
     "api_validation",
     "calibration",
-    "cross_validation",
+    "compliance",
     "data_quality",
     "dedupe",
     "fairness",
+    "great_expectations",
     "hashing",
     "integrity",
     "leakage",
+    "model_validator",
     "pipeline",
-    "splitters",
+    "robustness",
     "validator",
 ]
 

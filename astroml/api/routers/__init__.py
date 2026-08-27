@@ -1,27 +1,24 @@
-"""AstroML API Routers."""
+"""API routers for AstroML services."""
 
-from astroml.api.routers import (
-    accounts,
-    anomalies,
-    data_contracts,
-    data_lineage,
-    fairness,
-    feature_engineering,
-    fraud,
-    graph_analysis,
-    infrastructure,
-    model_optimization,
-)
+from __future__ import annotations
+
+from importlib import import_module
 
 __all__ = [
     "accounts",
-    "anomalies",
-    "data_contracts",
-    "data_lineage",
-    "fairness",
-    "feature_engineering",
+    "compression",
+    "data_quality",
+    "features",
+    "federated",
     "fraud",
-    "graph_analysis",
-    "infrastructure",
-    "model_optimization",
+    "model_registry",
+    "validation",
 ]
+
+
+def __getattr__(name: str):
+    if name in __all__:
+        module = import_module(f"{__name__}.{name}")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

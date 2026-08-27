@@ -9,16 +9,16 @@ Properties tested:
 - Feature computation should be idempotent (same input = same output)
 """
 
+import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given, settings, HealthCheck, Phase
+from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis.extra.pandas import column, data_frames, range_indexes
-import hypothesis.strategies as st
 
 from astroml.features.frequency import (
-    compute_daily_transaction_counts,
     compute_burstiness,
+    compute_daily_transaction_counts,
 )
 from astroml.features.structural_importance import (
     compute_degree_centrality,
