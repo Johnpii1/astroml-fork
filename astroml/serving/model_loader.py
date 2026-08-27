@@ -1,5 +1,6 @@
 from typing import Any, Optional
 
+
 class ModelLoader:
     def __init__(self) -> None:
         self.models: dict[str, Any] = {}

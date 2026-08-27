@@ -22,7 +22,7 @@ from typing import Any, Generic, TypeVar
 
 import numpy as np
 
-from astroml.training.distributed.cluster import ClusterConfig, ClusterBackend
+from astroml.training.distributed.cluster import ClusterBackend, ClusterConfig
 
 logger = logging.getLogger(__name__)
 

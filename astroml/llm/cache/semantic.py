@@ -1,10 +1,11 @@
 """Semantic similarity cache using embeddings."""
 
-from astroml.search.embedders import get_embedder
 import logging
 from typing import Optional
 
 import numpy as np
+
+from astroml.search.embedders import get_embedder
 
 logger = logging.getLogger(__name__)
 
