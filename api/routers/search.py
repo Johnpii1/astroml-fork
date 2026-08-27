@@ -41,6 +41,35 @@ def search(
             ],
         }
     except Exception as e:
+        raise HTTPException(status_code=500, description="Internal server error")
+
+
+@router.get("/accounts")
+def search_accounts(
+    q: str = Query(..., min_length=1, description="Search query for accounts"),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Search for Stellar accounts by public key or domain."""
+    try:
+        engine = get_search_engine()
+        results = engine.search(
+            query=q, mode="hybrid", top_k=limit, filters={"type": "account"}
+        )
+        return {
+            "query": q,
+            "results": [
+                {
+                    "id": r["document"]["id"],
+                    "title": r["document"]["title"],
+                    "content": r["document"]["content"],
+                    "type": r["document"]["type"],
+                    "score": r["score"],
+                    "metadata": r["document"].get("metadata", {}),
+                }
+                for r in results
+            ],
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

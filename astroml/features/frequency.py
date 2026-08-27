@@ -6,7 +6,7 @@ Inputs are pandas DataFrames with configurable timestamp and account columns.
 """
 
 from collections.abc import Hashable
-from typing import Union
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
@@ -293,3 +293,25 @@ def compute_account_frequency(
         "std_tx_per_day": float(metric_row["std_tx_per_day"]),
         "burstiness": float(metric_row["burstiness"]),
     }
+
+
+def compute_daily_transaction_counts(
+    df: pd.DataFrame,
+    entity_col: str = "account",
+    timestamp_col: str = "timestamp",
+    **kwargs: Any,
+) -> pd.DataFrame:
+    """Compute daily transaction count metrics per account."""
+    account_col = kwargs.get("account_col", entity_col)
+    return compute_frequency_metrics(df, timestamp_col=timestamp_col, account_col=account_col)
+
+
+def compute_burstiness(
+    df: pd.DataFrame,
+    entity_col: str = "account",
+    timestamp_col: str = "timestamp",
+    **kwargs: Any,
+) -> pd.DataFrame:
+    """Compute burstiness metric per account."""
+    account_col = kwargs.get("account_col", entity_col)
+    return compute_frequency_metrics(df, timestamp_col=timestamp_col, account_col=account_col)

@@ -356,6 +356,11 @@ class TestFeatureStore:
     def test_store_and_get_feature(self, feature_store):
         """Test storing and retrieving features."""
         feature_name = "test_feature"
+        feature_store.register_feature(
+            name=feature_name,
+            description="Test feature",
+            feature_type=FeatureType.NUMERIC,
+        )
 
         # Create test feature values
         test_values = pd.DataFrame(
@@ -364,6 +369,7 @@ class TestFeatureStore:
             },
             index=["entity1", "entity2", "entity3"],
         )
+
 
         # Store feature
         feature_store.store_feature(feature_name, test_values)
@@ -429,7 +435,7 @@ class TestFeatureStore:
         for i, feature_name in enumerate(feature_names):
             test_values = pd.DataFrame(
                 {
-                    f"feature{i+1}": [i + 1, i + 2, i + 3],
+                    f"feature{i + 1}": [i + 1, i + 2, i + 3],
                 },
                 index=["entity1", "entity2", "entity3"],
             )
@@ -685,7 +691,9 @@ class TestFeatureStoreIntegration:
             feature_store.store_feature(
                 feature_name="non_existent_feature",
                 values=pd.DataFrame({"value": [1, 2, 3]}),
+                auto_register=False,
             )
+
 
     def test_persistence(self, temp_storage_path, sample_transaction_data):
         """Test that feature store persists data across instances."""
@@ -869,7 +877,14 @@ class TestParallelFeatureComputation:
     @pytest.fixture
     def feature_store(self, temp_storage_path):
         """Create feature store instance."""
-        return FeatureStore(temp_storage_path)
+        return FeatureStore(temp_storage_path, cache_ttl_seconds=2, cache_maxsize=4)
+
+    @pytest.fixture
+    def sample_values(self):
+        return pd.DataFrame(
+            {"feature_value": [1.0, 2.0, 3.0]},
+            index=["entity1", "entity2", "entity3"],
+        )
 
     @pytest.fixture
     def large_sample_data(self):
@@ -1035,6 +1050,11 @@ class TestParallelFeatureComputation:
         """Test parallel fetching of multiple features."""
         # Store multiple test features
         for i in range(3):
+            feature_store.register_feature(
+                name=f"feature{i}",
+                description=f"Test feature {i}",
+                feature_type=FeatureType.NUMERIC,
+            )
             test_values = pd.DataFrame(
                 {
                     f"feature{i}": [i + 1, i + 2, i + 3],
@@ -1065,6 +1085,11 @@ class TestParallelFeatureComputation:
         """Test sequential fetching of multiple features."""
         # Store multiple test features
         for i in range(3):
+            feature_store.register_feature(
+                name=f"feature{i}",
+                description=f"Test feature {i}",
+                feature_type=FeatureType.NUMERIC,
+            )
             test_values = pd.DataFrame(
                 {
                     f"feature{i}": [i + 1, i + 2, i + 3],
@@ -1078,6 +1103,7 @@ class TestParallelFeatureComputation:
             max_workers=4,
             enable_parallel=True,
         )
+
 
         result = store_parallel.get_features_for_entities(
             feature_names=["feature0", "feature1", "feature2"],
@@ -1204,6 +1230,7 @@ class TestParallelFeatureComputation:
     def test_cache_expires_after_ttl(self, feature_store, sample_values):
         """Entries must be absent from the TTLCache after the TTL elapses."""
         feature_name = "feat_ttl"
+        feature_store.register_feature(name=feature_name, description="Test TTL", feature_type=FeatureType.NUMERIC)
         feature_store.store_feature(feature_name, sample_values)
 
         # Warm the cache
@@ -1219,6 +1246,7 @@ class TestParallelFeatureComputation:
     def test_get_after_expiry_reloads_from_storage(self, feature_store, sample_values):
         """After TTL expiry a fresh get must reload from storage (cache miss)."""
         feature_name = "feat_reload"
+        feature_store.register_feature(name=feature_name, description="Test Reload", feature_type=FeatureType.NUMERIC)
         feature_store.store_feature(feature_name, sample_values)
         feature_store.get_feature(feature_name, use_cache=True)  # warm
 
@@ -1243,6 +1271,7 @@ class TestParallelFeatureComputation:
 
         names = ["feat_a", "feat_b", "feat_c"]
         for name in names:
+            store.register_feature(name=name, description=f"Test {name}", feature_type=FeatureType.NUMERIC)
             store.store_feature(name, sample_values)
 
         # Warm cache with feat_a and feat_b (fills the 2-slot cache)
@@ -1273,6 +1302,8 @@ class TestParallelFeatureComputation:
             cache_maxsize=128,
         )
 
+        store.register_feature(name="feat_evict_a", description="Evict A", feature_type=FeatureType.NUMERIC)
+        store.register_feature(name="feat_evict_b", description="Evict B", feature_type=FeatureType.NUMERIC)
         store.store_feature("feat_evict_a", sample_values)
         store.store_feature("feat_evict_b", sample_values)
 
@@ -1292,6 +1323,7 @@ class TestParallelFeatureComputation:
     def test_store_feature_invalidates_cache(self, feature_store, sample_values):
         """store_feature must remove the existing cache entry (write invalidation)."""
         feature_name = "feat_invalidate"
+        feature_store.register_feature(name=feature_name, description="Invalidate", feature_type=FeatureType.NUMERIC)
         feature_store.store_feature(feature_name, sample_values)
         feature_store.get_feature(feature_name, use_cache=True)  # warm cache
 
@@ -1308,12 +1340,14 @@ class TestParallelFeatureComputation:
     def test_updated_value_is_loaded_after_invalidation(self, feature_store, sample_values):
         """After write-invalidation the next get must return the updated values."""
         feature_name = "feat_updated"
+        feature_store.register_feature(name=feature_name, description="Updated", feature_type=FeatureType.NUMERIC)
         feature_store.store_feature(feature_name, sample_values)
         feature_store.get_feature(feature_name, use_cache=True)  # warm cache
 
         updated = sample_values.copy()
         updated["feature_value"] = [9.0, 8.0, 7.0]
         feature_store.store_feature(feature_name, updated)
+
 
         result = feature_store.get_feature(feature_name, use_cache=True)
         assert result is not None
