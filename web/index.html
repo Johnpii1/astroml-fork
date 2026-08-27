@@ -49,6 +49,41 @@
       @media (min-width: 641px) and (max-width: 1024px) {
         body { padding: 0 16px; }
       }
+      /* Respect the OS-level "reduce motion" preference: kill transitions,
+         animations, and smooth scrolling instead of forcing them on
+         everyone via the blanket `* { transition }` rule above. */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+      /* Visible keyboard-focus indicator, app-wide. Only shown for
+         keyboard/programmatic focus (:focus-visible), so mouse clicks
+         don't get an outline they didn't ask for. */
+      :focus-visible {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+      }
+      /* Skip link: off-screen until it receives keyboard focus. */
+      .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 8px;
+        z-index: 1000;
+        padding: 8px 16px;
+        background: var(--bg-card, #fff);
+        color: var(--text-primary, #1a202c);
+        border: 2px solid #3b82f6;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .skip-link:focus {
+        top: 8px;
+      }
     </style>
   </head>
   <body>

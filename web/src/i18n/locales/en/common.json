@@ -2,7 +2,8 @@
   "app": {
     "title": "Model Performance Monitoring",
     "loyalty": "Loyalty Dashboard",
-    "transactions": "Transaction History"
+    "transactions": "Transaction History",
+    "skipToContent": "Skip to main content"
   },
   "monitoring": {
     "title": "Model Performance Monitoring",
