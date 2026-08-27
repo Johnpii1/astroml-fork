@@ -11,6 +11,11 @@ __all__ = [
     "QualityContract",
     "SemanticContract",
     "ContractVerifier",
+    "DataFlowDiagram",
+    "ModelCard",
+    "ModelCardBuilder",
+    "PipelineDocGenerator",
+    "PipelineMetadata",
 ]
 
 _LAZY: dict[str, tuple[str, str]] = {
@@ -20,6 +25,11 @@ _LAZY: dict[str, tuple[str, str]] = {
     "QualityContract": ("astroml.pipeline.contracts.quality_contract", "QualityContract"),
     "SemanticContract": ("astroml.pipeline.contracts.semantic_contract", "SemanticContract"),
     "ContractVerifier": ("astroml.pipeline.contracts.verifier", "ContractVerifier"),
+    "DataFlowDiagram": ("astroml.pipeline.documentation.data_flow", "DataFlowDiagram"),
+    "ModelCard": ("astroml.pipeline.documentation.model_card", "ModelCard"),
+    "ModelCardBuilder": ("astroml.pipeline.documentation.model_card", "ModelCardBuilder"),
+    "PipelineDocGenerator": ("astroml.pipeline.documentation.generator", "PipelineDocGenerator"),
+    "PipelineMetadata": ("astroml.pipeline.documentation.generator", "PipelineMetadata"),
 }
 
 

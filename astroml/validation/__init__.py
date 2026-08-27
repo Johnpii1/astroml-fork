@@ -17,6 +17,7 @@ __all__ = [
     "data_quality",
     "dedupe",
     "fairness",
+    "great_expectations",
     "hashing",
     "integrity",
     "leakage",
