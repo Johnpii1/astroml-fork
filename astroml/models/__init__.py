@@ -1,6 +1,7 @@
 """Machine learning models for AstroML."""
 
 from .gcn import GCN
+from .graph_sage import AGGREGATIONS, GraphSAGE, SAGEAggregator
 from .link_prediction import GCNEncoder, LinkPredictor
 from .sage_encoder import InductiveSAGEEncoder
 from .temporal import (
@@ -27,6 +28,9 @@ except ImportError:
 
 __all__ = [
     'GCN',
+    'GraphSAGE',
+    'SAGEAggregator',
+    'AGGREGATIONS',
     'TemporalGCN',
     'TemporalGraphSAGE',
     'TemporalGAT',
