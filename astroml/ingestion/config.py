@@ -31,3 +31,6 @@ class StreamConfig:
     reconnect_base_seconds: float = DEFAULT_RECONNECT_BASE_SECONDS
     reconnect_max_seconds: float = DEFAULT_RECONNECT_MAX_SECONDS
     max_retries: int = DEFAULT_MAX_RETRIES
+    persist_chunk_size: int = field(
+        default_factory=lambda: int(os.environ.get("ASTROML_PERSIST_CHUNK_SIZE", "50"))
+    )

@@ -22,6 +22,7 @@ from aiohttp_sse_client import client as sse_client
 
 from astroml.db.schema import Ledger, Transaction
 from astroml.db.session import get_session
+from astroml.ingestion.batch import BatchBuffer
 from astroml.ingestion.config import StreamConfig
 from astroml.ingestion.normalizer import normalize_operation
 from astroml.ingestion.parsers import parse_ledger, parse_operation, parse_transaction
@@ -48,6 +49,7 @@ class HorizonStreamClient:
         self._running = False
         self._last_cursor: str | None = self._config.cursor or self._load_cursor()
         self._retry_count = 0
+        self._batch_buffer: BatchBuffer | None = None
 
     # -- Async context manager ------------------------------------------------
 
@@ -55,16 +57,33 @@ class HorizonStreamClient:
         self._session = aiohttp.ClientSession()
         self._running = True
         self._install_signal_handlers()
+        session = get_session()
+        self._batch_buffer = BatchBuffer(
+            session,
+            chunk_size=self._config.persist_chunk_size,
+            flush_on_exit=True,
+        )
         logger.info(
-            "HorizonStreamClient initialized | horizon=%s endpoint=%s cursor=%s",
+            "HorizonStreamClient initialized | horizon=%s endpoint=%s cursor=%s chunk_size=%d",
             self._config.horizon_url,
             self._config.stream_endpoint,
             self._last_cursor or "now",
+            self._config.persist_chunk_size,
         )
         return self
 
     async def __aexit__(self, exc_type, _exc_val, _exc_tb) -> None:
         self._running = False
+        if self._batch_buffer is not None:
+            try:
+                flushed = self._batch_buffer.total_flushed
+                self._batch_buffer.close()
+                logger.info("Batch buffer closed | total_flushed=%d flush_count=%d",
+                    flushed, self._batch_buffer.flush_count)
+            except Exception:
+                logger.exception("Error closing batch buffer")
+            finally:
+                self._batch_buffer = None
         if self._session:
             await self._session.close()
         logger.info("HorizonStreamClient shut down | last_cursor=%s", self._last_cursor)
@@ -216,34 +235,32 @@ class HorizonStreamClient:
             tx.hash[:12],
             tx.ledger_sequence,
         )
-        await asyncio.to_thread(self._db_write_transaction, tx)
-
-    @staticmethod
-    def _db_write_transaction(tx: Transaction) -> None:
-        """Synchronous DB write for a transaction (runs in thread executor)."""
-        session = get_session()
-        try:
-            existing_ledger = session.get(Ledger, tx.ledger_sequence)
+        if self._batch_buffer is not None:
+            existing_ledger = None
+            try:
+                session = self._batch_buffer._session
+                existing_ledger = session.get(Ledger, tx.ledger_sequence)
+            except Exception:
+                pass
             if existing_ledger is None:
                 ledger = Ledger(
                     sequence=tx.ledger_sequence,
                     hash="",
                     closed_at=tx.created_at,
                 )
-                session.merge(ledger)
-            session.merge(tx)
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                self._batch_buffer.add(ledger)
+            self._batch_buffer.add(tx)
+        else:
+            await asyncio.to_thread(self._db_write_transaction, tx)
 
     async def _persist_ledger(self, data: dict) -> None:
         """Persist a ledger."""
         ledger = parse_ledger(data)
         logger.info("Processing ledger %d", ledger.sequence)
-        await asyncio.to_thread(self._db_write_model, ledger)
+        if self._batch_buffer is not None:
+            self._batch_buffer.add(ledger)
+        else:
+            await asyncio.to_thread(self._db_write_model, ledger)
 
     async def _persist_operation(self, data: dict) -> None:
         """Persist an operation and its normalized form."""
@@ -251,7 +268,11 @@ class HorizonStreamClient:
         normalized = normalize_operation(data)
         logger.info("Processing operation %d (type=%s)", op.id, op.type)
 
-        await asyncio.to_thread(self._db_write_operation_and_normalized, op, normalized)
+        if self._batch_buffer is not None:
+            self._batch_buffer.add(op)
+            self._batch_buffer.add(normalized)
+        else:
+            await asyncio.to_thread(self._db_write_operation_and_normalized, op, normalized)
 
     @staticmethod
     def _db_write_operation_and_normalized(op, normalized) -> None:
