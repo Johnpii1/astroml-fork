@@ -20,6 +20,11 @@ class Edge:
     dst: str
     # Epoch seconds for efficient comparisons; can be any monotonic numeric timestamp
     timestamp: int
+    # Transferred value, when the caller has it. Optional and last so every
+    # existing positional Edge(src, dst, ts) construction keeps working; the
+    # snapshot statistics report (issue #740) uses it when present and simply
+    # reports an empty amount distribution when it is not.
+    amount: float | None = None
 
 
 def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> list[Edge]:
