@@ -39,6 +39,29 @@
       }
     ]
   },
+  "docker": {
+    "packageRules": [
+      {
+        "matchUpdateTypes": ["minor", "patch"],
+        "automerge": false,
+        "groupName": "docker base images"
+      },
+      {
+        "matchUpdateTypes": ["major"],
+        "automerge": false,
+        "groupName": "docker base images (major)",
+        "minimumReleaseAge": "14 days"
+      },
+      {
+        "matchPackagePatterns": ["^python:"],
+        "allowedVersions": "3.11.x"
+      },
+      {
+        "matchPackagePatterns": ["^nvidia/cuda:"],
+        "allowedVersions": "/^12\\./"
+      }
+    ]
+  },
   "vulnerabilityAlerts": {
     "labels": ["security"],
     "assignees": ["@maintainers"],

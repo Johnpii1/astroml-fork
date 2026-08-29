@@ -14,6 +14,7 @@ from astroml.db.models import (
     ProcessedLedger,
     Transaction,
 )
+from astroml.ingestion.batch import batch_upsert
 
 
 class LedgerRepository:
@@ -47,8 +48,17 @@ class LedgerRepository:
 
         return self._session.execute(select(func.count()).select_from(Ledger)).scalar_one()
 
-    def delete(self, ledger: Ledger) -> None:
-        self._session.delete(ledger)
+    def batch_save(self, ledgers: Sequence[Ledger], chunk_size: int = 100) -> int:
+        """Save multiple ledgers in chunked batches.
+
+        Args:
+            ledgers: Sequence of Ledger instances to save.
+            chunk_size: Maximum number of ledgers per commit.
+
+        Returns:
+            Total number of ledgers saved.
+        """
+        return batch_upsert(self._session, ledgers, chunk_size=chunk_size)
 
 
 class TransactionRepository:
@@ -91,6 +101,18 @@ class TransactionRepository:
             .where(Transaction.ledger_sequence == ledger_sequence)
         ).scalar_one()
 
+    def batch_save(self, transactions: Sequence[Transaction], chunk_size: int = 100) -> int:
+        """Save multiple transactions in chunked batches.
+
+        Args:
+            transactions: Sequence of Transaction instances to save.
+            chunk_size: Maximum number of transactions per commit.
+
+        Returns:
+            Total number of transactions saved.
+        """
+        return batch_upsert(self._session, transactions, chunk_size=chunk_size)
+
 
 class AccountRepository:
     def __init__(self, session: Session) -> None:
@@ -121,6 +143,55 @@ class AccountRepository:
             self._session.flush()
             return existing
         return self.save(account)
+
+    def batch_upsert(self, accounts: Sequence[Account], chunk_size: int = 100) -> int:
+        """Upsert multiple accounts in chunked batches.
+
+        Uses the same logic as :meth:`upsert` but commits in chunks
+        for better performance during bulk ingestion.
+
+        Args:
+            accounts: Sequence of Account instances to upsert.
+            chunk_size: Maximum number of accounts per commit.
+
+        Returns:
+            Total number of accounts upserted.
+        """
+        if not accounts:
+            return 0
+
+        account_ids = [a.account_id for a in accounts]
+        stmt = select(Account).where(Account.account_id.in_(account_ids))
+        existing = {a.account_id: a for a in self._session.execute(stmt).scalars().all()}
+
+        to_insert: list[Account] = []
+        for account in accounts:
+            if account.account_id in existing:
+                ex = existing[account.account_id]
+                ex.balance = account.balance
+                ex.sequence = account.sequence
+                ex.home_domain = account.home_domain
+                ex.flags = account.flags
+                ex.last_modified_ledger = account.last_modified_ledger
+                ex.updated_at = account.updated_at
+            else:
+                to_insert.append(account)
+
+        count = 0
+        for i in range(0, len(to_insert), chunk_size):
+            chunk = to_insert[i : i + chunk_size]
+            for acc in chunk:
+                self._session.add(acc)
+            self._session.flush()
+            self._session.commit()
+            count += len(chunk)
+
+        if existing:
+            self._session.flush()
+            self._session.commit()
+            count += len(existing)
+
+        return count
 
 
 class ProcessedLedgerRepository:
