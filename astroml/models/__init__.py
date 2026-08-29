@@ -14,6 +14,11 @@ from .temporal import (
     TemporalGraphTransformer,
     TemporalModelFactory,
 )
+from .tgn import (
+    MemoryState,
+    TemporalGraphNetwork,
+    TimeEncoder,
+)
 
 try:
     from .deep_svdd import DeepSVDD, DeepSVDDNetwork
@@ -34,6 +39,9 @@ __all__ = [
     'TemporalEncoding',
     'TemporalAttention',
     'TemporalModelFactory',
+    'TemporalGraphNetwork',
+    'TimeEncoder',
+    'MemoryState',
     'DeepSVDD',
     'DeepSVDDNetwork',
     'DeepSVDDTrainer',
