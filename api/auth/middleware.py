@@ -4,6 +4,9 @@ Enhanced with:
 - Rate limit headers (X-RateLimit-*) (issue #299)
 - Rate limit violation logging (issue #299)
 - Whitelist/Blacklist support (issue #299)
+- Brute-force protection with account lockout
+- Token fingerprinting for theft detection
+- JWT secret enforcement in production
 """
 
 from __future__ import annotations
@@ -18,15 +21,28 @@ from starlette.responses import JSONResponse, Response
 
 from api.auth.config import PUBLIC_PATHS, is_auth_enabled
 from api.auth.dependencies import authenticate_token
+from api.auth.hardening import (
+    _brute_force_protector,
+    compute_token_fingerprint,
+    enforce_jwt_secret,
+)
 from api.auth.rate_limit import rate_limiter
 from api.database import _sync_session_factory
 from astroml.utils.logging import sanitize_log_value
 
 logger = logging.getLogger(__name__)
 
+# Enforce JWT secret on module load (production safety check).
+# This fails fast at startup rather than at first request.
+enforce_jwt_secret()
+
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """Require JWT/API-key auth on protected routes and enforce rate limits."""
+    """Require JWT/API-key auth on protected routes and enforce rate limits.
+
+    Enhanced with brute-force protection: tracks failed auth attempts
+    per user identity and temporarily locks out after threshold.
+    """
 
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
@@ -39,19 +55,48 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=401, content={"detail": "Authentication required"})
 
         token = auth_header[7:]
+        client_ip = request.client.host if request.client else "unknown"
+
+        # Check brute-force lockout before attempting authentication
+        lock_key = f"{client_ip}:{token[:16]}"
+        is_locked, retry_after = _brute_force_protector.is_locked(lock_key)
+        if is_locked:
+            logger.warning(
+                "Brute-force lockout active: ip=%s path=%s retry_after=%ds",
+                sanitize_log_value(client_ip),
+                sanitize_log_value(path),
+                retry_after,
+            )
+            response = JSONResponse(
+                status_code=429,
+                content={
+                    "detail": "Too many failed authentication attempts. Please try again later.",
+                    "retry_after": retry_after,
+                },
+            )
+            response.headers["Retry-After"] = str(retry_after)
+            return response
+
         session = _sync_session_factory()()
         try:
             auth = authenticate_token(token, session)
         except Exception as e:
+            _brute_force_protector.record_failure(lock_key)
+            fingerprint = compute_token_fingerprint(token)
             logger.warning(
-                f"Authentication failed for {sanitize_log_value(str(request.client.host))}: {sanitize_log_value(str(e))}"
+                "Authentication failed for %s (fp=%s): %s",
+                sanitize_log_value(client_ip),
+                fingerprint,
+                sanitize_log_value(str(e)),
             )
             return JSONResponse(status_code=401, content={"detail": "Invalid or expired token"})
         finally:
             session.close()
 
+        # Clear brute-force counter on success
+        _brute_force_protector.record_success(lock_key)
+
         rate_key = f"{auth.auth_type}:{auth.subject}"
-        client_ip = request.client.host if request.client else "unknown"
         rate_path = path
 
         # Check rate limit
@@ -60,8 +105,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Log rate limit violations
         if not result.allowed:
             logger.warning(
-                f"Rate limit exceeded: {sanitize_log_value(rate_key)} | {sanitize_log_value(client_ip)} | {sanitize_log_value(path)} | "
-                f"retry_after={result.retry_after}s | limit={result.limit}"
+                "Rate limit exceeded: %s | %s | %s | "
+                "retry_after=%ss | limit=%s",
+                sanitize_log_value(rate_key),
+                sanitize_log_value(client_ip),
+                sanitize_log_value(path),
+                result.retry_after,
+                result.limit,
             )
 
         # Build response with rate limit headers

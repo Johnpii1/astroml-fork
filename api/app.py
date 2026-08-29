@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 
 from api.audit_middleware import AuditLoggingMiddleware
+from api.auth.hardening import PublicRateLimitMiddleware, SecurityHeadersMiddleware
 from api.auth.middleware import AuthMiddleware
 from api.config import settings
 from api.database import get_async_session_factory
@@ -249,6 +250,8 @@ app = FastAPI(
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(PublicRateLimitMiddleware, requests_per_minute=30, burst_size=10)
 app.add_middleware(VersionMiddleware)
 app.add_middleware(AuthMiddleware)
 app.add_middleware(ValidationMiddleware)
