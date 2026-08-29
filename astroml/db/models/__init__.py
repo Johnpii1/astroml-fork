@@ -281,6 +281,12 @@ class ModelVersion(Base):
         JSON().with_variant(JSONB(), "postgresql"))
     metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="training")
+    # Append-only record of serving transitions (activate / rollback), issue #718.
+    # The registry previously wrote these to ``version.metadata``, which is
+    # SQLAlchemy's reserved MetaData attribute and not a column — so the lineage
+    # it believed it was recording was silently discarded.
+    lineage: Mapped[Optional[dict]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"))
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=func.now(), onupdate=func.now())

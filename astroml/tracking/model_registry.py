@@ -478,22 +478,120 @@ class ModelRegistry:
         version_str = f"{major}.{minor}.{patch}"
         return self.get_model_version(model_id, version_str)
 
+    # ── Serving activation / rollback (issue #718) ──────────────────────────
+    #
+    # Both transitions go through _switch_serving_version, which performs the
+    # demote-and-promote as a single unit of work. The previous implementation
+    # committed twice — outgoing version first, incoming second — so a failure
+    # between them left the model with *no* deployed version at all. It also
+    # recorded lineage by assigning to ``version.metadata``, which is
+    # SQLAlchemy's reserved MetaData attribute rather than a column, so the
+    # transition record was silently discarded.
+
+    def _switch_serving_version(
+        self,
+        target: ModelVersion,
+        transition: str,
+        reason: str,
+        actor: str | None = None,
+    ) -> tuple[ModelVersion, ModelVersion | None]:
+        """Atomically make ``target`` the deployed version for its model.
+
+        Returns ``(target, previous)`` where ``previous`` is the version that was
+        serving beforehand, or ``None`` if there was none.
+        """
+        previous = self.get_latest_deployed_version(target.model_id)
+        if previous is not None and previous.id == target.id:
+            raise ValueError(f"Version '{target.version}' is already deployed")
+
+        now = datetime.now(timezone.utc)
+        record: dict[str, Any] = {
+            "transition": transition,
+            "at": now.isoformat(),
+            "reason": reason,
+            "actor": actor,
+            "from_version": previous.version if previous else None,
+            "to_version": target.version,
+        }
+
+        # One transaction: either serving moves to the new version and both
+        # lineage records land, or nothing changes at all.
+        try:
+            if previous is not None:
+                previous.status = "archived"
+                previous.lineage = _append_lineage(
+                    previous.lineage, {**record, "role": "superseded"}
+                )
+
+            target.status = "deployed"
+            target.deployed_at = now
+            target.lineage = _append_lineage(target.lineage, {**record, "role": "activated"})
+
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+
+        self.session.refresh(target)
+        if previous is not None:
+            self.session.refresh(previous)
+
+        logger.info(
+            "Serving switched to version %s for model %d (%s: %s)",
+            target.version,
+            target.model_id,
+            transition,
+            reason,
+        )
+        return target, previous
+
+    def activate(
+        self,
+        model_id: int,
+        version: str,
+        reason: str = "Activation requested",
+        actor: str | None = None,
+    ) -> tuple[ModelVersion, ModelVersion | None]:
+        """Make ``version`` the served version for ``model_id``.
+
+        Args:
+            model_id: Model ID.
+            version: Version string to activate.
+            reason: Why the switch is happening; recorded in lineage.
+            actor: Who requested it; recorded in lineage.
+
+        Returns:
+            Tuple of (activated_version, previously_deployed_version_or_None).
+
+        Raises:
+            ValueError: If the version does not exist, or is already deployed.
+        """
+        target = self.get_model_version(model_id, version)
+        if not target:
+            raise ValueError(f"Version '{version}' not found for model {model_id}")
+
+        return self._switch_serving_version(
+            target, transition="activate", reason=reason, actor=actor
+        )
+
     def rollback_to_version(
         self,
         model_id: int,
         target_version: str,
         reason: str = "Rollback requested",
-    ) -> tuple[ModelVersion, ModelVersion]:
+        actor: str | None = None,
+    ) -> tuple[ModelVersion, ModelVersion | None]:
         """
-        Rollback to a previous version.
+        Rollback serving to a previous version.
 
         Args:
             model_id: Model ID
             target_version: Version to rollback to
             reason: Reason for rollback
+            actor: Who requested the rollback; recorded in lineage
 
         Returns:
-            Tuple of (new_version, target_version)
+            Tuple of (target_version, previously_deployed_version_or_None)
 
         Raises:
             ValueError: If target version not found or is already deployed
@@ -505,39 +603,9 @@ class ModelRegistry:
         if target.status == "deployed":
             raise ValueError(f"Target version '{target_version}' is already deployed")
 
-        current = self.get_latest_deployed_version(model_id)
-
-        # Mark current as rollback
-        if current:
-            current.status = "rollback"
-            current.metadata = {
-                **(current.metadata or {}),
-                "rollback_reason": reason,
-                "rollback_target": target_version,
-                "rollback_at": datetime.now(timezone.utc).isoformat(),
-            }
-            self.session.commit()
-
-        # Deploy target
-        target.status = "deployed"
-        target.deployed_at = datetime.now(timezone.utc)
-        target.metadata = {
-            **(target.metadata or {}),
-            "deployment_type": "rollback",
-            "rollback_reason": reason,
-            "rollback_from": current.version if current else None,
-        }
-        self.session.commit()
-        self.session.refresh(target)
-
-        logger.info(
-            "Rolled back to version %s for model %d (reason: %s)",
-            target_version,
-            model_id,
-            reason,
+        return self._switch_serving_version(
+            target, transition="rollback", reason=reason, actor=actor
         )
-
-        return target, current
 
     def get_version_history(self, model_id: int, limit: int = 10) -> list[dict[str, Any]]:
         """Get version history with status transitions for a model."""
@@ -787,3 +855,15 @@ class ModelRegistry:
             return True
         except ValueError:
             return False
+
+
+def _append_lineage(existing: dict[str, Any] | None, entry: dict[str, Any]) -> dict[str, Any]:
+    """Append a transition to a version's lineage record.
+
+    A new dict is returned rather than mutating in place: SQLAlchemy only marks a
+    JSON column dirty on assignment, so mutating the existing dict would not be
+    persisted.
+    """
+    events = list((existing or {}).get("events", []))
+    events.append(entry)
+    return {**(existing or {}), "events": events, "latest": entry}

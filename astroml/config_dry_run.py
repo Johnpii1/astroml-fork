@@ -26,7 +26,11 @@ class ValidationResult:
     """Result of a configuration validation check."""
 
     name: str
-    valid: bool
+    # Defaults to False so a validator can construct its result first and set
+    # the verdict once its checks pass. Every validator in this module does
+    # exactly that — without a default they all raised TypeError on
+    # construction, which made the whole dry-run path unrunnable (#719).
+    valid: bool = False
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     details: dict[str, Any] = field(default_factory=dict)
