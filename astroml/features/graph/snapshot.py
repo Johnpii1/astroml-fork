@@ -20,6 +20,12 @@ class Edge:
     dst: str
     # Epoch seconds for efficient comparisons; can be any monotonic numeric timestamp
     timestamp: int
+    # Transferred value and the asset it moved in, when the caller has them.
+    # Both optional and last so every existing positional Edge(src, dst, ts)
+    # construction keeps working; the weighting (#731) and edge-type encoding
+    # (#733) layers use them when present and fall back cleanly when absent.
+    amount: float | None = None
+    asset: str | None = None
 
 
 def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> list[Edge]:

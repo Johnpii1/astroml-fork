@@ -330,51 +330,46 @@ class DeepSVDDTrainer:
         """
 
 
-try:
-    # Try to load from artifact store first if it looks like a relative path
-    if not checkpoint_path.startswith(('/', 's3://', 'gs://', 'http')):
         try:
-            checkpoint = self.artifact_store.load_checkpoint(
-                checkpoint_path,
-                device=self.device
-            )
-        except Exception:
-            # Fall through to local file loading
-            if not Path(checkpoint_path).exists():
-                raise FileNotFoundError(
-                    f"Checkpoint file not found: {checkpoint_path}\n"
-                    f"Please ensure the file exists and the path is correct."
+            # Try to load from artifact store first if it looks like a relative path
+            if not checkpoint_path.startswith(('/', 's3://', 'gs://', 'http')):
+                try:
+                    checkpoint = self.artifact_store.load_checkpoint(
+                        checkpoint_path,
+                        device=self.device
+                    )
+                except Exception:
+                    # Fall through to local file loading
+                    if not Path(checkpoint_path).exists():
+                        raise FileNotFoundError(
+                            f"Checkpoint file not found: {checkpoint_path}\n"
+                            f"Please ensure the file exists and the path is correct."
+                        )
+
+                    checkpoint = torch.load(
+                        checkpoint_path,
+                        map_location=self.device,
+                        weights_only=True
+                    )
+            else:
+                # Load from absolute path or remote URI
+                if not Path(checkpoint_path).exists():
+                    raise FileNotFoundError(
+                        f"Checkpoint file not found: {checkpoint_path}\n"
+                        f"Please ensure the file exists and the path is correct."
+                    )
+
+                checkpoint = torch.load(
+                    checkpoint_path,
+                    map_location=self.device,
+                    weights_only=True
                 )
 
-            checkpoint = torch.load(
-                checkpoint_path,
-                map_location=self.device,
-                weights_only=True
-            )
-    else:
-        # Load from absolute path or remote URI
-        if not Path(checkpoint_path).exists():
-            raise FileNotFoundError(
-                f"Checkpoint file not found: {checkpoint_path}\n"
-                f"Please ensure the file exists and the path is correct."
-            )
-
-        checkpoint = torch.load(
-            checkpoint_path,
-            map_location=self.device,
-            weights_only=True
-        )
-
-except FileNotFoundError:
-    raise
-except Exception as e:
-    raise RuntimeError(
-        f"Failed to load checkpoint '{checkpoint_path}': {str(e)}"
-    ) from e
-       except Exception as e:
+        except FileNotFoundError:
+            raise
+        except Exception as e:
             raise RuntimeError(
-                f"Failed to load checkpoint from {checkpoint_path}\n"
-                f"Error: {e}\n"
+                f"Failed to load checkpoint '{checkpoint_path}': {e}\n"
                 f"The file may be corrupted or incompatible with this PyTorch version."
             ) from e
 
