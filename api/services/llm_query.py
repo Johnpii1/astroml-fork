@@ -1,11 +1,19 @@
 import re
 
+
 class QueryTranslator:
     def __init__(self):
         self.sql_injection_patterns = [
-            r"(?i)\bDROP\b", r"(?i)\bDELETE\b", r"(?i)\bUPDATE\b",
-            r"(?i)\bINSERT\b", r"(?i)\bALTER\b", r"(?i)\bTRUNCATE\b",
-            r"(?i)\bEXEC\b", r"(?i)\bUNION\b", r"--", r";"
+            r"(?i)\bDROP\b",
+            r"(?i)\bDELETE\b",
+            r"(?i)\bUPDATE\b",
+            r"(?i)\bINSERT\b",
+            r"(?i)\bALTER\b",
+            r"(?i)\bTRUNCATE\b",
+            r"(?i)\bEXEC\b",
+            r"(?i)\bUNION\b",
+            r"--",
+            r";",
         ]
 
     def _is_safe(self, query: str) -> bool:
@@ -22,7 +30,7 @@ class QueryTranslator:
         """
         if not self._is_safe(nl_query):
             raise ValueError("Potential SQL injection detected.")
-            
+
         # Intent recognition & entity extraction (mocked)
         nl_lower = nl_query.lower()
         if "fraud" in nl_lower:
@@ -32,5 +40,5 @@ class QueryTranslator:
             match = re.search(r"amount greater than (\d+)", nl_lower)
             amount = match.group(1) if match else "1000"
             return f"SELECT * FROM transactions WHERE amount > {amount};"
-            
+
         return "SELECT * FROM transactions LIMIT 50;"

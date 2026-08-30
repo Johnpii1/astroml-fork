@@ -1,4 +1,5 @@
 """Application configuration loaded from environment variables / .env file."""
+
 from __future__ import annotations
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,7 +18,24 @@ class Settings(BaseSettings):
     api_version: str = "1.0.0"
 
     # CORS — allow Vite dev server by default
+    # In production, set CORS_ORIGINS environment variable to comma-separated list
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+
+    # Content Security Policy
+    csp_report_only: bool = True  # Use report-only mode in development
+    csp_report_uri: str | None = None  # URI to send CSP violation reports
+    csp_enable_nonce: bool = True  # Generate nonce for script-src
+
+    # HTTPS Enforcement
+    https_enabled: bool = False  # Enable HTTPS redirects (production only)
+    https_allowed_hosts: list[str] = []  # Allowed hostnames for HTTPS
+    hsts_enabled: bool = False  # Enable HSTS headers (production only)
+    hsts_max_age: int = 31536000  # HSTS max-age in seconds (1 year)
+    hsts_include_subdomains: bool = True  # Apply HSTS to subdomains
+    hsts_preload: bool = False  # Include in browser preload list
+    secure_proxy_ssl_header: tuple[str, str] | None = (
+        None  # For load balancers: ("X-Forwarded-Proto", "https")
+    )
 
     # Auth
     secret_key: str = "change-me-in-production"
@@ -52,6 +70,10 @@ class Settings(BaseSettings):
     # When both are set, new feedback opens a GitHub issue in this repo.
     github_token: str = ""
     github_repo: str = ""  # "owner/repo"
+
+    # LLM Settings (issue #440)
+    llm_provider: str = "openai"
+    llm_encryption_key: str = "change-me-in-production-llm-key-32b"
 
 
 settings = Settings()

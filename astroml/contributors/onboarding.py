@@ -8,23 +8,23 @@ Tracks a new contributor's progress through the onboarding steps:
 
 Progress is stored per GitHub username and persisted to a JSON file.
 """
+
 from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
 
-ONBOARDING_STEPS: List[str] = [
+ONBOARDING_STEPS: list[str] = [
     "fork_repo",
     "setup_dev_environment",
     "run_tests",
     "first_pr",
 ]
 
-STEP_LABELS: Dict[str, str] = {
+STEP_LABELS: dict[str, str] = {
     "fork_repo": "Fork the repository",
     "setup_dev_environment": "Set up dev environment",
     "run_tests": "Run the test suite",
@@ -37,7 +37,7 @@ _DEFAULT_STORE = Path(os.environ.get("ONBOARDING_STORE", "data/onboarding_progre
 @dataclass
 class OnboardingProgress:
     github_username: str
-    completed_steps: List[str] = field(default_factory=list)
+    completed_steps: list[str] = field(default_factory=list)
     started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     last_updated: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -55,11 +55,11 @@ class OnboardingProgress:
     def is_complete(self) -> bool:
         return set(ONBOARDING_STEPS).issubset(set(self.completed_steps))
 
-    def remaining_steps(self) -> List[str]:
+    def remaining_steps(self) -> list[str]:
         done = set(self.completed_steps)
         return [s for s in ONBOARDING_STEPS if s not in done]
 
-    def checklist(self) -> List[Dict[str, object]]:
+    def checklist(self) -> list[dict[str, object]]:
         done = set(self.completed_steps)
         return [
             {"step": step, "label": STEP_LABELS[step], "completed": step in done}
@@ -73,7 +73,7 @@ class OnboardingTracker:
     def __init__(self, store_path: Path = _DEFAULT_STORE) -> None:
         self._path = store_path
 
-    def _load(self) -> Dict[str, dict]:
+    def _load(self) -> dict[str, dict]:
         if not self._path.exists():
             return {}
         try:
@@ -81,7 +81,7 @@ class OnboardingTracker:
         except (json.JSONDecodeError, OSError):
             return {}
 
-    def _save(self, data: Dict[str, dict]) -> None:
+    def _save(self, data: dict[str, dict]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(json.dumps(data, indent=2))
 
@@ -117,7 +117,7 @@ class OnboardingTracker:
         self._save(data)
         return OnboardingProgress(github_username=github_username)
 
-    def all_progress(self) -> List[OnboardingProgress]:
+    def all_progress(self) -> list[OnboardingProgress]:
         data = self._load()
         return [
             OnboardingProgress(

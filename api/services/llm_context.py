@@ -1,5 +1,6 @@
 import json
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
 
 class MultiModalContextHandler:
     def __init__(self):
@@ -20,13 +21,13 @@ class MultiModalContextHandler:
             # Keep only first 2 targets to save tokens
             if len(graph_summary[src]["targets"]) < 2:
                 graph_summary[src]["targets"].add(edge.get("target"))
-        
+
         # Convert to a highly compressed string
         compressed_parts = []
         for src, data in graph_summary.items():
             targets_str = ",".join(str(t) for t in data["targets"])
             compressed_parts.append(f"{src}(d:{data['degree']}->{targets_str})")
-            
+
         summary_str = ";".join(compressed_parts)
         # Force it under ~500 tokens (approx 2000 chars)
         return summary_str[:2000]
@@ -40,7 +41,7 @@ class MultiModalContextHandler:
             return "No data"
         trend = "increasing" if data_points[-1] > data_points[0] else "decreasing"
         # Mock correlation metric
-        correlation = 0.88 
+        correlation = 0.88
         return f"Trend is {trend} with correlation {correlation:.2f}"
 
     def generate_mermaid_diagram(self, nodes: List[str], edges: List[Dict[str, str]]) -> str:

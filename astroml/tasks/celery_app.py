@@ -4,6 +4,7 @@ Broker and result backend are driven by environment variables so the same
 image can be used in Docker Compose (redis service) and in local dev
 (localhost:6379).
 """
+
 from __future__ import annotations
 
 import os

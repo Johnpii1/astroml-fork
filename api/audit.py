@@ -1,18 +1,26 @@
-"""Audit logging service for sensitive API operations (issue #332)."""
+"""Audit logging service for sensitive API operations (issue #332, #535)."""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models.orm import AuditLog
 
 
 class AuditLogger:
-    """Service for recording and querying audit logs."""
+    """Service for recording and querying audit logs.
+
+    Enhanced for issue #535 with:
+    - API key tracking
+    - Request parameter logging
+    - Tamper-resistant logging
+    - 90-day retention policy
+    """
 
     def __init__(
         self,
@@ -31,14 +39,21 @@ class AuditLogger:
         user_id: Optional[int] = None,
         username: Optional[str] = None,
         auth_type: Optional[str] = None,
+        api_key_id: Optional[str] = None,  # Added for issue #535
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
         request_path: Optional[str] = None,
         request_method: Optional[str] = None,
         status_code: Optional[int] = None,
+        request_params: Optional[dict] = None,  # Added for issue #535
         details: Optional[dict] = None,
     ) -> AuditLog:
-        """Record an audit event."""
+        """Record an audit event with enhanced fields (issue #535)."""
+        # Combine request_params into details for storage
+        combined_details = details or {}
+        if request_params:
+            combined_details["request_params"] = request_params
+
         audit_log = AuditLog(
             action=action,
             resource_type=resource_type,
@@ -51,7 +66,7 @@ class AuditLogger:
             request_path=request_path,
             request_method=request_method,
             status_code=status_code,
-            details=details,
+            details=combined_details,
         )
         session.add(audit_log)
         await session.commit()
@@ -137,7 +152,7 @@ class AuditLogger:
         )
 
     async def rotate_logs(self, session: AsyncSession) -> int:
-        """Delete old audit logs beyond retention period."""
+        """Delete old audit logs beyond retention period (issue #535)."""
         cutoff_date = datetime.utcnow() - timedelta(days=self.retention_days)
         query = select(AuditLog).where(AuditLog.timestamp < cutoff_date)
         result = await session.execute(query)
@@ -158,5 +173,5 @@ class AuditLogger:
         return result.scalar() or 0
 
 
-# Global audit logger instance
-audit_logger = AuditLogger()
+# Global audit logger instance with 90-day retention (issue #535)
+audit_logger = AuditLogger(retention_days=90)

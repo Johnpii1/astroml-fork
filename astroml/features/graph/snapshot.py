@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import bisect
+from collections.abc import Generator, Iterator, Sequence
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Generator, Iterable, Iterator, List, Optional, Sequence, Set, Tuple
-import bisect
-from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+
 from ...cache import cached_graph_snapshot
-
-
 
 # Issue #199 — default chunk size for the streaming graph builder. SQLAlchemy
 # fetches rows from the DB in batches of this many; the iterator yields each
@@ -23,7 +22,8 @@ class Edge:
     timestamp: int
 
 
-def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> List[Edge]:
+
+def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> list[Edge]:
     if len(edges) <= 1:
         return list(edges)
     # Fast path: check if already non-decreasing by timestamp
@@ -32,13 +32,14 @@ def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> List[Edge]:
         return list(edges)
     return sorted(edges, key=lambda e: e.timestamp)
 
+
 @cached_graph_snapshot(ttl_seconds=1800)
 def window_snapshot(
     edges: Sequence[Edge],
     start_ts: int,
     end_ts: int,
     presorted: bool = True,
-) -> Tuple[Set[str], List[Edge]]:
+) -> tuple[set[str], list[Edge]]:
     """Return induced subgraph (nodes, edges) within [start_ts, end_ts] inclusive.
 
     - edges: sequence of Edge
@@ -51,7 +52,14 @@ def window_snapshot(
     if start_ts > end_ts:
         raise ValueError("start_ts must be <= end_ts")
 
-    sorted_edges = list(edges) if presorted else _ensure_sorted_by_ts(edges)
+    # Issue #546 — skip the defensive copy when the caller already handed us
+    # a list; `list(edges)` on an already-materialised list still allocates
+    # a full second copy, which is pure overhead at graph sizes where memory
+    # is the concern in the first place.
+    if presorted:
+        sorted_edges = edges if isinstance(edges, list) else list(edges)
+    else:
+        sorted_edges = _ensure_sorted_by_ts(edges)
 
     # Build an array of timestamps for bisect, referencing the same order.
     ts = [e.timestamp for e in sorted_edges]
@@ -66,12 +74,13 @@ def window_snapshot(
 
     window_edges = sorted_edges[left:right_exclusive]
 
-    nodes: Set[str] = set()
+    nodes: set[str] = set()
     for e in window_edges:
         nodes.add(e.src)
         nodes.add(e.dst)
 
     return nodes, window_edges
+
 
 @cached_graph_snapshot(ttl_seconds=1800)
 def snapshot_last_n_days(
@@ -79,7 +88,7 @@ def snapshot_last_n_days(
     now_ts: int,
     days: int = 30,
     presorted: bool = True,
-) -> Tuple[Set[str], List[Edge]]:
+) -> tuple[set[str], list[Edge]]:
     """Convenience wrapper to extract last N days window inclusive of now_ts.
 
     - days: configurable window size in days (>=1)
@@ -103,14 +112,16 @@ def snapshot_last_n_days(
 # DB-backed time-windowed snapshot slicer
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class SnapshotWindow:
     """A discrete time window slice ready for training."""
-    index: int          # 0-based window index (t_0, t_1, …, t_now)
+
+    index: int  # 0-based window index (t_0, t_1, …, t_now)
     start: datetime
     end: datetime
-    edges: List[Edge]
-    nodes: Set[str]
+    edges: list[Edge]
+    nodes: set[str]
 
 
 def _parse_window_size(window: str) -> timedelta:
@@ -143,12 +154,12 @@ class SnapshotMeta:
 
 def iter_db_snapshot_edges(
     window: str = "7d",
-    t0: Optional[datetime] = None,
-    t_now: Optional[datetime] = None,
-    step: Optional[str] = None,
+    t0: datetime | None = None,
+    t_now: datetime | None = None,
+    step: str | None = None,
     session=None,
     chunk_size: int = DEFAULT_STREAM_CHUNK_SIZE,
-) -> Generator[Tuple["SnapshotMeta", Iterator["Edge"]], None, None]:
+) -> Generator[tuple[SnapshotMeta, Iterator[Edge]], None, None]:
     """Streaming variant of :func:`iter_db_snapshots` — issue #199.
 
     Each yielded ``(meta, edges)`` pair gives the window bounds plus a
@@ -166,11 +177,14 @@ def iter_db_snapshot_edges(
     Use this in place of :func:`iter_db_snapshots` whenever a window may
     plausibly contain enough edges to risk OOM on the training machine.
     """
+    from sqlalchemy import func as sqlfunc
+    from sqlalchemy import select
+
     from astroml.db.schema import NormalizedTransaction
-    from sqlalchemy import func as sqlfunc, select
 
     if session is None:
         from astroml.db.session import get_session
+
         session = get_session()
 
     win_delta = _parse_window_size(window)
@@ -180,9 +194,7 @@ def iter_db_snapshot_edges(
         t_now = datetime.now(timezone.utc)
 
     if t0 is None:
-        result = session.execute(
-            select(sqlfunc.min(NormalizedTransaction.timestamp))
-        ).scalar()
+        result = session.execute(select(sqlfunc.min(NormalizedTransaction.timestamp))).scalar()
         if result is None:
             return  # empty DB
         t0 = result if result.tzinfo else result.replace(tzinfo=timezone.utc)
@@ -238,9 +250,10 @@ def _build_snapshot_window(
     chunk_size: int,
 ) -> SnapshotWindow:
     """Build a single snapshot window from the database."""
+    from sqlalchemy import select
+
     from astroml.db.schema import NormalizedTransaction
     from astroml.db.session import get_session
-    from sqlalchemy import select
 
     session = get_session()
     try:
@@ -259,8 +272,8 @@ def _build_snapshot_window(
             .order_by(NormalizedTransaction.timestamp)
         )
 
-        edges: List[Edge] = []
-        nodes: Set[str] = set()
+        edges: list[Edge] = []
+        nodes: set[str] = set()
 
         for row in result.yield_per(chunk_size):
             edge = Edge(
@@ -271,6 +284,11 @@ def _build_snapshot_window(
             edges.append(edge)
             nodes.add(edge.src)
             nodes.add(edge.dst)
+
+        # Issue #546 — drop the SQLAlchemy result/cursor buffers before
+        # allocating the returned SnapshotWindow so the two aren't briefly
+        # alive together at peak.
+        del result
 
         return SnapshotWindow(
             index=index,
@@ -285,9 +303,9 @@ def _build_snapshot_window(
 
 def iter_db_snapshots(
     window: str = "7d",
-    t0: Optional[datetime] = None,
-    t_now: Optional[datetime] = None,
-    step: Optional[str] = None,
+    t0: datetime | None = None,
+    t_now: datetime | None = None,
+    step: str | None = None,
     session=None,
     chunk_size: int = 100_000,
     workers: int = 1,
@@ -313,12 +331,15 @@ def iter_db_snapshots(
     Yields:
         :class:`SnapshotWindow` instances in chronological order.
     """
+    from sqlalchemy import func as sqlfunc
+    from sqlalchemy import select
+
     from astroml.db.schema import NormalizedTransaction
-    from sqlalchemy import select, func as sqlfunc
 
     session_provided = session is not None
     if session is None:
         from astroml.db.session import get_session
+
         session = get_session()
 
     win_delta = _parse_window_size(window)
@@ -331,9 +352,7 @@ def iter_db_snapshots(
         t_now = datetime.now(timezone.utc)
 
     if t0 is None:
-        result = session.execute(
-            select(sqlfunc.min(NormalizedTransaction.timestamp))
-        ).scalar()
+        result = session.execute(select(sqlfunc.min(NormalizedTransaction.timestamp))).scalar()
         if result is None:
             session.close()
             return  # empty DB
@@ -350,8 +369,8 @@ def iter_db_snapshots(
     if workers > 1 and not session_provided:
         session.close()
 
-        pending_windows: Dict[int, SnapshotWindow] = {}
-        futures: Dict[int, "Future[SnapshotWindow]"] = {}
+        pending_windows: dict[int, SnapshotWindow] = {}
+        futures: dict[int, Future[SnapshotWindow]] = {}
         next_index_to_yield = 0
 
         with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -376,9 +395,7 @@ def iter_db_snapshots(
                 for future in done:
                     result_window = future.result()
                     pending_windows[result_window.index] = result_window
-                    future_index = next(
-                        idx for idx, fut in futures.items() if fut is future
-                    )
+                    future_index = next(idx for idx, fut in futures.items() if fut is future)
                     del futures[future_index]
 
                 while next_index_to_yield in pending_windows:
@@ -395,16 +412,18 @@ def iter_db_snapshots(
                 NormalizedTransaction.sender,
                 NormalizedTransaction.receiver,
                 NormalizedTransaction.timestamp,
-            ).where(
+            )
+            .where(
                 NormalizedTransaction.timestamp >= window_start,
                 NormalizedTransaction.timestamp <= window_end,
                 NormalizedTransaction.receiver.isnot(None),
                 NormalizedTransaction.sender != NormalizedTransaction.receiver,
-            ).order_by(NormalizedTransaction.timestamp)
+            )
+            .order_by(NormalizedTransaction.timestamp)
         )
 
-        edges: List[Edge] = []
-        nodes: Set[str] = set()
+        edges: list[Edge] = []
+        nodes: set[str] = set()
 
         # Stream rows in chunks to keep the working set bounded even for long
         # windows. This avoids pulling the full result set into memory at once.
@@ -417,6 +436,8 @@ def iter_db_snapshots(
             edges.append(edge)
             nodes.add(edge.src)
             nodes.add(edge.dst)
+
+        del result  # Issue #546 — drop cursor buffers before the next window.
 
         yield SnapshotWindow(
             index=index,

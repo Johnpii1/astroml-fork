@@ -1,18 +1,24 @@
 """Machine learning models for AstroML."""
 
 from .gcn import GCN
+from .graph_sage import AGGREGATIONS, GraphSAGE, SAGEAggregator
+from .link_prediction import GCNEncoder, LinkPredictor
+from .sage_encoder import InductiveSAGEEncoder
 from .temporal import (
-    TemporalGCN,
-    TemporalGraphSAGE,
-    TemporalGAT,
-    TemporalGraphTransformer,
+    TemporalAttention,
     TemporalEdgeConv,
     TemporalEncoding,
-    TemporalAttention,
+    TemporalGAT,
+    TemporalGCN,
+    TemporalGraphSAGE,
+    TemporalGraphTransformer,
     TemporalModelFactory,
 )
-from .sage_encoder import InductiveSAGEEncoder
-from .link_prediction import LinkPredictor, GCNEncoder
+from .tgn import (
+    MemoryState,
+    TemporalGraphNetwork,
+    TimeEncoder,
+)
 
 try:
     from .deep_svdd import DeepSVDD, DeepSVDDNetwork
@@ -22,6 +28,9 @@ except ImportError:
 
 __all__ = [
     'GCN',
+    'GraphSAGE',
+    'SAGEAggregator',
+    'AGGREGATIONS',
     'TemporalGCN',
     'TemporalGraphSAGE',
     'TemporalGAT',
@@ -30,6 +39,9 @@ __all__ = [
     'TemporalEncoding',
     'TemporalAttention',
     'TemporalModelFactory',
+    'TemporalGraphNetwork',
+    'TimeEncoder',
+    'MemoryState',
     'DeepSVDD',
     'DeepSVDDNetwork',
     'DeepSVDDTrainer',

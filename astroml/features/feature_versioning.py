@@ -10,22 +10,20 @@ import hashlib
 import json
 import logging
 import sqlite3
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Set, Tuple
-from enum import Enum
 import uuid
 from contextlib import contextmanager
-
-import pandas as pd
-import numpy as np
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class VersionStatus(Enum):
     """Feature version status."""
+
     DRAFT = "draft"
     PENDING = "pending"
     APPROVED = "approved"
@@ -36,6 +34,7 @@ class VersionStatus(Enum):
 
 class ChangeType(Enum):
     """Types of changes in version history."""
+
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
@@ -48,7 +47,7 @@ class ChangeType(Enum):
 @dataclass
 class FeatureVersion:
     """Version information for a feature.
-    
+
     Attributes:
         version_id: Unique version identifier
         feature_name: Feature name
@@ -65,7 +64,7 @@ class FeatureVersion:
         deployed_at: Deployment time
         metadata: Additional metadata
     """
-    
+
     version_id: str
     feature_name: str
     version: int
@@ -76,12 +75,12 @@ class FeatureVersion:
     data_hash: str
     created_at: datetime = field(default_factory=datetime.utcnow)
     created_by: str = ""
-    approved_at: Optional[datetime] = None
-    approved_by: Optional[str] = None
-    deployed_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    approved_at: datetime | None = None
+    approved_by: str | None = None
+    deployed_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         data = asdict(self)
         data["status"] = self.status.value
@@ -91,9 +90,9 @@ class FeatureVersion:
         if self.deployed_at:
             data["deployed_at"] = self.deployed_at.isoformat()
         return data
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FeatureVersion:
+    def from_dict(cls, data: dict[str, Any]) -> FeatureVersion:
         """Create from dictionary."""
         data = data.copy()
         data["status"] = VersionStatus(data["status"])
@@ -108,7 +107,7 @@ class FeatureVersion:
 @dataclass
 class ChangeRecord:
     """Record of a change in version history.
-    
+
     Attributes:
         change_id: Unique change identifier
         version_id: Version ID
@@ -120,26 +119,26 @@ class ChangeRecord:
         changed_by: Who made the change
         metadata: Additional metadata
     """
-    
+
     change_id: str
     version_id: str
     change_type: ChangeType
     description: str
-    old_value: Optional[Any] = None
-    new_value: Optional[Any] = None
+    old_value: Any | None = None
+    new_value: Any | None = None
     changed_at: datetime = field(default_factory=datetime.utcnow)
     changed_by: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         data = asdict(self)
         data["change_type"] = self.change_type.value
         data["changed_at"] = self.changed_at.isoformat()
         return data
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ChangeRecord:
+    def from_dict(cls, data: dict[str, Any]) -> ChangeRecord:
         """Create from dictionary."""
         data = data.copy()
         data["change_type"] = ChangeType(data["change_type"])
@@ -150,7 +149,7 @@ class ChangeRecord:
 @dataclass
 class FeatureLineage:
     """Lineage information for a feature.
-    
+
     Attributes:
         lineage_id: Unique lineage identifier
         feature_name: Feature name
@@ -162,26 +161,26 @@ class FeatureLineage:
         updated_at: Last update time
         metadata: Additional metadata
     """
-    
+
     lineage_id: str
     feature_name: str
-    upstream_features: List[str]
-    downstream_features: List[str]
-    data_sources: List[str]
-    transformation_steps: List[Dict[str, Any]]
+    upstream_features: list[str]
+    downstream_features: list[str]
+    data_sources: list[str]
+    transformation_steps: list[dict[str, Any]]
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         data = asdict(self)
         data["created_at"] = self.created_at.isoformat()
         data["updated_at"] = self.updated_at.isoformat()
         return data
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> FeatureLineage:
+    def from_dict(cls, data: dict[str, Any]) -> FeatureLineage:
         """Create from dictionary."""
         data = data.copy()
         data["created_at"] = datetime.fromisoformat(data["created_at"])
@@ -191,20 +190,20 @@ class FeatureLineage:
 
 class FeatureVersionManager:
     """Manages feature versioning and metadata."""
-    
-    def __init__(self, storage_path: Union[str, Path]):
+
+    def __init__(self, storage_path: str | Path):
         """Initialize version manager.
-        
+
         Args:
             storage_path: Path to version storage
         """
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize database
         self.db_path = self.storage_path / "feature_versions.db"
         self._init_database()
-    
+
     def _init_database(self) -> None:
         """Initialize version database."""
         with sqlite3.connect(self.db_path) as conn:
@@ -264,19 +263,19 @@ class FeatureVersionManager:
                 CREATE INDEX IF NOT EXISTS idx_feature_lineage_name 
                     ON feature_lineage(feature_name);
             """)
-    
+
     def create_version(
         self,
         feature_name: str,
         code: str,
-        parameters: Dict[str, Any],
-        data_schema: Dict[str, Any],
+        parameters: dict[str, Any],
+        data_schema: dict[str, Any],
         description: str = "",
         created_by: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> FeatureVersion:
         """Create a new feature version.
-        
+
         Args:
             feature_name: Feature name
             code: Feature computation code
@@ -285,19 +284,19 @@ class FeatureVersionManager:
             description: Version description
             created_by: Creator
             metadata: Additional metadata
-            
+
         Returns:
             Created feature version
         """
         # Get next version number
         latest_version = self.get_latest_version(feature_name)
         next_version = (latest_version.version if latest_version else 0) + 1
-        
+
         # Generate hashes
         code_hash = self._compute_hash(code)
         parameters_hash = self._compute_hash(parameters)
         data_hash = self._compute_hash(data_schema)
-        
+
         # Create version
         version = FeatureVersion(
             version_id=str(uuid.uuid4()),
@@ -311,10 +310,10 @@ class FeatureVersionManager:
             created_by=created_by,
             metadata=metadata or {},
         )
-        
+
         # Store version
         self._store_version(version)
-        
+
         # Record creation change
         self._record_change(
             version_id=version.version_id,
@@ -322,16 +321,16 @@ class FeatureVersionManager:
             description=f"Created version {next_version} of {feature_name}",
             changed_by=created_by,
         )
-        
+
         logger.info(f"Created version {next_version} for feature {feature_name}")
         return version
-    
-    def get_latest_version(self, feature_name: str) -> Optional[FeatureVersion]:
+
+    def get_latest_version(self, feature_name: str) -> FeatureVersion | None:
         """Get latest version of a feature.
-        
+
         Args:
             feature_name: Feature name
-            
+
         Returns:
             Latest version if found
         """
@@ -343,21 +342,21 @@ class FeatureVersionManager:
                 ORDER BY version DESC 
                 LIMIT 1
                 """,
-                (feature_name,)
+                (feature_name,),
             )
             row = cursor.fetchone()
-            
+
             if row:
                 return self._row_to_version(row)
             return None
-    
-    def get_version(self, feature_name: str, version: int) -> Optional[FeatureVersion]:
+
+    def get_version(self, feature_name: str, version: int) -> FeatureVersion | None:
         """Get specific version of a feature.
-        
+
         Args:
             feature_name: Feature name
             version: Version number
-            
+
         Returns:
             Feature version if found
         """
@@ -367,53 +366,53 @@ class FeatureVersionManager:
                 SELECT * FROM feature_versions 
                 WHERE feature_name = ? AND version = ?
                 """,
-                (feature_name, version)
+                (feature_name, version),
             )
             row = cursor.fetchone()
-            
+
             if row:
                 return self._row_to_version(row)
             return None
-    
+
     def list_versions(
         self,
-        feature_name: Optional[str] = None,
-        status: Optional[VersionStatus] = None,
-        limit: Optional[int] = None,
-    ) -> List[FeatureVersion]:
+        feature_name: str | None = None,
+        status: VersionStatus | None = None,
+        limit: int | None = None,
+    ) -> list[FeatureVersion]:
         """List feature versions.
-        
+
         Args:
             feature_name: Filter by feature name
             status: Filter by status
             limit: Limit number of results
-            
+
         Returns:
             List of feature versions
         """
         query = "SELECT * FROM feature_versions WHERE 1=1"
         params = []
-        
+
         if feature_name:
             query += " AND feature_name = ?"
             params.append(feature_name)
-        
+
         if status:
             query += " AND status = ?"
             params.append(status.value)
-        
+
         query += " ORDER BY feature_name, version DESC"
-        
+
         if limit:
             query += " LIMIT ?"
             params.append(limit)
-        
+
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
-            
+
             return [self._row_to_version(row) for row in rows]
-    
+
     def update_version_status(
         self,
         version_id: str,
@@ -421,12 +420,12 @@ class FeatureVersionManager:
         updated_by: str = "",
     ) -> bool:
         """Update version status.
-        
+
         Args:
             version_id: Version ID
             status: New status
             updated_by: Who made the update
-            
+
         Returns:
             True if updated successfully
         """
@@ -435,9 +434,9 @@ class FeatureVersionManager:
             version = self._get_version_by_id(version_id)
             if not version:
                 return False
-            
+
             old_status = version.status
-            
+
             # Update status
             updates = {"status": status.value}
             if status == VersionStatus.APPROVED:
@@ -445,15 +444,12 @@ class FeatureVersionManager:
                 updates["approved_by"] = updated_by
             elif status == VersionStatus.DEPLOYED:
                 updates["deployed_at"] = datetime.utcnow().isoformat()
-            
-            set_clause = ", ".join(f"{k} = ?" for k in updates.keys())
+
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
             params = list(updates.values()) + [version_id]
-            
-            conn.execute(
-                f"UPDATE feature_versions SET {set_clause} WHERE version_id = ?",
-                params
-            )
-            
+
+            conn.execute(f"UPDATE feature_versions SET {set_clause} WHERE version_id = ?", params)
+
             # Record change
             self._record_change(
                 version_id=version_id,
@@ -463,17 +459,17 @@ class FeatureVersionManager:
                 new_value=status.value,
                 changed_by=updated_by,
             )
-            
+
             logger.info(f"Updated version {version_id} status to {status.value}")
             return True
-    
+
     def delete_version(self, version_id: str, deleted_by: str = "") -> bool:
         """Delete a feature version.
-        
+
         Args:
             version_id: Version ID
             deleted_by: Who deleted the version
-            
+
         Returns:
             True if deleted successfully
         """
@@ -482,10 +478,10 @@ class FeatureVersionManager:
             version = self._get_version_by_id(version_id)
             if not version:
                 return False
-            
+
             # Delete version
             conn.execute("DELETE FROM feature_versions WHERE version_id = ?", (version_id,))
-            
+
             # Record change
             self._record_change(
                 version_id=version_id,
@@ -493,25 +489,25 @@ class FeatureVersionManager:
                 description=f"Deleted version {version.version} of {version.feature_name}",
                 changed_by=deleted_by,
             )
-            
+
             logger.info(f"Deleted version {version_id}")
             return True
-    
+
     def get_change_history(
         self,
-        feature_name: Optional[str] = None,
-        version_id: Optional[str] = None,
-        change_type: Optional[ChangeType] = None,
-        limit: Optional[int] = None,
-    ) -> List[ChangeRecord]:
+        feature_name: str | None = None,
+        version_id: str | None = None,
+        change_type: ChangeType | None = None,
+        limit: int | None = None,
+    ) -> list[ChangeRecord]:
         """Get change history.
-        
+
         Args:
             feature_name: Filter by feature name
             version_id: Filter by version ID
             change_type: Filter by change type
             limit: Limit number of results
-            
+
         Returns:
             List of change records
         """
@@ -521,42 +517,42 @@ class FeatureVersionManager:
             WHERE 1=1
         """
         params = []
-        
+
         if feature_name:
             query += " AND fv.feature_name = ?"
             params.append(feature_name)
-        
+
         if version_id:
             query += " AND cr.version_id = ?"
             params.append(version_id)
-        
+
         if change_type:
             query += " AND cr.change_type = ?"
             params.append(change_type.value)
-        
+
         query += " ORDER BY cr.changed_at DESC"
-        
+
         if limit:
             query += " LIMIT ?"
             params.append(limit)
-        
+
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
-            
+
             return [self._row_to_change_record(row) for row in rows]
-    
+
     def create_lineage(
         self,
         feature_name: str,
-        upstream_features: List[str],
-        downstream_features: List[str],
-        data_sources: List[str],
-        transformation_steps: List[Dict[str, Any]],
-        metadata: Optional[Dict[str, Any]] = None,
+        upstream_features: list[str],
+        downstream_features: list[str],
+        data_sources: list[str],
+        transformation_steps: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
     ) -> FeatureLineage:
         """Create feature lineage.
-        
+
         Args:
             feature_name: Feature name
             upstream_features: List of upstream features
@@ -564,7 +560,7 @@ class FeatureVersionManager:
             data_sources: List of data sources
             transformation_steps: List of transformation steps
             metadata: Additional metadata
-            
+
         Returns:
             Created lineage
         """
@@ -577,48 +573,47 @@ class FeatureVersionManager:
             transformation_steps=transformation_steps,
             metadata=metadata or {},
         )
-        
+
         self._store_lineage(lineage)
         return lineage
-    
-    def get_lineage(self, feature_name: str) -> Optional[FeatureLineage]:
+
+    def get_lineage(self, feature_name: str) -> FeatureLineage | None:
         """Get feature lineage.
-        
+
         Args:
             feature_name: Feature name
-            
+
         Returns:
             Feature lineage if found
         """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM feature_lineage WHERE feature_name = ?",
-                (feature_name,)
+                "SELECT * FROM feature_lineage WHERE feature_name = ?", (feature_name,)
             )
             row = cursor.fetchone()
-            
+
             if row:
                 return self._row_to_lineage(row)
             return None
-    
+
     def update_lineage(self, lineage: FeatureLineage) -> bool:
         """Update feature lineage.
-        
+
         Args:
             lineage: Lineage to update
-            
+
         Returns:
             True if updated successfully
         """
         lineage.updated_at = datetime.utcnow()
         return self._store_lineage(lineage)
-    
+
     def _compute_hash(self, data: Any) -> str:
         """Compute hash of data.
-        
+
         Args:
             data: Data to hash
-            
+
         Returns:
             Hash string
         """
@@ -626,12 +621,12 @@ class FeatureVersionManager:
             data_str = json.dumps(data, sort_keys=True)
         else:
             data_str = str(data)
-        
+
         return hashlib.sha256(data_str.encode()).hexdigest()
-    
+
     def _store_version(self, version: FeatureVersion) -> None:
         """Store feature version.
-        
+
         Args:
             version: Version to store
         """
@@ -661,56 +656,66 @@ class FeatureVersionManager:
                     json.dumps(version.metadata),
                 ),
             )
-    
-    def _get_version_by_id(self, version_id: str) -> Optional[FeatureVersion]:
+
+    def _get_version_by_id(self, version_id: str) -> FeatureVersion | None:
         """Get version by ID.
-        
+
         Args:
             version_id: Version ID
-            
+
         Returns:
             Version if found
         """
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT * FROM feature_versions WHERE version_id = ?",
-                (version_id,)
+                "SELECT * FROM feature_versions WHERE version_id = ?", (version_id,)
             )
             row = cursor.fetchone()
-            
+
             if row:
                 return self._row_to_version(row)
             return None
-    
-    def _row_to_version(self, row: Tuple) -> FeatureVersion:
+
+    def _row_to_version(self, row: tuple) -> FeatureVersion:
         """Convert database row to FeatureVersion.
-        
+
         Args:
             row: Database row
-            
+
         Returns:
             Feature version
         """
         columns = [
-            "version_id", "feature_name", "version", "status", "description",
-            "code_hash", "parameters_hash", "data_hash", "created_at", "created_by",
-            "approved_at", "approved_by", "deployed_at", "metadata"
+            "version_id",
+            "feature_name",
+            "version",
+            "status",
+            "description",
+            "code_hash",
+            "parameters_hash",
+            "data_hash",
+            "created_at",
+            "created_by",
+            "approved_at",
+            "approved_by",
+            "deployed_at",
+            "metadata",
         ]
         data = dict(zip(columns, row))
         return FeatureVersion.from_dict(data)
-    
+
     def _record_change(
         self,
         version_id: str,
         change_type: ChangeType,
         description: str,
-        old_value: Optional[Any] = None,
-        new_value: Optional[Any] = None,
+        old_value: Any | None = None,
+        new_value: Any | None = None,
         changed_by: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Record a change.
-        
+
         Args:
             version_id: Version ID
             change_type: Type of change
@@ -730,7 +735,7 @@ class FeatureVersionManager:
             changed_by=changed_by,
             metadata=metadata or {},
         )
-        
+
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """
@@ -751,36 +756,43 @@ class FeatureVersionManager:
                     json.dumps(change.metadata),
                 ),
             )
-    
-    def _row_to_change_record(self, row: Tuple) -> ChangeRecord:
+
+    def _row_to_change_record(self, row: tuple) -> ChangeRecord:
         """Convert database row to ChangeRecord.
-        
+
         Args:
             row: Database row
-            
+
         Returns:
             Change record
         """
         columns = [
-            "change_id", "version_id", "change_type", "description", "old_value",
-            "new_value", "changed_at", "changed_by", "metadata"
+            "change_id",
+            "version_id",
+            "change_type",
+            "description",
+            "old_value",
+            "new_value",
+            "changed_at",
+            "changed_by",
+            "metadata",
         ]
         data = dict(zip(columns, row))
-        
+
         # Parse JSON fields
         if data["old_value"]:
             data["old_value"] = json.loads(data["old_value"])
         if data["new_value"]:
             data["new_value"] = json.loads(data["new_value"])
-        
+
         return ChangeRecord.from_dict(data)
-    
+
     def _store_lineage(self, lineage: FeatureLineage) -> bool:
         """Store feature lineage.
-        
+
         Args:
             lineage: Lineage to store
-            
+
         Returns:
             True if stored successfully
         """
@@ -805,34 +817,41 @@ class FeatureVersionManager:
                 ),
             )
             return True
-    
-    def _row_to_lineage(self, row: Tuple) -> FeatureLineage:
+
+    def _row_to_lineage(self, row: tuple) -> FeatureLineage:
         """Convert database row to FeatureLineage.
-        
+
         Args:
             row: Database row
-            
+
         Returns:
             Feature lineage
         """
         columns = [
-            "lineage_id", "feature_name", "upstream_features", "downstream_features",
-            "data_sources", "transformation_steps", "created_at", "updated_at", "metadata"
+            "lineage_id",
+            "feature_name",
+            "upstream_features",
+            "downstream_features",
+            "data_sources",
+            "transformation_steps",
+            "created_at",
+            "updated_at",
+            "metadata",
         ]
         data = dict(zip(columns, row))
-        
+
         # Parse JSON fields
         data["upstream_features"] = json.loads(data["upstream_features"])
         data["downstream_features"] = json.loads(data["downstream_features"])
         data["data_sources"] = json.loads(data["data_sources"])
         data["transformation_steps"] = json.loads(data["transformation_steps"])
-        
+
         return FeatureLineage.from_dict(data)
-    
+
     @contextmanager
     def version_context(self, feature_name: str, created_by: str = ""):
         """Context manager for version operations.
-        
+
         Args:
             feature_name: Feature name
             created_by: Creator
@@ -847,7 +866,7 @@ class FeatureVersionManager:
                 description="Initial version",
                 created_by=created_by,
             )
-        
+
         try:
             yield self
         finally:
@@ -857,24 +876,25 @@ class FeatureVersionManager:
 
 # Convenience functions
 
+
 def create_version_manager(storage_path: str = "./feature_versions") -> FeatureVersionManager:
     """Create a feature version manager.
-    
+
     Args:
         storage_path: Path to version storage
-        
+
     Returns:
         Version manager instance
     """
     return FeatureVersionManager(storage_path)
 
 
-def compute_feature_hash(feature_def: Dict[str, Any]) -> str:
+def compute_feature_hash(feature_def: dict[str, Any]) -> str:
     """Compute hash of feature definition.
-    
+
     Args:
         feature_def: Feature definition
-        
+
     Returns:
         Feature hash
     """

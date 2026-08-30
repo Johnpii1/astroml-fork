@@ -6,6 +6,7 @@ Create Date: 2026-06-26
 
 Adds mlflow_run_id column and index to model_registry table
 """
+
 from typing import Sequence, Union
 
 from alembic import op

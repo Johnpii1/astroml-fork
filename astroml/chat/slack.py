@@ -1,10 +1,11 @@
 """Slack integration for chat support (issue #306)."""
+
 from __future__ import annotations
 
 import logging
-import requests
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +14,8 @@ logger = logging.getLogger(__name__)
 class SlackConfig:
     """Configuration for Slack integration."""
 
-    webhook_url: Optional[str] = None
-    bot_token: Optional[str] = None
+    webhook_url: str | None = None
+    bot_token: str | None = None
     channel: str = "#support"
 
 

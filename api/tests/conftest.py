@@ -1,7 +1,21 @@
 """
 Shared pytest fixtures for API integration tests.
 """
+
 from __future__ import annotations
+from astroml.db.schema import Base
+from api.models.orm import (
+    FraudAlert,
+    LoyaltyPoints,
+    PointsTransaction,
+)
+from api.models.orm import ApiTransaction as Transaction
+from api.models.orm import ApiAccount as Account
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import create_engine, event
+from fastapi.testclient import TestClient
+import pytest
+from datetime import datetime, timezone
 
 import os
 
@@ -9,18 +23,11 @@ os.environ.setdefault("AUTH_ENABLED", "false")
 os.environ.setdefault("DISABLE_SCHEDULER", "true")
 os.environ.setdefault("DISABLE_WS_POLLER", "true")
 
-from datetime import datetime, timezone
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
-
-from astroml.db.schema import Base
 import api.models.orm  # noqa: F401 — registers ORM models on Base.metadata
-from api.models.orm import ApiAccount as Account, FraudAlert, LoyaltyPoints, ApiTransaction as Transaction, PointsTransaction
 
 # ─── Engine / session ─────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="function")
 def db_engine(tmp_path):
@@ -52,14 +59,16 @@ def db_session(db_engine) -> Session:
 
 # ─── FastAPI TestClient with DB override ──────────────────────────────────────
 
+
 @pytest.fixture(scope="function")
 def client(db_engine, db_session):
     """FastAPI TestClient with DB dependencies replaced by the test session."""
     import os
 
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
     from api.app import app
     from api.database import get_db, get_sync_db, reset_engines
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
     async_url = str(db_engine.url).replace("sqlite://", "sqlite+aiosqlite://")
     os.environ["DATABASE_URL"] = async_url
@@ -90,6 +99,7 @@ def client(db_engine, db_session):
 
 
 # ─── ORM seed fixtures ────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def seeded_account(db_session) -> Account:
@@ -151,6 +161,7 @@ def seeded_loyalty(db_session) -> LoyaltyPoints:
 
 
 # ─── Raw dict fixtures (no DB, unit-level) ────────────────────────────────────
+
 
 @pytest.fixture()
 def sample_accounts():

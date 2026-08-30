@@ -1,5 +1,7 @@
 """SQLAlchemy ORM models for the API backend (issue #251).
 
+See ADR-001 (docs/adr/001-postgresql-ledger-storage.md) for database design choices.
+
 Extends the existing ``astroml.db.schema.Base`` so all tables are created
 by a single ``alembic upgrade head``.
 
@@ -12,18 +14,19 @@ LoyaltyPoints   — Points balance per account (account_id, balance, tier, multi
 PointsTransaction — Earn/redeem/adjust records
 ModelRegistry   — Registered model versions (name, version, path, metrics)
 """
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     Float,
     Index,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,
@@ -41,6 +44,7 @@ _ID = BigInteger().with_variant(Integer(), "sqlite")
 # ---------------------------------------------------------------------------
 # Account
 # ---------------------------------------------------------------------------
+
 
 class ApiAccount(Base):
     """Stellar account info for the API layer.
@@ -68,6 +72,7 @@ class ApiAccount(Base):
 # ---------------------------------------------------------------------------
 # Transaction
 # ---------------------------------------------------------------------------
+
 
 class ApiTransaction(Base):
     """Blockchain transaction record for the API layer."""
@@ -98,6 +103,7 @@ class ApiTransaction(Base):
 # FraudAlert
 # ---------------------------------------------------------------------------
 
+
 class FraudAlert(Base):
     """Anomaly detection result produced by the fraud scoring pipeline."""
 
@@ -105,7 +111,7 @@ class FraudAlert(Base):
 
     id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
     account_id: Mapped[str] = mapped_column(String(56), nullable=False)
-    pattern: Mapped[Optional[str]] = mapped_column(String(64))   # e.g. sybil_cluster
+    pattern: Mapped[Optional[str]] = mapped_column(String(64))  # e.g. sybil_cluster
     risk_score: Mapped[float] = mapped_column(Float, nullable=False)
     risk_level: Mapped[str] = mapped_column(String(16), nullable=False)  # low/medium/high
     description: Mapped[Optional[str]] = mapped_column(Text)
@@ -132,6 +138,7 @@ class FraudAlert(Base):
 # LoyaltyPoints
 # ---------------------------------------------------------------------------
 
+
 class LoyaltyPoints(Base):
     """Points balance per account."""
 
@@ -146,14 +153,13 @@ class LoyaltyPoints(Base):
         nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (
-        Index("ix_loyalty_points_account_id", "account_id"),
-    )
+    __table_args__ = (Index("ix_loyalty_points_account_id", "account_id"),)
 
 
 # ---------------------------------------------------------------------------
 # PointsTransaction
 # ---------------------------------------------------------------------------
+
 
 class PointsTransaction(Base):
     """Earn / redeem / adjust record for loyalty points."""
@@ -162,7 +168,7 @@ class PointsTransaction(Base):
 
     id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
     account_id: Mapped[str] = mapped_column(String(56), nullable=False)
-    type: Mapped[str] = mapped_column(String(16), nullable=False)   # earn|redeem|adjust
+    type: Mapped[str] = mapped_column(String(16), nullable=False)  # earn|redeem|adjust
     points: Mapped[int] = mapped_column(Integer, nullable=False)
     source: Mapped[Optional[str]] = mapped_column(String(128))
     note: Mapped[Optional[str]] = mapped_column(Text)
@@ -178,6 +184,7 @@ class PointsTransaction(Base):
 # ModelRegistry
 # ---------------------------------------------------------------------------
 
+
 class ModelRegistry(Base):
     """Registered model version for the model registry (issue #257)."""
 
@@ -192,9 +199,7 @@ class ModelRegistry(Base):
         JSON().with_variant(JSONB(), "postgresql"), nullable=True
     )
     mlflow_run_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    metrics: Mapped[Optional[dict]] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql")
-    )
+    metrics: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="inactive"
     )  # inactive | active | deprecated
@@ -214,6 +219,7 @@ class ModelRegistry(Base):
 # Auth (issue #240)
 # ---------------------------------------------------------------------------
 
+
 class User(Base):
     """Dashboard/API user for JWT authentication."""
 
@@ -230,7 +236,13 @@ class User(Base):
 
 
 class ApiKey(Base):
-    """Machine-to-machine API key."""
+    """Machine-to-machine API key.
+
+    Rotation support (issue #534):
+    - ``created_at``        – when the key was originally issued
+    - ``overlap_key_hash``  – hash of the *previous* key still valid during overlap
+    - ``overlap_expires_at``– when the previous (rotated-out) key stops being accepted
+    """
 
     __tablename__ = "api_keys"
 
@@ -244,16 +256,26 @@ class ApiKey(Base):
     expires_at: Mapped[Optional[datetime]] = mapped_column()
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+    # Rotation overlap: the old key_hash is kept valid until overlap_expires_at
+    overlap_key_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
+    overlap_expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+
+    @property
+    def api_key_created_at(self) -> datetime:
+        """Alias for created_at for API key rotation specs (#534)."""
+        return self.created_at
 
     __table_args__ = (
         Index("ix_api_keys_user_id", "user_id"),
         Index("ix_api_keys_key_hash", "key_hash"),
+        Index("ix_api_keys_overlap_key_hash", "overlap_key_hash"),
     )
 
 
 # ---------------------------------------------------------------------------
 # Mentorship (Contributors)
 # ---------------------------------------------------------------------------
+
 
 class Mentor(Base):
     """Mentor profile in the mentorship program."""
@@ -306,9 +328,7 @@ class Mentee(Base):
         nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (
-        Index("ix_mentees_github_username", "github_username"),
-    )
+    __table_args__ = (Index("ix_mentees_github_username", "github_username"),)
 
 
 class Mentorship(Base):
@@ -377,6 +397,7 @@ class MentorshipFeedback(Base):
 # Notifications (Contributors)
 # ---------------------------------------------------------------------------
 
+
 class Notification(Base):
     """User notification record."""
 
@@ -424,9 +445,7 @@ class NotificationPreference(Base):
         nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (
-        Index("ix_notification_preferences_user_id", "user_id"),
-    )
+    __table_args__ = (Index("ix_notification_preferences_user_id", "user_id"),)
 
 
 class NotificationLog(Base):
@@ -451,6 +470,7 @@ class NotificationLog(Base):
 # ---------------------------------------------------------------------------
 # FAQ (issue #307)
 # ---------------------------------------------------------------------------
+
 
 class FAQ(Base):
     """FAQ item with categorization and search support."""
@@ -486,9 +506,7 @@ class FAQFeedback(Base):
     user_comment: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
-    __table_args__ = (
-        Index("ix_faq_feedback_faq_id", "faq_id"),
-    )
+    __table_args__ = (Index("ix_faq_feedback_faq_id", "faq_id"),)
 
 
 class FAQSuggestion(Base):
@@ -505,14 +523,13 @@ class FAQSuggestion(Base):
     )  # pending|approved|rejected
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
 
-    __table_args__ = (
-        Index("ix_faq_suggestions_status", "status"),
-    )
+    __table_args__ = (Index("ix_faq_suggestions_status", "status"),)
 
 
 # ---------------------------------------------------------------------------
 # Audit Log (issue #332)
 # ---------------------------------------------------------------------------
+
 
 class AuditLog(Base):
     """Immutable audit log for sensitive API operations."""
@@ -524,17 +541,19 @@ class AuditLog(Base):
     user_id: Mapped[Optional[int]] = mapped_column(_ID)  # NULL for system events
     username: Mapped[Optional[str]] = mapped_column(String(64))
     auth_type: Mapped[Optional[str]] = mapped_column(String(16))  # jwt|api_key|none
-    action: Mapped[str] = mapped_column(String(64), nullable=False)  # login|logout|create|update|delete
-    resource_type: Mapped[Optional[str]] = mapped_column(String(64))  # user|account|transaction|model
+    action: Mapped[str] = mapped_column(
+        String(64), nullable=False
+    )  # login|logout|create|update|delete
+    resource_type: Mapped[Optional[str]] = mapped_column(
+        String(64)
+    )  # user|account|transaction|model
     resource_id: Mapped[Optional[str]] = mapped_column(String(256))
     ip_address: Mapped[Optional[str]] = mapped_column(String(45))  # IPv6 support
     user_agent: Mapped[Optional[str]] = mapped_column(String(512))
     request_path: Mapped[Optional[str]] = mapped_column(String(512))
     request_method: Mapped[Optional[str]] = mapped_column(String(8))
     status_code: Mapped[Optional[int]] = mapped_column(Integer)
-    details: Mapped[Optional[dict]] = mapped_column(
-        JSON().with_variant(JSONB(), "postgresql")
-    )
+    details: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
 
     __table_args__ = (
         Index("ix_audit_logs_timestamp", "timestamp"),
@@ -611,6 +630,37 @@ class LLMFeedback(Base):
     __table_args__ = (
         Index("ix_llm_feedback_feature", "feature"),
         Index("ix_llm_feedback_created_at", "created_at"),
+    )
+
+
+class LLMComplianceLog(Base):
+    """Compliance and audit log for all LLM interactions (issue #412)."""
+
+    __tablename__ = "llm_compliance_logs"
+
+    id: Mapped[int] = mapped_column(_ID, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(_ID)
+    username: Mapped[Optional[str]] = mapped_column(String(128))
+    interaction_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    feature: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_redacted: Mapped[str] = mapped_column(Text, nullable=False)
+    response_redacted: Mapped[str] = mapped_column(Text, nullable=False)
+    model_used: Mapped[Optional[str]] = mapped_column(String(64))
+    tokens_used: Mapped[Optional[int]] = mapped_column(Integer)
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    pii_detected: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    pii_types: Mapped[Optional[dict]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_llm_compliance_logs_user_id", "user_id"),
+        Index("ix_llm_compliance_logs_created_at", "created_at"),
+        Index("ix_llm_compliance_logs_interaction_type", "interaction_type"),
+        Index("ix_llm_compliance_logs_pii_detected", "pii_detected"),
     )
 
 

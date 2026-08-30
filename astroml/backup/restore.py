@@ -1,16 +1,15 @@
 """Restore service for database and model artifacts (issue #304)."""
+
 from __future__ import annotations
 
+import gzip
+import logging
 import os
 import subprocess
-import gzip
 import tarfile
-import logging
-from datetime import datetime
-from typing import Optional
 from pathlib import Path
 
-from .service import BackupConfig, BackupMetadata, BackupType
+from .service import BackupConfig, BackupType
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,8 @@ class RestoreService:
             return False
 
         import json
-        with open(metadata_file, "r") as f:
+
+        with open(metadata_file) as f:
             data = json.load(f)
 
         if data["backup_type"] != BackupType.DATABASE.value:
@@ -84,22 +84,32 @@ class RestoreService:
                     logger.info(f"Dropping existing database: {db_name}")
                     drop_cmd = [
                         "psql",
-                        "-h", host,
-                        "-p", port,
-                        "-U", user,
-                        "-d", "postgres",
-                        "-c", f"DROP DATABASE IF EXISTS {db_name}",
+                        "-h",
+                        host,
+                        "-p",
+                        port,
+                        "-U",
+                        user,
+                        "-d",
+                        "postgres",
+                        "-c",
+                        f"DROP DATABASE IF EXISTS {db_name}",
                     ]
                     subprocess.run(drop_cmd, env=env, check=True)
 
                     # Create fresh database
                     create_cmd = [
                         "psql",
-                        "-h", host,
-                        "-p", port,
-                        "-U", user,
-                        "-d", "postgres",
-                        "-c", f"CREATE DATABASE {db_name}",
+                        "-h",
+                        host,
+                        "-p",
+                        port,
+                        "-U",
+                        user,
+                        "-d",
+                        "postgres",
+                        "-c",
+                        f"CREATE DATABASE {db_name}",
                     ]
                     subprocess.run(create_cmd, env=env, check=True)
 
@@ -110,10 +120,14 @@ class RestoreService:
                 # Use psql to restore
                 restore_cmd = [
                     "psql",
-                    "-h", host,
-                    "-p", port,
-                    "-U", user,
-                    "-d", db_name,
+                    "-h",
+                    host,
+                    "-p",
+                    port,
+                    "-U",
+                    user,
+                    "-d",
+                    db_name,
                 ]
 
                 process = subprocess.Popen(
@@ -144,7 +158,7 @@ class RestoreService:
             logger.error(f"Database restore failed: {e}")
             return False
 
-    def restore_model_artifacts(self, backup_id: str, target_dir: Optional[str] = None) -> bool:
+    def restore_model_artifacts(self, backup_id: str, target_dir: str | None = None) -> bool:
         """Restore model artifacts from a backup.
 
         Args:
@@ -161,7 +175,8 @@ class RestoreService:
             return False
 
         import json
-        with open(metadata_file, "r") as f:
+
+        with open(metadata_file) as f:
             data = json.load(f)
 
         if data["backup_type"] != BackupType.MODEL_ARTIFACTS.value:
@@ -173,7 +188,11 @@ class RestoreService:
             logger.error(f"Backup file not found: {backup_file}")
             return False
 
-        target_path = Path(target_dir or self.config.model_artifacts_dir)
+        base_allowed = Path(self.config.model_artifacts_dir).resolve()
+        target_path = (Path(target_dir or self.config.model_artifacts_dir)).resolve()
+        if not str(target_path).startswith(str(base_allowed)):
+            logger.error(f"Invalid target directory: {target_dir}")
+            return False
         target_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Restoring model artifacts from backup: {backup_id}")
@@ -181,6 +200,10 @@ class RestoreService:
         try:
             # Extract tar.gz archive
             with tarfile.open(backup_file, "r:gz") as tar:
+                for member in tar.getmembers():
+                    member_path = Path(member.name).resolve()
+                    if not str(member_path).startswith(str(target_path)):
+                        raise ValueError(f"Invalid archive member path: {member.name}")
                 tar.extractall(path=target_path)
 
             logger.info(f"Model artifacts restored successfully from backup: {backup_id}")
@@ -224,7 +247,8 @@ class RestoreService:
             return False
 
         import json
-        with open(metadata_file, "r") as f:
+
+        with open(metadata_file) as f:
             data = json.load(f)
 
         storage_backend = data["storage_backend"]

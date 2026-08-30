@@ -1,18 +1,18 @@
 """Backup service for database and model artifacts (issue #304)."""
+
 from __future__ import annotations
 
-import os
-import subprocess
 import gzip
-import shutil
 import hashlib
 import json
 import logging
+import os
+import subprocess
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +44,8 @@ class BackupConfig:
     # Storage configuration
     storage_backend: StorageBackend = StorageBackend.LOCAL
     local_backup_dir: str = "/tmp/backups"
-    s3_bucket: Optional[str] = None
-    gcs_bucket: Optional[str] = None
+    s3_bucket: str | None = None
+    gcs_bucket: str | None = None
 
     # Retention policy
     retention_days: int = 30
@@ -74,9 +74,9 @@ class BackupMetadata:
     storage_path: str
     storage_backend: StorageBackend
     is_verified: bool = False
-    description: Optional[str] = None
+    description: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "backup_id": self.backup_id,
             "backup_type": self.backup_type.value,
@@ -108,7 +108,7 @@ class BackupService:
         (self.backup_dir / "models").mkdir(exist_ok=True)
         (self.backup_dir / "metadata").mkdir(exist_ok=True)
 
-    def create_database_backup(self, description: Optional[str] = None) -> BackupMetadata:
+    def create_database_backup(self, description: str | None = None) -> BackupMetadata:
         """Create a database backup using pg_dump.
 
         Args:
@@ -148,11 +148,16 @@ class BackupService:
                 # Run pg_dump
                 cmd = [
                     "pg_dump",
-                    "-h", host,
-                    "-p", port,
-                    "-U", user,
-                    "-d", db_name,
-                    "-F", "p",  # Plain text format
+                    "-h",
+                    host,
+                    "-p",
+                    port,
+                    "-U",
+                    user,
+                    "-d",
+                    db_name,
+                    "-F",
+                    "p",  # Plain text format
                     "--no-owner",
                     "--no-acl",
                 ]
@@ -198,6 +203,7 @@ class BackupService:
             # Verify backup if enabled
             if self.config.verify_after_backup:
                 from .verification import BackupVerifier
+
                 verifier = BackupVerifier(self.config)
                 metadata.is_verified = verifier.verify_backup(backup_file, checksum)
                 self._save_metadata(metadata)
@@ -212,7 +218,7 @@ class BackupService:
             logger.error(f"Backup creation failed: {e}")
             raise
 
-    def create_model_backup(self, description: Optional[str] = None) -> BackupMetadata:
+    def create_model_backup(self, description: str | None = None) -> BackupMetadata:
         """Create a backup of model artifacts.
 
         Args:
@@ -266,7 +272,7 @@ class BackupService:
         logger.info(f"Model artifacts backup created successfully: {backup_id}")
         return metadata
 
-    def create_full_backup(self, description: Optional[str] = None) -> List[BackupMetadata]:
+    def create_full_backup(self, description: str | None = None) -> list[BackupMetadata]:
         """Create a full backup (database + model artifacts).
 
         Args:
@@ -280,7 +286,7 @@ class BackupService:
         model_backup = self.create_model_backup(description)
         return [db_backup, model_backup]
 
-    def list_backups(self, backup_type: Optional[BackupType] = None) -> List[BackupMetadata]:
+    def list_backups(self, backup_type: BackupType | None = None) -> list[BackupMetadata]:
         """List all available backups.
 
         Args:
@@ -293,7 +299,7 @@ class BackupService:
         backups = []
 
         for metadata_file in metadata_dir.glob("*.json"):
-            with open(metadata_file, "r") as f:
+            with open(metadata_file) as f:
                 data = json.load(f)
                 metadata = BackupMetadata(
                     backup_id=data["backup_id"],
@@ -328,7 +334,7 @@ class BackupService:
         if not metadata_file.exists():
             return False
 
-        with open(metadata_file, "r") as f:
+        with open(metadata_file) as f:
             data = json.load(f)
             storage_path = data["storage_path"]
 

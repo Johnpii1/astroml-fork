@@ -7,10 +7,11 @@ Provides:
 - Offline message capture
 - Slack integration for agents
 """
+
 from __future__ import annotations
 
-from .models import ChatMessage, ChatSession, AgentStatus
-from .service import ChatService
+from .models import AgentStatus, ChatMessage, ChatSession
+from .service import ChatService, chat_service
 from .slack import SlackIntegration
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "ChatSession",
     "AgentStatus",
     "ChatService",
+    "chat_service",
     "SlackIntegration",
 ]

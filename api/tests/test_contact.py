@@ -1,4 +1,5 @@
 """Tests for the contact form & support ticket endpoints — issue #305."""
+
 from __future__ import annotations
 
 import pytest

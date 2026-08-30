@@ -1,4 +1,9 @@
 # AstroML
+//WIP
+
+[![CI](https://github.com/lordemaverick/astroml/actions/workflows/pytest.yml/badge.svg)](https://github.com/lordemaverick/astroml/actions/workflows/pytest.yml)
+[![codecov](https://codecov.io/gh/lordemaverick/astroml/branch/main/graph/badge.svg)](https://codecov.io/gh/lordemaverick/astroml)
+[![Code Complexity](https://img.shields.io/badge/complexity-A-brightgreen)](https://github.com/mombu/xenon)
 
 ## Dynamic Graph Machine Learning Framework for the Stellar Network
 
@@ -238,6 +243,42 @@ astroml/
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+Before running AstroML ensure you have the following installed:
+
+| Requirement | Minimum version | Notes |
+|---|---|---|
+| Python | 3.10+ | 3.11 recommended; 3.12 supported |
+| Docker & Docker Compose | 24+ | Required for the database and cache containers |
+| Git | any | For cloning the repository |
+| Make | any | Optional but recommended; used for convenience targets |
+| CUDA toolkit | 11.8+ | Optional; only needed for GPU-accelerated training |
+
+Verify your Python version before proceeding:
+
+```bash
+python --version   # must print 3.10 or higher
+docker --version   # must be available
+```
+
+### Requirements files
+
+Three `requirements` files are provided — pick the one that matches your workflow:
+
+| File | When to use |
+|---|---|
+| `requirements.txt` | Default — full stack including training, without GPU |
+| `requirements-cpu.txt` | CPU-only training on machines without a CUDA-capable GPU |
+| `requirements-train.txt` | GPU training; includes PyTorch with CUDA support |
+| `requirements-api.txt` | API server only; excludes heavy ML dependencies |
+| `requirements-dev.txt` | Development + testing; adds linting/typing tools on top of `requirements.txt` |
+| `requirements-minimal.txt` | Config parsing only — useful in CI stages that don't run training |
+
+> **Tip:** If you only want to explore the quick start without training, `requirements-minimal.txt` + `requirements-api.txt` is the lightest combination.
+
+See [REQUIREMENTS.md](REQUIREMENTS.md) for a detailed breakdown of every package.
+
 ### Option 1: Using Make (Recommended)
 
 ```bash
@@ -284,7 +325,7 @@ benchmark_results/quickstart/
 └── metadata.json        # Run metadata linking config and result
 ```
 
-**Example output**:
+**Expected output** (typical values — exact numbers vary by seed):
 
 ```
 ================================================================================
@@ -312,6 +353,82 @@ Saved metadata to benchmark_results/quickstart/metadata.json
 ✓ Quick start completed successfully!
 Results saved to: benchmark_results/quickstart
 ================================================================================
+```
+
+Expected metric ranges on 10 epochs with the default seed:
+- AUC: 0.85 – 0.96
+- Precision: 0.80 – 0.93
+- Recall: 0.78 – 0.91
+- Training time: 5 – 30 s (CPU) / 2 – 8 s (GPU)
+
+### Troubleshooting
+
+#### "Port 8000 already in use"
+
+Another process is bound to port 8000. Find and stop it:
+
+```bash
+# Find the process
+lsof -i :8000          # macOS / Linux
+netstat -ano | findstr :8000   # Windows
+
+# Stop it, or change the API port in docker-compose.yml:
+#   ports: ["8001:8000"]
+```
+
+#### "Database connection refused"
+
+The PostgreSQL container is not running. Start it:
+
+```bash
+docker compose up -d db
+# Wait ~10 seconds for Postgres to initialise, then retry
+docker compose logs db
+```
+
+Also verify your `DATABASE_URL` in `.env` matches the container settings (default: `postgresql://astroml:astroml@localhost:5432/astroml`).
+
+#### "Model training CUDA out of memory"
+
+Reduce batch size or switch to CPU:
+
+```yaml
+# configs/training/default.yaml
+training:
+  device: cpu          # force CPU
+  batch_size: 256      # reduce from default 1024
+```
+
+Alternatively, use `requirements-cpu.txt` which installs a CPU-only PyTorch build.
+
+#### "Module import errors" / `ModuleNotFoundError`
+
+Ensure you are in the right virtual environment and have installed dependencies:
+
+```bash
+source venv/bin/activate          # or: conda activate astroml
+pip install -r requirements.txt
+```
+
+If the error mentions `astroml` itself, install the package in editable mode:
+
+```bash
+pip install -e .
+```
+
+For GPU-related import errors (`No module named 'torch_geometric'`), install the full training requirements:
+
+```bash
+pip install -r requirements-train.txt
+```
+
+#### Quick-start produces no output / hangs
+
+Check that the SQLite temp path is writable and that no previous benchmark result is locked:
+
+```bash
+rm -rf benchmark_results/quickstart/
+make quickstart
 ```
 
 ---

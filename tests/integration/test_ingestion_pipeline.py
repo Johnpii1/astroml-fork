@@ -3,28 +3,28 @@
 These tests verify the complete workflow from fetching ledger data
 to storing it in the database, including parsing and state management.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session
 
-from astroml.db.schema import Ledger, Transaction, Operation, Account, Asset, Effect
-from astroml.ingestion.service import IngestionService, IngestionResult
+from astroml.db.schema import Effect, Ledger, Operation, Transaction
 from astroml.ingestion.parsers import (
-    parse_ledger,
-    parse_transaction,
-    parse_operation,
     parse_effect,
+    parse_ledger,
+    parse_operation,
+    parse_transaction,
 )
+from astroml.ingestion.service import IngestionService
 from astroml.ingestion.synthetic_fraud_injector import (
-    inject_synthetic_fraud,
     SybilConfig,
     WashLoopConfig,
-    InjectionSummary,
+    inject_synthetic_fraud,
     run_injection,
 )
 
@@ -35,17 +35,17 @@ class TestIngestionServiceIntegration:
     def test_ingest_ledgers_to_database(
         self,
         test_session: Session,
-        sample_ledger_data: List[Dict[str, Any]],
+        sample_ledger_data: list[dict[str, Any]],
     ) -> None:
         """Test complete ingestion workflow from ledger data to database."""
         service = IngestionService()
 
         # Mock fetch function that returns ledger data
-        def fetch_ledger(ledger_id: int) -> Dict[str, Any]:
+        def fetch_ledger(ledger_id: int) -> dict[str, Any]:
             return sample_ledger_data[ledger_id - 1000]
 
         # Mock process function that stores in database
-        def process_ledger(ledger_id: int, payload: Dict[str, Any]) -> None:
+        def process_ledger(ledger_id: int, payload: dict[str, Any]) -> None:
             ledger = parse_ledger(payload)
             test_session.add(ledger)
             test_session.commit()
@@ -72,15 +72,15 @@ class TestIngestionServiceIntegration:
     def test_ingest_with_idempotency(
         self,
         test_session: Session,
-        sample_ledger_data: List[Dict[str, Any]],
+        sample_ledger_data: list[dict[str, Any]],
     ) -> None:
         """Test that ingestion is idempotent - re-processing skips already processed ledgers."""
         service = IngestionService()
 
-        def fetch_ledger(ledger_id: int) -> Dict[str, Any]:
+        def fetch_ledger(ledger_id: int) -> dict[str, Any]:
             return sample_ledger_data[ledger_id - 1000]
 
-        def process_ledger(ledger_id: int, payload: Dict[str, Any]) -> None:
+        def process_ledger(ledger_id: int, payload: dict[str, Any]) -> None:
             ledger = parse_ledger(payload)
             test_session.add(ledger)
             test_session.commit()
@@ -112,17 +112,17 @@ class TestIngestionServiceIntegration:
     def test_ingest_with_partial_failure(
         self,
         test_session: Session,
-        sample_ledger_data: List[Dict[str, Any]],
+        sample_ledger_data: list[dict[str, Any]],
     ) -> None:
         """Test ingestion continues even if one ledger fails to process."""
         service = IngestionService()
 
-        def fetch_ledger(ledger_id: int) -> Dict[str, Any]:
+        def fetch_ledger(ledger_id: int) -> dict[str, Any]:
             return sample_ledger_data[ledger_id - 1000]
 
         call_count = [0]
 
-        def process_ledger(ledger_id: int, payload: Dict[str, Any]) -> None:
+        def process_ledger(ledger_id: int, payload: dict[str, Any]) -> None:
             call_count[0] += 1
             if ledger_id == 1000:
                 raise ValueError("Simulated failure")
@@ -161,8 +161,8 @@ class TestParserIntegration:
     def test_parse_and_store_complete_transaction(
         self,
         test_session: Session,
-        sample_transaction_data: List[Dict[str, Any]],
-        sample_operation_data: List[Dict[str, Any]],
+        sample_transaction_data: list[dict[str, Any]],
+        sample_operation_data: list[dict[str, Any]],
     ) -> None:
         """Test parsing and storing a complete transaction with operations."""
         # First, add a ledger
@@ -203,7 +203,7 @@ class TestParserIntegration:
     def test_parse_and_store_effects(
         self,
         test_session: Session,
-        sample_effect_data: List[Dict[str, Any]],
+        sample_effect_data: list[dict[str, Any]],
     ) -> None:
         """Test parsing and storing effects."""
         for effect_data in sample_effect_data:
@@ -409,15 +409,15 @@ class TestCompleteIngestionWorkflow:
     def test_incremental_ingestion_with_state(
         self,
         test_session: Session,
-        sample_ledger_data: List[Dict[str, Any]],
+        sample_ledger_data: list[dict[str, Any]],
     ) -> None:
         """Test incremental ingestion with state persistence."""
         service = IngestionService()
 
-        def fetch_ledger(ledger_id: int) -> Dict[str, Any]:
+        def fetch_ledger(ledger_id: int) -> dict[str, Any]:
             return sample_ledger_data[ledger_id - 1000]
 
-        def process_ledger(ledger_id: int, payload: Dict[str, Any]) -> None:
+        def process_ledger(ledger_id: int, payload: dict[str, Any]) -> None:
             ledger = parse_ledger(payload)
             test_session.add(ledger)
             test_session.commit()

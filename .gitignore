@@ -7,6 +7,7 @@ build/
 .pytest_cache/
 .hypothesis/
 venv/
+.venv/
 .env
 # Rust build outputs
 target/
@@ -21,3 +22,8 @@ node_modules/
 *.db
 *.sqlite
 *.sqlite3
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/

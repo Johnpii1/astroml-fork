@@ -3,6 +3,7 @@
 Settings are resolved from environment variables, then defaults.
 All settings are exposed via the ``StreamConfig`` dataclass.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,18 +22,15 @@ class StreamConfig:
     """Immutable configuration for a streaming session."""
 
     horizon_url: str = field(
-        default_factory=lambda: os.environ.get(
-            "ASTROML_HORIZON_URL", HORIZON_TESTNET_URL
-        )
+        default_factory=lambda: os.environ.get("ASTROML_HORIZON_URL", HORIZON_TESTNET_URL)
     )
     stream_endpoint: str = field(
-        default_factory=lambda: os.environ.get(
-            "ASTROML_STREAM_ENDPOINT", "/transactions"
-        )
+        default_factory=lambda: os.environ.get("ASTROML_STREAM_ENDPOINT", "/transactions")
     )
-    cursor: str | None = field(
-        default_factory=lambda: os.environ.get("ASTROML_STREAM_CURSOR")
-    )
+    cursor: str | None = field(default_factory=lambda: os.environ.get("ASTROML_STREAM_CURSOR"))
     reconnect_base_seconds: float = DEFAULT_RECONNECT_BASE_SECONDS
     reconnect_max_seconds: float = DEFAULT_RECONNECT_MAX_SECONDS
     max_retries: int = DEFAULT_MAX_RETRIES
+    persist_chunk_size: int = field(
+        default_factory=lambda: int(os.environ.get("ASTROML_PERSIST_CHUNK_SIZE", "50"))
+    )

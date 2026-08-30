@@ -39,7 +39,12 @@ RUN groupadd -r astroml && useradd -r -g astroml astroml
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python dependencies
+# Copy and install Python dependencies.
+# This installs the full stack (requirements.txt) intentionally — this base
+# stage backs both the ingestion and training images below. For a
+# non-container install that only needs one purpose (dev tooling / training
+# only / the API service), see the smaller requirements-*.txt files and the
+# decision tree in REQUIREMENTS.md (issue #561).
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt
@@ -113,7 +118,12 @@ RUN groupadd -r astroml && useradd -r -g astroml astroml
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python dependencies
+# Copy and install Python dependencies. See the base stage above for why
+# this stays on the full requirements.txt rather than requirements-train.txt
+# — the CUDA-specific torch install below then overrides the CPU/generic
+# torch this pulls in. If you're bumping the torch pin, update it in
+# requirements.txt / -cpu.txt / -train.txt and here together — see
+# "Upgrading a major dependency" in REQUIREMENTS.md (issue #562).
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt

@@ -3,13 +3,13 @@
 This module provides fixtures for setting up test databases,
 sample data, and common test scenarios for integration testing.
 """
+
 from __future__ import annotations
 
 import os
-import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pytest
@@ -20,16 +20,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from astroml.db.schema import (
     Account,
     Asset,
+    Base,
     Effect,
     GraphAccount,
     GraphEdge,
     Ledger,
-    NormalizedTransaction,
     Operation,
     Transaction,
-    Base,
 )
-
 
 # ---------------------------------------------------------------------------
 # Database fixtures
@@ -66,7 +64,7 @@ def mock_config(tmp_path: Path):
     """Create a mock configuration file."""
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    
+
     config = {
         "database": {
             "host": "localhost",
@@ -79,11 +77,11 @@ def mock_config(tmp_path: Path):
             "url": "https://horizon-testnet.stellar.org",
         },
     }
-    
+
     config_file = config_dir / "database.yaml"
     with open(config_file, "w") as f:
         yaml.dump(config, f)
-    
+
     # Change to temp directory for the test
     original_cwd = os.getcwd()
     os.chdir(tmp_path)
@@ -97,7 +95,7 @@ def mock_config(tmp_path: Path):
 
 
 @pytest.fixture
-def sample_ledger_data() -> List[Dict[str, Any]]:
+def sample_ledger_data() -> list[dict[str, Any]]:
     """Sample ledger data for testing."""
     base_time = datetime(2024, 1, 1, 0, 0, 0)
     return [
@@ -131,7 +129,7 @@ def sample_ledger_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_transaction_data() -> List[Dict[str, Any]]:
+def sample_transaction_data() -> list[dict[str, Any]]:
     """Sample transaction data for testing."""
     base_time = datetime(2024, 1, 1, 0, 0, 0)
     return [
@@ -172,7 +170,7 @@ def sample_transaction_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_operation_data() -> List[Dict[str, Any]]:
+def sample_operation_data() -> list[dict[str, Any]]:
     """Sample operation data for testing."""
     base_time = datetime(2024, 1, 1, 0, 0, 0)
     return [
@@ -216,7 +214,7 @@ def sample_operation_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_account_data() -> List[Dict[str, Any]]:
+def sample_account_data() -> list[dict[str, Any]]:
     """Sample account data for testing."""
     base_time = datetime(2024, 1, 1, 0, 0, 0)
     return [
@@ -244,7 +242,7 @@ def sample_account_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_asset_data() -> List[Dict[str, Any]]:
+def sample_asset_data() -> list[dict[str, Any]]:
     """Sample asset data for testing."""
     return [
         {
@@ -263,7 +261,7 @@ def sample_asset_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_effect_data() -> List[Dict[str, Any]]:
+def sample_effect_data() -> list[dict[str, Any]]:
     """Sample effect data for testing."""
     base_time = datetime(2024, 1, 1, 0, 0, 0)
     return [
@@ -291,7 +289,7 @@ def sample_effect_data() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_graph_edges() -> List[Dict[str, Any]]:
+def sample_graph_edges() -> list[dict[str, Any]]:
     """Sample graph edge data for testing."""
     base_time = datetime(2024, 1, 1, 0, 0, 0)
     return [
@@ -332,48 +330,48 @@ def sample_graph_edges() -> List[Dict[str, Any]]:
 @pytest.fixture
 def populated_test_db(
     test_session: Session,
-    sample_ledger_data: List[Dict[str, Any]],
-    sample_transaction_data: List[Dict[str, Any]],
-    sample_operation_data: List[Dict[str, Any]],
-    sample_account_data: List[Dict[str, Any]],
-    sample_asset_data: List[Dict[str, Any]],
-    sample_effect_data: List[Dict[str, Any]],
+    sample_ledger_data: list[dict[str, Any]],
+    sample_transaction_data: list[dict[str, Any]],
+    sample_operation_data: list[dict[str, Any]],
+    sample_account_data: list[dict[str, Any]],
+    sample_asset_data: list[dict[str, Any]],
+    sample_effect_data: list[dict[str, Any]],
 ) -> Session:
     """Populate test database with sample data."""
     # Add ledgers
     for ledger_data in sample_ledger_data:
         ledger = Ledger(**ledger_data)
         test_session.add(ledger)
-    
+
     # Add assets
     for asset_data in sample_asset_data:
         asset = Asset(**asset_data)
         test_session.add(asset)
-    
+
     test_session.flush()
-    
+
     # Add accounts
     for account_data in sample_account_data:
         account = Account(**account_data)
         test_session.add(account)
-    
+
     # Add transactions
     for tx_data in sample_transaction_data:
         transaction = Transaction(**tx_data)
         test_session.add(transaction)
-    
+
     test_session.flush()
-    
+
     # Add operations
     for op_data in sample_operation_data:
         operation = Operation(**op_data)
         test_session.add(operation)
-    
+
     # Add effects
     for effect_data in sample_effect_data:
         effect = Effect(**effect_data)
         test_session.add(effect)
-    
+
     test_session.commit()
     yield test_session
     test_session.rollback()
@@ -382,17 +380,17 @@ def populated_test_db(
 @pytest.fixture
 def populated_graph_db(
     test_session: Session,
-    sample_asset_data: List[Dict[str, Any]],
-    sample_graph_edges: List[Dict[str, Any]],
+    sample_asset_data: list[dict[str, Any]],
+    sample_graph_edges: list[dict[str, Any]],
 ) -> Session:
     """Populate test database with graph data."""
     # Add assets
     for asset_data in sample_asset_data:
         asset = Asset(**asset_data)
         test_session.add(asset)
-    
+
     test_session.flush()
-    
+
     # Add graph accounts
     accounts = [
         GraphAccount(
@@ -419,14 +417,14 @@ def populated_graph_db(
     ]
     for account in accounts:
         test_session.add(account)
-    
+
     test_session.flush()
-    
+
     # Add graph edges
     for edge_data in sample_graph_edges:
         edge = GraphEdge(**edge_data)
         test_session.add(edge)
-    
+
     test_session.commit()
     yield test_session
     test_session.rollback()
@@ -438,7 +436,7 @@ def populated_graph_db(
 
 
 @pytest.fixture
-def synthetic_fraud_patterns() -> Dict[str, Any]:
+def synthetic_fraud_patterns() -> dict[str, Any]:
     """Synthetic fraud pattern configurations for testing."""
     return {
         "sybil_clusters": [
@@ -485,18 +483,15 @@ def fraud_scores() -> np.ndarray:
 
 
 @pytest.fixture
-def sample_node_features() -> Dict[str, np.ndarray]:
+def sample_node_features() -> dict[str, np.ndarray]:
     """Sample node features for ML testing."""
     np.random.seed(42)
-    features = {
-        f"node_{i}": np.random.randn(16).astype(np.float32)
-        for i in range(10)
-    }
+    features = {f"node_{i}": np.random.randn(16).astype(np.float32) for i in range(10)}
     return features
 
 
 @pytest.fixture
-def sample_edge_list() -> List[tuple]:
+def sample_edge_list() -> list[tuple]:
     """Sample edge list for graph testing."""
     edges = [
         ("node_0", "node_1", 1.0, 1000.0),
@@ -514,10 +509,10 @@ def sample_training_data() -> tuple:
     np.random.seed(42)
     num_samples = 100
     num_features = 16
-    
+
     X = np.random.randn(num_samples, num_features).astype(np.float32)
     y = np.random.randint(0, 2, num_samples)
-    
+
     return X, y
 
 

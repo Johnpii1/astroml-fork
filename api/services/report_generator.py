@@ -1,17 +1,18 @@
 """LLM-based report generator (issue XXX)."""
+
 from __future__ import annotations
 
 import base64
 import io
 import json
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.models.orm import ApiTransaction, FraudAlert, ApiAccount
+from api.models.orm import ApiAccount, ApiTransaction, FraudAlert
 from api.services.llm_context import MultiModalContextHandler
 
 context_handler = MultiModalContextHandler()
@@ -46,14 +47,16 @@ class ReportGenerator:
         )
         transactions = []
         for tx in tx_result.scalars().all():
-            transactions.append({
-                "hash": tx.hash,
-                "source_account": tx.source_account,
-                "destination_account": tx.destination_account,
-                "amount": tx.amount,
-                "asset_code": tx.asset_code,
-                "created_at": tx.created_at.isoformat(),
-            })
+            transactions.append(
+                {
+                    "hash": tx.hash,
+                    "source_account": tx.source_account,
+                    "destination_account": tx.destination_account,
+                    "amount": tx.amount,
+                    "asset_code": tx.asset_code,
+                    "created_at": tx.created_at.isoformat(),
+                }
+            )
 
         # Fetch fraud alerts
         fraud_result = await db.execute(
@@ -63,13 +66,15 @@ class ReportGenerator:
         )
         fraud_alerts = []
         for alert in fraud_result.scalars().all():
-            fraud_alerts.append({
-                "account_id": alert.account_id,
-                "risk_level": alert.risk_level,
-                "risk_score": alert.risk_score,
-                "description": alert.description,
-                "detected_at": alert.detected_at.isoformat(),
-            })
+            fraud_alerts.append(
+                {
+                    "account_id": alert.account_id,
+                    "risk_level": alert.risk_level,
+                    "risk_score": alert.risk_score,
+                    "description": alert.description,
+                    "detected_at": alert.detected_at.isoformat(),
+                }
+            )
 
         # Fetch active accounts
         accounts_result = await db.execute(
@@ -80,11 +85,13 @@ class ReportGenerator:
         )
         accounts = []
         for acc in accounts_result.scalars().all():
-            accounts.append({
-                "public_key": acc.public_key,
-                "balance": acc.balance,
-                "last_active": acc.last_active.isoformat() if acc.last_active else None,
-            })
+            accounts.append(
+                {
+                    "public_key": acc.public_key,
+                    "balance": acc.balance,
+                    "last_active": acc.last_active.isoformat() if acc.last_active else None,
+                }
+            )
 
         return ReportData(
             start_date=start_date,
@@ -98,12 +105,13 @@ class ReportGenerator:
         """Generate a simple chart as base64 image (placeholder)."""
         try:
             import matplotlib
+
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
             import numpy as np
 
             plt.figure(figsize=(10, 6))
-            
+
             if chart_type == "bar" and data:
                 labels = [f"{i+1}" for i in range(len(data))]
                 values = [d.get("amount", d.get("risk_score", 1)) for d in data]
@@ -112,7 +120,7 @@ class ReportGenerator:
                 plt.xlabel("Items")
                 plt.ylabel("Value")
                 plt.tight_layout()
-            
+
             buf = io.BytesIO()
             plt.savefig(buf, format="png")
             buf.seek(0)

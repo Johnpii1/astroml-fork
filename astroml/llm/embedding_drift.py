@@ -36,16 +36,16 @@ requiring at least 10 % of dimensions to show drift before raising an alert
 — conservative enough to suppress single-dimension noise, sensitive enough
 to catch coordinated shifts introduced by model or pipeline changes.
 """
+
 from __future__ import annotations
 
 import logging
-import math
-import os
 import threading
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from scipy import stats as scipy_stats
@@ -57,34 +57,37 @@ logger = logging.getLogger(__name__)
 # Constants & defaults
 # ---------------------------------------------------------------------------
 
-_DEFAULT_WINDOW = 500          # rolling window size per dimension
-_DEFAULT_BASELINE = 200        # minimum samples to establish baseline
-_DEFAULT_KS_ALPHA = 0.05       # KS test significance level
-_DEFAULT_PSI_WARNING = 0.1     # PSI threshold for WARNING
-_DEFAULT_PSI_ALERT = 0.2       # PSI threshold for ALERT
-_DEFAULT_DRIFT_FRACTION = 0.10 # fraction of drifted dims to raise alert
-_PSI_BINS = 10                 # number of equal-frequency bins for PSI
+_DEFAULT_WINDOW = 500  # rolling window size per dimension
+_DEFAULT_BASELINE = 200  # minimum samples to establish baseline
+_DEFAULT_KS_ALPHA = 0.05  # KS test significance level
+_DEFAULT_PSI_WARNING = 0.1  # PSI threshold for WARNING
+_DEFAULT_PSI_ALERT = 0.2  # PSI threshold for ALERT
+_DEFAULT_DRIFT_FRACTION = 0.10  # fraction of drifted dims to raise alert
+_PSI_BINS = 10  # number of equal-frequency bins for PSI
 
 
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DimensionDriftResult:
     """Drift test results for a single embedding dimension."""
+
     dim_index: int
     ks_statistic: float
     ks_pvalue: float
     psi: float
-    ks_drifted: bool    # True when p-value < ks_alpha
-    psi_drifted: bool   # True when PSI >= psi_alert_threshold
-    drifted: bool       # True when either test flags drift
+    ks_drifted: bool  # True when p-value < ks_alpha
+    psi_drifted: bool  # True when PSI >= psi_alert_threshold
+    drifted: bool  # True when either test flags drift
 
 
 @dataclass
 class DriftReport:
     """Aggregated drift report across all tracked dimensions."""
+
     timestamp: str
     provider_name: str
     n_baseline_samples: int
@@ -92,14 +95,14 @@ class DriftReport:
     n_dims_checked: int
     n_dims_drifted: int
     drift_fraction: float
-    drift_detected: bool            # True when drift_fraction >= threshold
+    drift_detected: bool  # True when drift_fraction >= threshold
     mean_ks_statistic: float
     mean_psi: float
     max_psi: float
-    psi_level: str                  # "ok" | "warning" | "alert"
-    dimension_results: List[DimensionDriftResult] = field(default_factory=list)
+    psi_level: str  # "ok" | "warning" | "alert"
+    dimension_results: list[DimensionDriftResult] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "timestamp": self.timestamp,
             "provider_name": self.provider_name,
@@ -131,6 +134,7 @@ class DriftReport:
 @dataclass
 class DriftAlert:
     """Alert emitted when drift is detected."""
+
     timestamp: str
     provider_name: str
     drift_fraction: float
@@ -140,7 +144,7 @@ class DriftAlert:
     n_total_dims: int
     message: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "timestamp": self.timestamp,
             "provider_name": self.provider_name,
@@ -156,6 +160,7 @@ class DriftAlert:
 # ---------------------------------------------------------------------------
 # PSI helper
 # ---------------------------------------------------------------------------
+
 
 def _compute_psi(baseline: np.ndarray, current: np.ndarray, bins: int = _PSI_BINS) -> float:
     """Compute Population Stability Index between two 1-D arrays.
@@ -192,6 +197,7 @@ def _compute_psi(baseline: np.ndarray, current: np.ndarray, bins: int = _PSI_BIN
 # Distribution tracker
 # ---------------------------------------------------------------------------
 
+
 class EmbeddingDistributionTracker:
     """Maintains rolling baseline and current windows per embedding dimension.
 
@@ -219,8 +225,8 @@ class EmbeddingDistributionTracker:
         self._baseline_frozen: bool = False
 
         # Per-dimension deques.
-        self._baseline: List[deque] = [deque(maxlen=baseline_min_samples) for _ in range(n_dims)]
-        self._current: List[deque] = [deque(maxlen=window_size) for _ in range(n_dims)]
+        self._baseline: list[deque] = [deque(maxlen=baseline_min_samples) for _ in range(n_dims)]
+        self._current: list[deque] = [deque(maxlen=window_size) for _ in range(n_dims)]
 
     # ------------------------------------------------------------------
 
@@ -239,7 +245,7 @@ class EmbeddingDistributionTracker:
 
     # ------------------------------------------------------------------
 
-    def observe(self, vector: List[float]) -> None:
+    def observe(self, vector: list[float]) -> None:
         """Record a new embedding vector.
 
         Vectors with wrong dimensionality are silently ignored to avoid
@@ -248,7 +254,8 @@ class EmbeddingDistributionTracker:
         if len(vector) != self.n_dims:
             logger.debug(
                 "EmbeddingDistributionTracker: expected %d dims, got %d — skipping",
-                self.n_dims, len(vector),
+                self.n_dims,
+                len(vector),
             )
             return
 
@@ -267,8 +274,9 @@ class EmbeddingDistributionTracker:
             if not self._baseline_frozen and self._total_observed >= self.baseline_min_samples:
                 self._baseline_frozen = True
                 logger.info(
-                    "EmbeddingDistributionTracker: baseline established "
-                    "(%d samples, %d dims)", self._total_observed, self.n_dims
+                    "EmbeddingDistributionTracker: baseline established " "(%d samples, %d dims)",
+                    self._total_observed,
+                    self.n_dims,
                 )
 
     def get_baseline_array(self, dim: int) -> np.ndarray:
@@ -293,6 +301,7 @@ class EmbeddingDistributionTracker:
 # ---------------------------------------------------------------------------
 # Drift detector
 # ---------------------------------------------------------------------------
+
 
 class DriftDetector:
     """Applies KS + PSI tests across tracked dimensions.
@@ -375,9 +384,9 @@ class DriftDetector:
             rng = np.random.default_rng(seed=42)
             dims_to_check = rng.choice(n_dims, size=self.max_dims_to_check, replace=False).tolist()
 
-        dim_results: List[DimensionDriftResult] = []
-        ks_stats: List[float] = []
-        psis: List[float] = []
+        dim_results: list[DimensionDriftResult] = []
+        ks_stats: list[float] = []
+        psis: list[float] = []
 
         for d in dims_to_check:
             base_arr = tracker.get_baseline_array(d)
@@ -399,15 +408,17 @@ class DriftDetector:
             # A dimension is drifted when BOTH tests agree (reduces false positives).
             drifted = ks_drifted and psi_drifted
 
-            dim_results.append(DimensionDriftResult(
-                dim_index=d,
-                ks_statistic=ks_stat,
-                ks_pvalue=ks_pval,
-                psi=psi,
-                ks_drifted=ks_drifted,
-                psi_drifted=psi_drifted,
-                drifted=drifted,
-            ))
+            dim_results.append(
+                DimensionDriftResult(
+                    dim_index=d,
+                    ks_statistic=ks_stat,
+                    ks_pvalue=ks_pval,
+                    psi=psi,
+                    ks_drifted=ks_drifted,
+                    psi_drifted=psi_drifted,
+                    drifted=drifted,
+                )
+            )
             ks_stats.append(ks_stat)
             psis.append(psi)
 
@@ -454,6 +465,7 @@ class DriftDetector:
 # Alerter
 # ---------------------------------------------------------------------------
 
+
 class DriftAlerter:
     """Emits DriftAlerts and invokes optional callbacks.
 
@@ -463,7 +475,7 @@ class DriftAlerter:
     def __init__(
         self,
         max_history: int = 100,
-        on_alert: Optional[Callable[[DriftAlert], None]] = None,
+        on_alert: Callable[[DriftAlert], None] | None = None,
     ) -> None:
         self._history: deque = deque(maxlen=max_history)
         self._on_alert = on_alert
@@ -498,7 +510,7 @@ class DriftAlerter:
 
         return alert
 
-    def get_history(self) -> List[DriftAlert]:
+    def get_history(self) -> list[DriftAlert]:
         with self._lock:
             return list(self._history)
 
@@ -510,6 +522,7 @@ class DriftAlerter:
 # ---------------------------------------------------------------------------
 # Facade: EmbeddingDriftMonitor
 # ---------------------------------------------------------------------------
+
 
 class EmbeddingDriftMonitor:
     """Top-level monitor that wires tracker + detector + alerter together.
@@ -565,7 +578,7 @@ class EmbeddingDriftMonitor:
         psi_alert_threshold: float = _DEFAULT_PSI_ALERT,
         drift_fraction_threshold: float = _DEFAULT_DRIFT_FRACTION,
         max_dims_to_check: int = 128,
-        on_drift: Optional[Callable[[DriftAlert], None]] = None,
+        on_drift: Callable[[DriftAlert], None] | None = None,
     ) -> None:
         self.provider_name = provider_name
         self.check_every = check_every
@@ -583,14 +596,14 @@ class EmbeddingDriftMonitor:
             max_dims_to_check=max_dims_to_check,
         )
         self._alerter = DriftAlerter(on_alert=on_drift)
-        self._last_report: Optional[DriftReport] = None
+        self._last_report: DriftReport | None = None
         self._n_since_check: int = 0
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def observe(self, vector: List[float]) -> Optional[DriftReport]:
+    def observe(self, vector: list[float]) -> DriftReport | None:
         """Record a new vector and optionally auto-check for drift.
 
         Returns a DriftReport if an automatic check was triggered,
@@ -637,13 +650,13 @@ class EmbeddingDriftMonitor:
         return self._tracker.n_observed
 
     @property
-    def last_report(self) -> Optional[DriftReport]:
+    def last_report(self) -> DriftReport | None:
         return self._last_report
 
-    def get_alert_history(self) -> List[DriftAlert]:
+    def get_alert_history(self) -> list[DriftAlert]:
         return self._alerter.get_history()
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Return a compact status dict suitable for API responses."""
         report = self._last_report
         return {

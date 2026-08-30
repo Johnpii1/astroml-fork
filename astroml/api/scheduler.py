@@ -15,13 +15,13 @@ Design notes
 - All tunable parameters are read from environment variables with sensible
   defaults so nothing needs to change in code between environments.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -44,6 +44,7 @@ except ImportError:  # pragma: no cover
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
+
 def _env_int(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, default))
@@ -51,12 +52,13 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-BATCH_INTERVAL_SECONDS: int = _env_int("BATCH_INTERVAL_SECONDS", 300)   # 5 min
+BATCH_INTERVAL_SECONDS: int = _env_int("BATCH_INTERVAL_SECONDS", 300)  # 5 min
 ACTIVITY_WINDOW_HOURS: int = _env_int("ACTIVITY_WINDOW_HOURS", 24)
 ALERT_RETENTION_DAYS: int = _env_int("ALERT_RETENTION_DAYS", 90)
 
 
 # ─── Scorer stub ─────────────────────────────────────────────────────────────
+
 
 def _default_score(account_id: str) -> float:  # pragma: no cover
     """Placeholder scorer used when the ML pipeline is not available.
@@ -69,10 +71,11 @@ def _default_score(account_id: str) -> float:  # pragma: no cover
 
 # ─── Core batch job ──────────────────────────────────────────────────────────
 
+
 async def run_batch_scoring_job(
     session_factory: async_sessionmaker[AsyncSession],
     score_fn=_default_score,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> dict:
     """Execute one batch scoring run.
 
@@ -113,63 +116,59 @@ async def run_batch_scoring_job(
 
     new_alerts: list[dict] = []
 
-    async with session_factory() as session:
-        async with session.begin():
-            # ── 1. Find active accounts ────────────────────────────────────
-            if Account is not None:
-                stmt = select(Account.account_id).where(
-                    Account.updated_at >= cutoff
+    async with session_factory() as session, session.begin():
+        # ── 1. Find active accounts ────────────────────────────────────
+        if Account is not None:
+            stmt = select(Account.account_id).where(Account.updated_at >= cutoff)
+            result = await session.execute(stmt)
+            account_ids = [row[0] for row in result.fetchall()]
+        else:
+            account_ids = []
+
+        metrics["accounts_scored"] = len(account_ids)
+        logger.info("Accounts to score: %d", len(account_ids))
+
+        # ── 2. Score each account and write alerts ─────────────────────
+        for account_id in account_ids:
+            try:
+                score = score_fn(account_id)
+                risk = FraudAlert.risk_level_for_score(score)
+
+                alert = FraudAlert(
+                    account_id=account_id,
+                    risk_score=score,
+                    risk_level=risk,
+                    pattern="batch_score",
+                    description=f"Batch scoring at {now.isoformat()}",
+                    detected_at=now,
                 )
-                result = await session.execute(stmt)
-                account_ids = [row[0] for row in result.fetchall()]
-            else:
-                account_ids = []
-
-            metrics["accounts_scored"] = len(account_ids)
-            logger.info("Accounts to score: %d", len(account_ids))
-
-            # ── 2. Score each account and write alerts ─────────────────────
-            for account_id in account_ids:
-                try:
-                    score = score_fn(account_id)
-                    risk = FraudAlert.risk_level_for_score(score)
-
-                    alert = FraudAlert(
-                        account_id=account_id,
-                        risk_score=score,
-                        risk_level=risk,
-                        pattern="batch_score",
-                        description=f"Batch scoring at {now.isoformat()}",
-                        detected_at=now,
-                    )
-                    session.add(alert)
-                    metrics["alerts_created"] += 1
-                    new_alerts.append({
+                session.add(alert)
+                metrics["alerts_created"] += 1
+                new_alerts.append(
+                    {
                         "accountId": account_id,
                         "riskScore": score,
                         "riskLevel": risk,
                         "detectedAt": now.isoformat(),
-                    })
+                    }
+                )
 
-                except Exception as exc:  # noqa: BLE001
-                    metrics["errors"] += 1
-                    logger.error(
-                        "Scoring error for account %s: %s",
-                        account_id,
-                        exc,
-                        exc_info=True,
-                    )
+            except Exception as exc:  # noqa: BLE001
+                metrics["errors"] += 1
+                logger.error(
+                    "Scoring error for account %s: %s",
+                    account_id,
+                    exc,
+                    exc_info=True,
+                )
 
-            # ── 3. Purge stale alerts ──────────────────────────────────────
-            delete_stmt = delete(FraudAlert).where(
-                FraudAlert.detected_at < retention_cutoff
-            )
-            delete_result = await session.execute(delete_stmt)
-            metrics["alerts_deleted"] = delete_result.rowcount
+        # ── 3. Purge stale alerts ──────────────────────────────────────
+        delete_stmt = delete(FraudAlert).where(FraudAlert.detected_at < retention_cutoff)
+        delete_result = await session.execute(delete_stmt)
+        metrics["alerts_deleted"] = delete_result.rowcount
 
     logger.info(
-        "Batch scoring complete | scored=%d alerts_created=%d "
-        "alerts_deleted=%d errors=%d",
+        "Batch scoring complete | scored=%d alerts_created=%d " "alerts_deleted=%d errors=%d",
         metrics["accounts_scored"],
         metrics["alerts_created"],
         metrics["alerts_deleted"],
@@ -181,10 +180,13 @@ async def run_batch_scoring_job(
             from api.websocket.manager import ws_manager  # noqa: PLC0415
 
             for payload in new_alerts:
-                await ws_manager.broadcast("alerts", {
-                    "type": "fraud_alert",
-                    "data": payload,
-                })
+                await ws_manager.broadcast(
+                    "alerts",
+                    {
+                        "type": "fraud_alert",
+                        "data": payload,
+                    },
+                )
         except Exception:  # noqa: BLE001
             pass
 
@@ -193,8 +195,8 @@ async def run_batch_scoring_job(
 
 # ─── Scheduler lifecycle ─────────────────────────────────────────────────────
 
-_scheduler_task: Optional[asyncio.Task] = None
-_stop_event: Optional[asyncio.Event] = None
+_scheduler_task: asyncio.Task | None = None
+_stop_event: asyncio.Event | None = None
 
 
 async def _scheduler_loop(
@@ -203,9 +205,7 @@ async def _scheduler_loop(
     stop_event: asyncio.Event,
 ) -> None:
     """Main loop: sleep → run → repeat until stop_event is set."""
-    logger.info(
-        "Batch scheduler started (interval=%ds)", BATCH_INTERVAL_SECONDS
-    )
+    logger.info("Batch scheduler started (interval=%ds)", BATCH_INTERVAL_SECONDS)
     while not stop_event.is_set():
         try:
             await run_batch_scoring_job(session_factory, score_fn=score_fn)
@@ -213,9 +213,7 @@ async def _scheduler_loop(
             logger.error("Batch job raised an unhandled exception: %s", exc, exc_info=True)
 
         try:
-            await asyncio.wait_for(
-                stop_event.wait(), timeout=BATCH_INTERVAL_SECONDS
-            )
+            await asyncio.wait_for(stop_event.wait(), timeout=BATCH_INTERVAL_SECONDS)
         except asyncio.TimeoutError:
             pass  # Normal case: interval elapsed, run again
 

@@ -16,10 +16,12 @@ alembic==1.13.0
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
+python-multipart>=0.0.7
 
-# CORS
-python-cors==1.0.0
+# CORS is handled by FastAPI's built-in fastapi.middleware.cors.CORSMiddleware
+# (see api/app.py) — no separate package is needed. The `python-cors==1.0.0`
+# pin previously here doesn't correspond to a real PyPI package and made this
+# file uninstallable; removed while wiring up requirements-api.txt (#561).
 
 # HTTP Client
 httpx==0.25.2
@@ -39,3 +41,6 @@ python-dotenv==1.0.0
 matplotlib==3.8.2
 markdown==3.5.1
 weasyprint==60.1
+
+# GraphQL dependencies
+strawberry-graphql[fastapi]>=0.237.0

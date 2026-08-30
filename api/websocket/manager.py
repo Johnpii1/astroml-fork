@@ -1,4 +1,5 @@
 """WebSocket connection manager (issue #239)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -42,7 +43,9 @@ class ConnectionManager:
         client = _ClientState(websocket=websocket, channel=channel)
         async with self._lock:
             self._clients.setdefault(channel, []).append(client)
-        logger.info("WebSocket client connected to %s (total=%d)", channel, len(self._clients[channel]))
+        logger.info(
+            "WebSocket client connected to %s (total=%d)", channel, len(self._clients[channel])
+        )
         return client
 
     async def disconnect(self, client: _ClientState) -> None:

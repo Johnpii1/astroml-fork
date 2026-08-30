@@ -1,10 +1,10 @@
 """Redis-backed conversation memory for LLM multi-turn chat (issue #360)."""
+
 import json
 import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class ConversationSummarizer:
     # Token estimation
     # ------------------------------------------------------------------
 
-    def _estimate_tokens(self, messages: List[dict]) -> int:
+    def _estimate_tokens(self, messages: list[dict]) -> int:
         """Return a rough token count for a list of messages."""
         total_chars = sum(len(m.get("content", "")) for m in messages)
         return max(1, total_chars // 4)
@@ -38,11 +38,11 @@ class ConversationSummarizer:
     # Public interface
     # ------------------------------------------------------------------
 
-    def needs_summarization(self, messages: List[dict]) -> bool:
+    def needs_summarization(self, messages: list[dict]) -> bool:
         """Return True when the estimated token count exceeds the threshold (AC4.1)."""
         return self._estimate_tokens(messages) > self.token_threshold
 
-    def summarize(self, messages: List[dict]) -> List[dict]:
+    def summarize(self, messages: list[dict]) -> list[dict]:
         """Summarize older messages and return ``[summary_msg] + recent`` (AC4.2).
 
         The oldest ``len(messages) - recent_verbatim`` messages are collapsed
@@ -59,9 +59,7 @@ class ConversationSummarizer:
 
         # Build a bounded summary string (kept well under 900 chars so the
         # summary message itself is stored within the 1 KB budget).
-        snippets = "; ".join(
-            m.get("content", "")[:50] for m in older
-        )
+        snippets = "; ".join(m.get("content", "")[:50] for m in older)
         summary_content = f"Summary of {len(older)} earlier messages: {snippets}"
         # Truncate to 900 chars to respect the per-message size limit.
         summary_content = summary_content[:900]
@@ -100,7 +98,7 @@ class ConversationMemory:
         )
 
         # Attempt Redis connection — same pattern as SemanticCache.
-        self._redis: Optional[object] = None
+        self._redis: object | None = None
         if redis is not None:
             redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
             try:
@@ -108,14 +106,12 @@ class ConversationMemory:
                 # Verify connectivity eagerly; fall back if the server is down.
                 self._redis.ping()
             except Exception:
-                logger.warning(
-                    "ConversationMemory: Redis unavailable — using in-memory fallback."
-                )
+                logger.warning("ConversationMemory: Redis unavailable — using in-memory fallback.")
                 self._redis = None
 
         # In-process fallback stores (keyed by session_id).
-        self._fallback_messages: Dict[str, List[dict]] = {}
-        self._fallback_meta: Dict[str, dict] = {}
+        self._fallback_messages: dict[str, list[dict]] = {}
+        self._fallback_meta: dict[str, dict] = {}
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -132,7 +128,7 @@ class ConversationMemory:
 
     # ---------- low-level read/write ----------
 
-    def _read_messages(self, session_id: str) -> List[dict]:
+    def _read_messages(self, session_id: str) -> list[dict]:
         if self._redis_ok():
             try:
                 raw = self._redis.get(self._msg_key(session_id))
@@ -143,7 +139,7 @@ class ConversationMemory:
                 pass
         return list(self._fallback_messages.get(session_id, []))
 
-    def _write_messages(self, session_id: str, messages: List[dict]) -> None:
+    def _write_messages(self, session_id: str, messages: list[dict]) -> None:
         payload = json.dumps(messages, ensure_ascii=False)
         if self._redis_ok():
             try:
@@ -153,7 +149,7 @@ class ConversationMemory:
                 pass
         self._fallback_messages[session_id] = messages
 
-    def _read_meta(self, session_id: str) -> Optional[dict]:
+    def _read_meta(self, session_id: str) -> dict | None:
         if self._redis_ok():
             try:
                 raw = self._redis.get(self._meta_key(session_id))
@@ -196,7 +192,7 @@ class ConversationMemory:
         self._write_messages(session_id, [])
         return meta
 
-    def get_session(self, session_id: str) -> Optional[dict]:
+    def get_session(self, session_id: str) -> dict | None:
         """Return session metadata or ``None`` if the session doesn't exist (AC2.2, AC2.5)."""
         return self._read_meta(session_id)
 
@@ -243,7 +239,7 @@ class ConversationMemory:
             meta["turn_count"] = meta.get("turn_count", 0) + 1
             self._write_meta(session_id, meta)
 
-    def get_messages(self, session_id: str) -> List[dict]:
+    def get_messages(self, session_id: str) -> list[dict]:
         """Return the full stored message list (empty list if session missing)."""
         return self._read_messages(session_id)
 

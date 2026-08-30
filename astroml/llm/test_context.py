@@ -1,8 +1,9 @@
 """Tests for blockchain LLM context management (issue #360)."""
+
 import unittest
 from datetime import datetime, timedelta
 
-from .context import BlockchainContextBuilder
+from .blockchain_context import BlockchainContextBuilder
 
 
 def _make_raw_data(num_days: int, txs_per_day: int = 20) -> list:
@@ -11,13 +12,15 @@ def _make_raw_data(num_days: int, txs_per_day: int = 20) -> list:
     for day in range(num_days):
         ts = now - timedelta(days=day)
         for tx in range(txs_per_day):
-            raw_data.append({
-                "id": f"d{day}-t{tx}",
-                "amount": 100.0 + tx,
-                "timestamp": ts.isoformat(),
-                "from_address": f"0xFrom{day}-{tx % 5}",
-                "to_address": f"0xTo{day}-{tx % 5}",
-            })
+            raw_data.append(
+                {
+                    "id": f"d{day}-t{tx}",
+                    "amount": 100.0 + tx,
+                    "timestamp": ts.isoformat(),
+                    "from_address": f"0xFrom{day}-{tx % 5}",
+                    "to_address": f"0xTo{day}-{tx % 5}",
+                }
+            )
     return raw_data
 
 
@@ -66,12 +69,10 @@ class CompressDataTests(unittest.TestCase):
         compressed_text = builder.compress_data(summaries, group_size=7)
 
         compressed_tx_total = sum(
-            int(line.split(" txs")[0].split()[-1])
-            for line in compressed_text.split("\n")
+            int(line.split(" txs")[0].split()[-1]) for line in compressed_text.split("\n")
         )
         compressed_volume_total = sum(
-            float(line.split("volume=")[1].split(",")[0])
-            for line in compressed_text.split("\n")
+            float(line.split("volume=")[1].split(",")[0]) for line in compressed_text.split("\n")
         )
 
         tx_loss = abs(compressed_tx_total - original_tx_total) / original_tx_total

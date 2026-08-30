@@ -7,6 +7,7 @@ Create Date: 2026-06-01
 Closes #251 — Database Session & Models
 Closes #257 — Model Registry & Versioning
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -31,8 +32,12 @@ def upgrade() -> None:
         sa.Column("last_active", sa.DateTime(timezone=True), nullable=True),
         sa.Column("balance", sa.Numeric(), nullable=True),
         sa.Column("home_domain", sa.String(253), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.UniqueConstraint("public_key"),
     )
     op.create_index("ix_api_accounts_public_key", "api_accounts", ["public_key"])
@@ -54,12 +59,17 @@ def upgrade() -> None:
         sa.Column("memo_type", sa.String(16), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index("ix_api_transactions_source_created_at",
-                    "api_transactions", ["source_account", "created_at"])
-    op.create_index("ix_api_transactions_dest_created_at",
-                    "api_transactions", ["destination_account", "created_at"])
-    op.create_index("ix_api_transactions_ledger",
-                    "api_transactions", ["ledger_sequence"])
+    op.create_index(
+        "ix_api_transactions_source_created_at",
+        "api_transactions",
+        ["source_account", "created_at"],
+    )
+    op.create_index(
+        "ix_api_transactions_dest_created_at",
+        "api_transactions",
+        ["destination_account", "created_at"],
+    )
+    op.create_index("ix_api_transactions_ledger", "api_transactions", ["ledger_sequence"])
 
     # -- api_fraud_alerts ------------------------------------------------------
     op.create_table(
@@ -70,8 +80,12 @@ def upgrade() -> None:
         sa.Column("risk_score", sa.Float(), nullable=False),
         sa.Column("risk_level", sa.String(16), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("detected_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "detected_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
     )
     op.create_index("ix_api_fraud_alerts_account_id", "api_fraud_alerts", ["account_id"])
     op.create_index("ix_api_fraud_alerts_detected_at", "api_fraud_alerts", ["detected_at"])
@@ -85,8 +99,12 @@ def upgrade() -> None:
         sa.Column("balance", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("tier", sa.String(32), nullable=False, server_default="bronze"),
         sa.Column("multiplier", sa.Float(), nullable=False, server_default="1.0"),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.UniqueConstraint("account_id"),
     )
     op.create_index("ix_loyalty_points_account_id", "loyalty_points", ["account_id"])
@@ -100,13 +118,15 @@ def upgrade() -> None:
         sa.Column("points", sa.Integer(), nullable=False),
         sa.Column("source", sa.String(128), nullable=True),
         sa.Column("note", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
     )
-    op.create_index("ix_points_transactions_account_id",
-                    "points_transactions", ["account_id"])
-    op.create_index("ix_points_transactions_created_at",
-                    "points_transactions", ["created_at"])
+    op.create_index("ix_points_transactions_account_id", "points_transactions", ["account_id"])
+    op.create_index("ix_points_transactions_created_at", "points_transactions", ["created_at"])
 
     # -- model_registry --------------------------------------------------------
     op.create_table(
@@ -117,12 +137,17 @@ def upgrade() -> None:
         sa.Column("path", sa.Text(), nullable=False),
         sa.Column("metrics", postgresql.JSONB(), nullable=True),
         sa.Column("status", sa.String(16), nullable=False, server_default="inactive"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                  server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.UniqueConstraint("name", "version", name="uq_model_registry_name_version"),
     )
-    op.create_index("ix_model_registry_name_version",
-                    "model_registry", ["name", "version"], unique=True)
+    op.create_index(
+        "ix_model_registry_name_version", "model_registry", ["name", "version"], unique=True
+    )
     op.create_index("ix_model_registry_status", "model_registry", ["status"])
 
 
