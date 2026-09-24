@@ -185,3 +185,31 @@ def compute_node_features(
     ]
 
     return feats.sort_index()
+
+def compute_rolling_node_features(
+    edges: Iterable[Edge],
+    window: float,
+    ref_time: float,
+    window_name: str,
+    nodes_first_seen: dict[Hashable, float] | None = None,
+) -> pd.DataFrame:
+    """Compute rolling window account aggregate features.
+    
+    Filters edges to those within [ref_time - window, ref_time] and computes
+    aggregates (volumes, degrees).
+    """
+    valid_edges = []
+    min_ts = ref_time - window
+    for e in edges:
+        ts = float(e.get("timestamp", 0.0) or 0.0)
+        if min_ts <= ts <= ref_time:
+            valid_edges.append(e)
+            
+    feats = compute_node_features(valid_edges, nodes_first_seen=nodes_first_seen, ref_time=ref_time)
+    
+    # We only care about aggregations, not account age or first_seen for rolling
+    feats = feats.drop(columns=["first_seen", "account_age"], errors="ignore")
+    
+    # Rename columns with window_name
+    feats = feats.add_suffix(f"_{window_name}")
+    return feats
