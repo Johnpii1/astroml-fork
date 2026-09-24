@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 import logging
 import random
 import time
@@ -120,7 +121,7 @@ class FallbackProviderChain:
                 cb.record_success()
                 return result
 
-            except Exception as e:
+            except AstroMLError as e:
                 cb.record_failure()
                 logger.error(f"Provider {provider.__name__} failed with {e}. Falling back...")
 

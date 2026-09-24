@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Test generation orchestrator.
 
 Orchestrates the generation of tests from code, documentation,
@@ -209,7 +210,7 @@ class TestGenerator:
                 max_tokens=4096,
             )
             return response
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"LLM call failed: {e}")
             return self._fallback_generate(prompt)
 

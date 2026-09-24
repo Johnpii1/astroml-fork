@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Regression suite to detect LLM quality degradation."""
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ class QualityRegressionDetector:
             try:
                 with open(self.baseline_path) as f:
                     self.baseline_metrics = json.load(f)
-            except Exception:
+            except AstroMLError:
                 pass
 
         # Standard default quality thresholds

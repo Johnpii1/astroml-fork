@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Module for downloading historical Stellar ledger data."""
 
 from __future__ import annotations
@@ -147,7 +148,7 @@ async def main():
     async with StellarLedgerDownloader() as downloader:
         try:
             await downloader.download_range(args.start, args.end, args.output, args.format)
-        except Exception as e:
+        except AstroMLError as e:
             logger.error("Download failed: %s", e)
             sys.exit(1)
 

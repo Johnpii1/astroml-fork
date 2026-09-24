@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Batch scoring scheduler for fraud detection.
 
 The scheduler runs as a background ``asyncio`` task that wakes up on a
@@ -187,7 +188,7 @@ async def run_batch_scoring_job(
                         "data": payload,
                     },
                 )
-        except Exception:  # noqa: BLE001
+        except AstroMLError:  # noqa: BLE001
             pass
 
     return metrics

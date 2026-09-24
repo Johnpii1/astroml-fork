@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Fine-tuned model registry.
 
 Provides versioned storage, lineage tracking, and deployment
@@ -67,7 +68,7 @@ class FineTuneRegistry:
                     record = FineTuneModelRecord.from_dict(record_data)
                     self._records[record.model_id] = record
                 logger.info(f"Loaded {len(self._records)} registry records")
-            except Exception as e:
+            except AstroMLError as e:
                 logger.error(f"Failed to load registry: {e}")
 
     def _save_records(self) -> None:

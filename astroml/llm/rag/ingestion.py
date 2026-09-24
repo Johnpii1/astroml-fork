@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Document ingestion for RAG system."""
 
 import time
@@ -54,7 +55,7 @@ class DocumentIngestor:
                         }
                     )
 
-            except Exception as e:
+            except AstroMLError as e:
                 print(f"Error reading {file_path}: {e}")
                 continue
 

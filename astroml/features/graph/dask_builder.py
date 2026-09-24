@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Dask-based parallel graph building for large-scale graphs.
 
 This module provides distributed graph building using Dask for graphs
@@ -180,7 +181,7 @@ class DaskGraphBuilder:
                 for feat_name, feat_func in feature_funcs.items():
                     try:
                         node_features[feat_name] = feat_func(G, node)
-                    except Exception as e:
+                    except AstroMLError as e:
                         logger.warning(f"Error computing {feat_name} for {node}: {e}")
                         node_features[feat_name] = None
                 features[node] = node_features

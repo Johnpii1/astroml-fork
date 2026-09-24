@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Feature computation engine for the Feature Store.
 
 This module provides the core computation engine that orchestrates feature
@@ -510,11 +511,11 @@ class ComputationEngine:
                         logger.info(
                             f"Plugin {ep.name} is a callable; register via the feature registry"
                         )
-                except Exception as e:
+                except AstroMLError as e:
                     logger.warning(f"Failed to load plugin '{ep.name}': {e}")
         except ImportError:
             logger.debug("importlib.metadata not available for plugin discovery")
-        except Exception as e:
+        except AstroMLError as e:
             logger.warning(f"Plugin discovery failed: {e}")
 
     def _validate_plugin_computer(self, plugin_cls: type) -> None:
@@ -671,7 +672,7 @@ class ComputationEngine:
 
             logger.info(f"Completed task {task.task_id} for feature {task.feature_name}")
 
-        except Exception as e:
+        except AstroMLError as e:
             task.error = str(e)
             task.status = ComputationStatus.FAILED
             logger.error(f"Task {task.task_id} failed: {e}")
@@ -708,7 +709,7 @@ class ComputationEngine:
                     try:
                         future.result()  # Wait for completion
                         self._completed_tasks[task.task_id] = task
-                    except Exception as e:
+                    except AstroMLError as e:
                         logger.error(f"Task execution error: {e}")
                         self._completed_tasks[task.task_id] = task
         else:

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -336,7 +337,7 @@ class TemporalTrainer:
             checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
         except FileNotFoundError:
             raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
-        except Exception as e:
+        except AstroMLError as e:
             raise ValueError(f"Failed to load checkpoint: {e}")
 
         # Validate required keys
@@ -352,17 +353,17 @@ class TemporalTrainer:
 
         try:
             self.model.load_state_dict(checkpoint["model_state_dict"])
-        except Exception as e:
+        except AstroMLError as e:
             raise RuntimeError(f"Model state dict does not match architecture: {e}")
 
         try:
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        except Exception as e:
+        except AstroMLError as e:
             raise RuntimeError(f"Optimizer state dict does not match: {e}")
 
         try:
             self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-        except Exception as e:
+        except AstroMLError as e:
             raise RuntimeError(f"Scheduler state dict does not match: {e}")
 
         self.training_history = checkpoint["training_history"]

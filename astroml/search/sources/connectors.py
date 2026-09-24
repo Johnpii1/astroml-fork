@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 import glob
 import os
 from typing import Any
@@ -35,7 +36,7 @@ class DocsConnector(BaseSourceConnector):
                         "metadata": {"author": "AstroML Team", "date": "2026-07-25"},
                     }
                 )
-            except Exception:
+            except AstroMLError:
                 continue
         # Fallback default docs if none found
         if not docs:

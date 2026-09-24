@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 from datetime import datetime
 
 import numpy as np
@@ -504,7 +505,7 @@ class TemporalMetrics:
 
                     auc = roc_auc_score(window_targets.cpu().numpy(), window_preds.cpu().numpy())
                     aucs.append(auc)
-                except Exception:
+                except AstroMLError:
                     pass
 
         return np.mean(aucs) if aucs else 0.0

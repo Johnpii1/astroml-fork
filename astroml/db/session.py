@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Database session factory for AstroML.
 
 This module provides database connection management and session creation with:
@@ -186,7 +187,7 @@ def get_engine() -> Engine:
             pool_timeout=config.pool_timeout,
             pool_recycle=config.pool_recycle,
         )
-    except Exception:
+    except AstroMLError:
         engine = create_engine(
             resolve_database_url(),
             pool_pre_ping=True,

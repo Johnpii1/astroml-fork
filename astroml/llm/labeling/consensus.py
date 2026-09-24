@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Multi-LLM consensus for LLM-based data labeling (issue #475)."""
 from __future__ import annotations
 
@@ -105,7 +106,7 @@ class ConsensusLabeler:
                     "result": result.to_dict(),
                 })
                 all_labels.extend(result.labels)
-            except Exception as e:
+            except AstroMLError as e:
                 logger.error(f"Error from client {client_name}: {e}")
                 individual_results.append({
                     "client": client_name,

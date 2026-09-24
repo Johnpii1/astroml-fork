@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Core benchmarking framework for GNN models on Stellar data."""
 
 from __future__ import annotations
@@ -304,7 +305,7 @@ class ModelBenchmark:
                 # Get probabilities for AUC
                 probs = torch.softmax(out, dim=1)[:, 1][data["test_mask"]]
                 metrics["auc"] = roc_auc_score(y_true.cpu(), probs.cpu())
-            except Exception:
+            except AstroMLError:
                 metrics["auc"] = 0.0
 
         return metrics
@@ -488,7 +489,7 @@ class ModelBenchmark:
                     },
                 )
                 print(f"Model saved to artifact store: {artifact_uri}")
-            except Exception as e:
+            except AstroMLError as e:
                 print(f"Warning: Failed to save model to artifact store: {e}")
                 # Fallback to local save
                 model_path = Path(self.config.output_dir) / model_filename

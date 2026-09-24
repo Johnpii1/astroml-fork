@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Aggregates multiple streaming sources into a unified output stream."""
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ class StreamAggregator:
                 if self.buffer.is_aborted:
                     break
                 await self.buffer.push({"source_id": source_id, "token": chunk, "finished": False})
-        except Exception as e:
+        except AstroMLError as e:
             logger.error("Error consuming source %s in aggregator: %s", source_id, e)
         finally:
             self._active_sources -= 1

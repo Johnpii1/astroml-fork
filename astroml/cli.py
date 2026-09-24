@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 from __future__ import annotations
 
 import argparse
@@ -318,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
             except FileNotFoundError as e:
                 print(f"Error: {e}")
                 return 1
-            except Exception as e:
+            except AstroMLError as e:
                 print(f"Error loading config: {e}")
                 return 1
         else:

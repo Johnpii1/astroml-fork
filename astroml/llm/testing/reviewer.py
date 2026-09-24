@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Test quality reviewer.
 
 Reviews generated tests for correctness, coverage, and best practices.
@@ -84,7 +85,7 @@ class TestReviewer:
             ast.parse(full_code)
         except SyntaxError as e:
             issues.append(f"Syntax error in {test.name}: {e}")
-        except Exception as e:
+        except AstroMLError as e:
             issues.append(f"Parse error in {test.name}: {e}")
         return issues
 

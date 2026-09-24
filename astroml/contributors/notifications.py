@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Notification service for contributor activities.
 
 Features:
@@ -117,7 +118,7 @@ class NotificationService:
                 return self._send_slack(event)
             elif channel == NotificationChannel.DISCORD:
                 return self._send_discord(event)
-        except Exception:  # noqa: BLE001
+        except AstroMLError:  # noqa: BLE001
             return False
         return False
 

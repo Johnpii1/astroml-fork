@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Slack integration for chat support (issue #306)."""
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ class SlackIntegration:
                 logger.error(f"Slack webhook failed: {response.status_code}")
                 return False
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Slack webhook error: {e}")
             return False
 
@@ -140,7 +141,7 @@ class SlackIntegration:
                 logger.error(f"Slack API request failed: {response.status_code}")
                 return False
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Slack direct message error: {e}")
             return False
 

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Recommendation engine for LLM-based recommendations (issue #474)."""
 
 from __future__ import annotations
@@ -68,7 +69,7 @@ class RecommendationEngine:
             try:
                 recommendations = generator.generate(context)
                 all_recommendations.extend(recommendations)
-            except Exception as e:
+            except AstroMLError as e:
                 logger.error(f"Generator error: {e}")
 
         # Deduplicate

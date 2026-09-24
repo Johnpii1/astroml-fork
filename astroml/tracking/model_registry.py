@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Model registry for managing ML models and their versions.
 
 Enhanced with:
@@ -539,7 +540,7 @@ class ModelRegistry:
             target.lineage = _append_lineage(target.lineage, {**record, "role": "activated"})
 
             self.session.commit()
-        except Exception:
+        except AstroMLError:
             self.session.rollback()
             raise
 

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Chunked UPSERT batching for ingestion writes.
 
 Provides batch accumulation and chunked persistence of ORM models
@@ -108,7 +109,7 @@ class BatchBuffer:
                 self._total_flushed,
                 self._flush_count,
             )
-        except Exception:
+        except AstroMLError:
             self._session.rollback()
             BATCH_FLUSH_TOTAL.labels(status="error").inc()
             logger.exception("Batch flush failed after %d models", len(self._buffer))
@@ -146,7 +147,7 @@ class BatchBuffer:
         else:
             try:
                 self._session.rollback()
-            except Exception:
+            except AstroMLError:
                 logger.exception("Rollback on exit failed")
 
 

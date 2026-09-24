@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Utility functions for benchmarking."""
 
 from __future__ import annotations
@@ -257,14 +258,14 @@ def get_environment_info() -> dict[str, Any]:
     for lib in libraries:
         try:
             env_info[f"{lib}_version"] = version(lib)
-        except Exception:
+        except AstroMLError:
             try:
                 # Fallback for packages with different import names
                 import importlib
 
                 module = importlib.import_module(lib.replace("-", "_"))
                 env_info[f"{lib}_version"] = getattr(module, "__version__", "unknown")
-            except Exception:
+            except AstroMLError:
                 env_info[f"{lib}_version"] = "not_installed"
 
     return env_info

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Celery tasks for LLM backfill processing."""
 
 import logging
@@ -61,7 +62,7 @@ def process_batch(
             "checkpoint": checkpoint.to_json(),
             "status": "completed",
         }
-    except Exception as e:
+    except AstroMLError as e:
         logger.error("Batch processing failed for job %s: %s", job_id, e)
         raise
 

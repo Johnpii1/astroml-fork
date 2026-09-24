@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Async streaming client for Stellar Horizon transaction events."""
 
 from __future__ import annotations
@@ -67,7 +68,7 @@ class HorizonStreamingClient:
             writer.close()
             try:
                 await writer.wait_closed()
-            except Exception:  # pragma: no cover - transport specific
+            except AstroMLError:  # pragma: no cover - transport specific
                 pass
 
         if self._task is not None:
@@ -88,7 +89,7 @@ class HorizonStreamingClient:
                 self._logger.warning("Horizon stream disconnected. Reconnecting in %.2fs", delay)
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except AstroMLError:
                 if self._stop_event.is_set():
                     break
                 self._logger.exception("Horizon stream error. Reconnecting in %.2fs", delay)
@@ -163,7 +164,7 @@ class HorizonStreamingClient:
             writer.close()
             try:
                 await writer.wait_closed()
-            except Exception:  # pragma: no cover - transport specific
+            except AstroMLError:  # pragma: no cover - transport specific
                 pass
             if self._writer is writer:
                 self._writer = None

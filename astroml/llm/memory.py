@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Redis-backed conversation memory for LLM multi-turn chat (issue #360)."""
 
 import json
@@ -105,7 +106,7 @@ class ConversationMemory:
                 self._redis = redis.Redis.from_url(redis_url, decode_responses=True)
                 # Verify connectivity eagerly; fall back if the server is down.
                 self._redis.ping()
-            except Exception:
+            except AstroMLError:
                 logger.warning("ConversationMemory: Redis unavailable — using in-memory fallback.")
                 self._redis = None
 
@@ -135,7 +136,7 @@ class ConversationMemory:
                 if raw:
                     return json.loads(raw)
                 return []
-            except Exception:
+            except AstroMLError:
                 pass
         return list(self._fallback_messages.get(session_id, []))
 
@@ -145,7 +146,7 @@ class ConversationMemory:
             try:
                 self._redis.setex(self._msg_key(session_id), self.ttl, payload)
                 return
-            except Exception:
+            except AstroMLError:
                 pass
         self._fallback_messages[session_id] = messages
 
@@ -156,7 +157,7 @@ class ConversationMemory:
                 if raw:
                     return json.loads(raw)
                 return None
-            except Exception:
+            except AstroMLError:
                 pass
         return self._fallback_meta.get(session_id)
 
@@ -166,7 +167,7 @@ class ConversationMemory:
             try:
                 self._redis.setex(self._meta_key(session_id), self.ttl, payload)
                 return
-            except Exception:
+            except AstroMLError:
                 pass
         self._fallback_meta[session_id] = meta
 
@@ -206,7 +207,7 @@ class ConversationMemory:
         if self._redis_ok():
             try:
                 self._redis.delete(self._msg_key(session_id), self._meta_key(session_id))
-            except Exception:
+            except AstroMLError:
                 pass
         # Always clean up fallback stores too (handles mixed-mode edge case).
         self._fallback_messages.pop(session_id, None)

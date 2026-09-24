@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Configuration management for benchmarking.
 
 See ADR-004 (docs/adr/004-hydra-config-management.md) for Hydra configuration strategy.
@@ -199,7 +200,7 @@ class ConfigManager:
                 try:
                     config = BenchmarkConfig.load(filepath)
                     self._configs[name] = config
-                except Exception:
+                except AstroMLError:
                     pass
 
         return list(self._configs.keys())
@@ -385,7 +386,7 @@ def validate_config(config: BenchmarkConfig) -> list[str]:
     # Validate output directory
     try:
         Path(config.output_dir).mkdir(parents=True, exist_ok=True)
-    except Exception as e:
+    except AstroMLError as e:
         issues.append(f"Cannot create output directory: {e}")
 
     return issues

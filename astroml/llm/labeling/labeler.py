@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Core labeling logic for LLM-based data labeling (issue #475)."""
 
 from __future__ import annotations
@@ -125,7 +126,7 @@ class DataLabeler:
                 success=True,
             )
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Labeling error for item {item_id}: {e}")
             return LabelResult(
                 item_id=item_id,
@@ -225,7 +226,7 @@ class DataLabeler:
                 source="llm",
                 metadata={"llm_model": "gpt-4"},
             )
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"LLM labeling error: {e}")
             return None
 

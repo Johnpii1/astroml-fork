@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Enhanced Stellar SDK-based streaming service with robust error handling.
 
 Uses the Stellar SDK for improved reliability and provides comprehensive
@@ -228,7 +229,7 @@ class EnhancedStellarStream:
                 self._batch_buffer.close()
                 logger.info("Batch buffer closed | total_flushed=%d flush_count=%d",
                     flushed, self._batch_buffer.flush_count)
-            except Exception:
+            except AstroMLError:
                 logger.exception("Error closing batch buffer")
             finally:
                 self._batch_buffer = None
@@ -261,7 +262,7 @@ class EnhancedStellarStream:
                 "Server health check passed | horizon_version=%s", root.get("horizon_version")
             )
             return True
-        except Exception as e:
+        except AstroMLError as e:
             self.health_monitor.record_failure()
             STREAM_ERRORS.labels(
                 stream_type=self.config.stream_type,
@@ -347,7 +348,7 @@ class EnhancedStellarStream:
             async for effect in self._stream_with_retry(effects_builder):
                 yield effect
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.exception("Error in effects stream: %s", e)
             raise
 
@@ -364,7 +365,7 @@ class EnhancedStellarStream:
             async for operation in self._stream_with_retry(operations_builder):
                 yield operation
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.exception("Error in operations stream: %s", e)
             raise
 
@@ -471,7 +472,7 @@ class EnhancedStellarStream:
                 await asyncio.sleep(5.0)
                 continue
 
-            except Exception as e:
+            except AstroMLError as e:
                 retry_count += 1
                 logger.exception("Unexpected error (attempt %d): %s", retry_count, e)
 
@@ -498,7 +499,7 @@ class EnhancedStellarStream:
                 async for operation in self._stream_operations():
                     await self._process_operation(operation)
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.exception("Fatal error in stream: %s", e)
             raise
         finally:
@@ -519,7 +520,7 @@ class EnhancedStellarStream:
             else:
                 self._persist_effect(effect)
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.exception("Failed to process effect: %s", e)
 
     async def _process_operation(self, operation_data: dict[str, Any]) -> None:
@@ -533,7 +534,7 @@ class EnhancedStellarStream:
             else:
                 self._persist_operation(operation)
 
-        except Exception as e:
+        except AstroMLError as e:
             logger.exception("Failed to process operation: %s", e)
 
     @staticmethod
@@ -543,7 +544,7 @@ class EnhancedStellarStream:
         try:
             session.merge(effect)
             session.commit()
-        except Exception:
+        except AstroMLError:
             session.rollback()
             raise
         finally:
@@ -556,7 +557,7 @@ class EnhancedStellarStream:
         try:
             session.merge(operation)
             session.commit()
-        except Exception:
+        except AstroMLError:
             session.rollback()
             raise
         finally:

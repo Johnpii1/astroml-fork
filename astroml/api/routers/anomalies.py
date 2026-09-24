@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -33,5 +34,5 @@ async def get_anomaly_explanation(
 
         explanation = engine.generate_explanation(anomaly_id, account_id, anomaly_data)
         return {"status": "success", "data": explanation}
-    except Exception as e:
+    except AstroMLError as e:
         raise HTTPException(status_code=500, detail=str(e))

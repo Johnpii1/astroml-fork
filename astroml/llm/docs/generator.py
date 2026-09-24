@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """
 Documentation generation orchestrator.
 
@@ -158,7 +159,7 @@ class DocumentationGenerator:
 
             result.duration_seconds = time.time() - start_time
 
-        except Exception as e:
+        except AstroMLError as e:
             result.success = False
             result.error = str(e)
             result.duration_seconds = time.time() - start_time
@@ -214,7 +215,7 @@ class DocumentationGenerator:
 
             result.duration_seconds = time.time() - start_time
 
-        except Exception as e:
+        except AstroMLError as e:
             result.success = False
             result.error = str(e)
             result.duration_seconds = time.time() - start_time
@@ -254,7 +255,7 @@ class DocumentationGenerator:
             result.files_generated.append(str(output_path))
             result.duration_seconds = time.time() - start_time
 
-        except Exception as e:
+        except AstroMLError as e:
             result.success = False
             result.error = str(e)
             result.duration_seconds = time.time() - start_time
@@ -287,7 +288,7 @@ class DocumentationGenerator:
             result.files_generated.append(str(output_path))
             result.duration_seconds = time.time() - start_time
 
-        except Exception as e:
+        except AstroMLError as e:
             result.success = False
             result.error = str(e)
             result.duration_seconds = time.time() - start_time
@@ -333,7 +334,7 @@ class DocumentationGenerator:
             result.files_generated.append(str(output_path))
             result.duration_seconds = time.time() - start_time
 
-        except Exception as e:
+        except AstroMLError as e:
             result.success = False
             result.error = str(e)
             result.duration_seconds = time.time() - start_time
@@ -368,7 +369,7 @@ class DocumentationGenerator:
 
             result.duration_seconds = time.time() - start_time
 
-        except Exception as e:
+        except AstroMLError as e:
             result.success = False
             result.error = str(e)
             result.duration_seconds = time.time() - start_time

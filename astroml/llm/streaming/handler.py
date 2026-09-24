@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """LLM Stream Processing Handler."""
 
 from __future__ import annotations
@@ -64,7 +65,7 @@ class StreamHandler:
             logger.info("Stream execution cancelled for session %s", self.session_id)
             self.buffer.abort()
             raise
-        except Exception as e:
+        except AstroMLError as e:
             logger.error("Exception during streaming for session %s: %s", self.session_id, e)
             self.buffer.abort()
             raise

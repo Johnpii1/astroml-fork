@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """
 Code analyzer for documentation generation.
 
@@ -292,7 +293,7 @@ class CodeAnalyzer:
             visitor = TestExampleVisitor(examples)
             visitor.visit(tree)
 
-        except Exception as e:
+        except AstroMLError as e:
             print(f"Error extracting examples from {test_file_path}: {e}")
 
         return examples

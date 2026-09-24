@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Semantic caching for LLM responses using Redis."""
 
 import hashlib
@@ -22,7 +23,7 @@ class SemanticCache:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         try:
             self.redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
-        except Exception:
+        except AstroMLError:
             self.redis_client = None
 
     def _hash_prompt(self, prompt: str) -> str:
@@ -40,7 +41,7 @@ class SemanticCache:
         cache_key = f"llm_cache:{self._hash_prompt(prompt)}"
         try:
             return self.redis_client.get(cache_key)
-        except Exception:
+        except AstroMLError:
             return None
 
     def set(self, prompt: str, response: str) -> None:
@@ -51,5 +52,5 @@ class SemanticCache:
         cache_key = f"llm_cache:{self._hash_prompt(prompt)}"
         try:
             self.redis_client.setex(cache_key, self.ttl, response)
-        except Exception:
+        except AstroMLError:
             pass

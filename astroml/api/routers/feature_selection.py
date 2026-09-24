@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Feature selection API router for AstroML.
 
 Provides REST endpoints for filter, wrapper, embedded, and hybrid
@@ -148,7 +149,7 @@ async def filter_selection(request: FeatureMatrixRequest) -> SelectionResponse:
             feature_names=result.feature_names,
             metadata=result.metadata,
         )
-    except Exception as e:
+    except AstroMLError as e:
         logger.exception("Error in filter selection")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -192,7 +193,7 @@ async def embedded_selection(request: FeatureMatrixRequest) -> SelectionResponse
             feature_names=result.feature_names,
             metadata=result.metadata,
         )
-    except Exception as e:
+    except AstroMLError as e:
         logger.exception("Error in embedded selection")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -242,7 +243,7 @@ async def hybrid_selection(request: FeatureSetRequest) -> SelectionResponse:
             feature_names=result.feature_names,
             metadata=result.metadata,
         )
-    except Exception as e:
+    except AstroMLError as e:
         logger.exception("Error in hybrid selection")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -315,6 +316,6 @@ async def evaluate_selection(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except AstroMLError as e:
         logger.exception("Error evaluating selection")
         raise HTTPException(status_code=500, detail=str(e))

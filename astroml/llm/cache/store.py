@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Storage backends for cache."""
 
 import json
@@ -63,7 +64,7 @@ class RedisStore(CacheStore):
         """Retrieve value from Redis."""
         try:
             return self.client.get(key)
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Redis get error: {e}")
             return None
 
@@ -74,7 +75,7 @@ class RedisStore(CacheStore):
             if metadata:
                 meta_key = f"{key}:meta"
                 self.client.setex(meta_key, ttl, json.dumps(metadata))
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Redis set error: {e}")
 
     def delete(self, key: str) -> bool:
@@ -82,7 +83,7 @@ class RedisStore(CacheStore):
         try:
             result = self.client.delete(key, f"{key}:meta")
             return result > 0
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Redis delete error: {e}")
             return False
 
@@ -96,7 +97,7 @@ class RedisStore(CacheStore):
                     if value:
                         keys.append((key, value))
             return keys
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Redis scan error: {e}")
             return []
 
@@ -106,7 +107,7 @@ class RedisStore(CacheStore):
             meta_key = f"{key}:meta"
             data = self.client.get(meta_key)
             return json.loads(data) if data else None
-        except Exception as e:
+        except AstroMLError as e:
             logger.debug(f"Redis metadata error: {e}")
             return None
 
@@ -226,7 +227,7 @@ class DiskStore(CacheStore):
                 return None
 
             return data["value"]
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Disk read error: {e}")
             return None
 
@@ -244,7 +245,7 @@ class DiskStore(CacheStore):
         try:
             with open(path, "wb") as f:
                 pickle.dump(data, f)
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Disk write error: {e}")
 
     def delete(self, key: str) -> bool:
@@ -271,5 +272,5 @@ class DiskStore(CacheStore):
             with open(path, "rb") as f:
                 data = pickle.load(f)
             return data.get("metadata")
-        except Exception:
+        except AstroMLError:
             return None

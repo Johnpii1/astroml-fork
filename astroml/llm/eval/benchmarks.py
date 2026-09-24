@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Benchmark runners to evaluate model performance on datasets."""
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ class BenchmarkRunner:
                 response = await self.generation_fn(prompt)
                 status = "success"
                 error_msg = None
-            except Exception as e:
+            except AstroMLError as e:
                 response = ""
                 status = "failed"
                 error_msg = str(e)

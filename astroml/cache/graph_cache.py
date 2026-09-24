@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Graph computation cache — issue #767.
 
 Caches intermediate graph outputs (adjacency lists, edge features) keyed by
@@ -197,7 +198,7 @@ class GraphComputationCache:
 
                 self._redis_client = redis.from_url(self.config.redis_url)
                 self._redis_client.ping()
-            except Exception as e:
+            except AstroMLError as e:
                 logger.warning("Redis unavailable for graph cache, falling back to memory: %s", e)
                 self._config.backend = GraphCacheBackend.MEMORY
                 self._store = _MemoryGraphStore(self.config.max_size)
@@ -230,7 +231,7 @@ class GraphComputationCache:
                     return _pickle.loads(data)
                 self._stats.misses += 1
                 return None
-            except Exception as e:
+            except AstroMLError as e:
                 logger.warning("Redis graph cache GET error: %s", e)
                 self._stats.misses += 1
                 return None
@@ -251,7 +252,7 @@ class GraphComputationCache:
 
                 self._redis_client.setex(full_key, ttl, _pickle.dumps(value))
                 self._stats.sets += 1
-            except Exception as e:
+            except AstroMLError as e:
                 logger.warning("Redis graph cache SET error: %s", e)
         else:
             self._store.set(full_key, value, ttl)  # type: ignore[union-attr]
@@ -263,7 +264,7 @@ class GraphComputationCache:
             if self.config.backend == GraphCacheBackend.REDIS and self._redis_client:
                 try:
                     return 1 if self._redis_client.delete(full_key) else 0
-                except Exception:
+                except AstroMLError:
                     return 0
             else:
                 return 1 if self._store.delete(full_key) else 0  # type: ignore[union-attr]
@@ -275,7 +276,7 @@ class GraphComputationCache:
                     if keys:
                         return self._redis_client.delete(*keys)
                     return 0
-                except Exception:
+                except AstroMLError:
                     return 0
             else:
                 return self._store.clear(prefix)  # type: ignore[union-attr]
@@ -290,7 +291,7 @@ class GraphComputationCache:
                     self._redis_client.delete(*keys)
                 self.reset_stats()
                 return count
-            except Exception:
+            except AstroMLError:
                 self.reset_stats()
                 return 0
         else:

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 from __future__ import annotations
 
 """
@@ -26,7 +27,7 @@ from dataclasses import asdict, dataclass
 
 try:
     import psutil  # type: ignore
-except Exception:  # pragma: no cover
+except AstroMLError:  # pragma: no cover
     psutil = None  # Fallback to /proc/self status parsing if available
 
 from .service import IngestionResult, IngestionService
@@ -58,7 +59,7 @@ def _get_rss_mb() -> float:
             rss_pages = int(parts[1])
         page_size = os.sysconf("SC_PAGE_SIZE")
         return (rss_pages * page_size) / (1024 * 1024)
-    except Exception:
+    except AstroMLError:
         return float("nan")
 
 

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Human evaluation workflows and annotation storage."""
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ class HumanEvaluator:
             try:
                 with open(self.storage_path) as f:
                     self.feedback_list = json.load(f)
-            except Exception:
+            except AstroMLError:
                 self.feedback_list = []
 
     def save(self) -> None:

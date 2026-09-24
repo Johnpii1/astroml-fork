@@ -1,19 +1,9 @@
 class AstroMLError(Exception):
-    """Base exception for AstroML"""
-    pass
+    def __init__(self, message: str, **context):
+        super().__init__(message)
+        self.context = context
 
-class IngestionError(AstroMLError):
-    """Raised for ingestion errors"""
-    pass
-
-class FeatureError(AstroMLError):
-    """Raised for feature errors"""
-    pass
-
-class ModelError(AstroMLError):
-    """Raised for model training errors"""
-    pass
-
-class DatabaseError(AstroMLError):
-    """Raised for database errors"""
-    pass
+class IngestionError(AstroMLError): pass
+class FeatureError(AstroMLError): pass
+class ModelError(AstroMLError): pass
+class DatabaseError(AstroMLError): pass

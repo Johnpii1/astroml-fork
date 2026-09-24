@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Fraud Alert Explainer with Model Interpretability features (SHAP, Decision Trees, Attention Visualization)."""
 
 import os
@@ -51,7 +52,7 @@ class FraudExplainer:
             self.cache.set(prompt, response)
 
             return response
-        except Exception as e:
+        except AstroMLError as e:
             provider_name = self.provider.__class__.__name__.replace("Provider", "").lower()
             global_tracker.record_error(provider_name)
             return f"Error generating explanation: {str(e)}"

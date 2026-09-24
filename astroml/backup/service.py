@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Backup service for database and model artifacts (issue #304)."""
 
 from __future__ import annotations
@@ -214,7 +215,7 @@ class BackupService:
         except subprocess.CalledProcessError as e:
             logger.error(f"pg_dump failed: {e.stderr}")
             raise RuntimeError(f"Database backup failed: {e.stderr}")
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"Backup creation failed: {e}")
             raise
 
@@ -444,5 +445,5 @@ class BackupService:
 
         except ImportError:
             logger.warning("google-cloud-storage not installed, skipping GCS upload")
-        except Exception as e:
+        except AstroMLError as e:
             logger.error(f"GCS upload failed: {e}")
