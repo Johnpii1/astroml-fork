@@ -278,7 +278,7 @@ class FeatureStorage:
         "metadata",
     ]
 
-    def __init__(self, storage_path: str | Path):
+    def __init__(self, storage_path -> Any: str | Path):
         """Initialize storage backend.
 
         Args:
@@ -587,7 +587,7 @@ class FeatureRegistry:
 
     _global_computers: dict[str, FeatureComputer] = {}
 
-    def __init__(self, storage: FeatureStorage):
+    def __init__(self, storage -> Any: FeatureStorage):
         """Initialize feature registry.
 
         Args:
@@ -1639,7 +1639,7 @@ class FeatureStore:
         }
 
     @contextmanager
-    def batch_mode(self):
+    def batch_mode(self) -> Any:
         """Context manager for batch operations.
 
         Clears the cache before and after the batch so that stale entries

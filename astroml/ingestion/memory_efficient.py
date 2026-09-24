@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 """Memory-efficient state tracking for large-range backfills — issue #766.
 
 Provides compact alternatives to ``IngestionState`` that avoid holding the
@@ -49,7 +50,7 @@ class _CompactLedgerSet:
     def __len__(self) -> int:
         return len(self._sorted)
 
-    def __iter__(self):  # type: ignore[override]
+    def __iter__(self) -> Any:  # type: ignore[override]
         return iter(self._sorted)
 
     def to_list(self) -> list[int]:

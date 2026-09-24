@@ -12,7 +12,7 @@ import polars as pl
 class TemporalDataProcessor:
     """Utilities for processing temporal graph data."""
 
-    def __init__(self, time_window: int | None = None):
+    def __init__(self, time_window -> Any: int | None = None):
         self.time_window = time_window
         self.reference_time = None
 
@@ -158,7 +158,7 @@ class TemporalDataProcessor:
 class TemporalGraphBuilder:
     """Build temporal graphs from transaction data."""
 
-    def __init__(self, time_window_days: int = 30):
+    def __init__(self, time_window_days -> Any: int = 30):
         self.time_window_days = time_window_days
         self.processor = TemporalDataProcessor()
 
@@ -295,7 +295,7 @@ class TemporalGraphBuilder:
 class TemporalFeatureExtractor:
     """Extract temporal features from graph data."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         self.processor = TemporalDataProcessor()
 
     def extract_temporal_patterns(
@@ -390,7 +390,7 @@ class TemporalFeatureExtractor:
 class TemporalAugmentation:
     """Data augmentation for temporal graphs."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         self.processor = TemporalDataProcessor()
 
     def temporal_noise_augmentation(

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class ArtifactStore:
     """Unified artifact storage using fsspec for multi-backend support."""
 
-    def __init__(self, artifact_uri: str | None = None):
+    def __init__(self, artifact_uri -> Any: str | None = None):
         """Initialize artifact store with optional URI override.
 
         Args:

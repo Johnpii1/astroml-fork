@@ -46,7 +46,7 @@ class DataConfig:
     feature_noise: float = 0.1
     edge_noise: float = 0.1
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         """Validate ratios."""
         total = self.train_ratio + self.val_ratio + self.test_ratio
         if abs(total - 1.0) > 1e-6:
@@ -103,7 +103,7 @@ class BenchmarkConfig:
     num_runs: int = 1
     verbose: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         """Post-initialization validation."""
         if self.device == "auto":
             import torch
@@ -164,7 +164,7 @@ class BenchmarkConfig:
 class ConfigManager:
     """Manages multiple benchmark configurations."""
 
-    def __init__(self, config_dir: str | Path = "./configs"):
+    def __init__(self, config_dir -> Any: str | Path = "./configs"):
         self.config_dir = Path(config_dir)
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self._configs: dict[str, BenchmarkConfig] = {}

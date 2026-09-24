@@ -53,17 +53,17 @@ def format_memory(mb: float) -> str:
 class Timer:
     """Context manager for timing operations."""
 
-    def __init__(self, description: str = "Operation"):
+    def __init__(self, description -> Any: str = "Operation"):
         self.description = description
         self.start_time = None
         self.end_time = None
         self.elapsed = None
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         self.start_time = time.perf_counter()
         return self
 
-    def __exit__(self, exc_type, _exc_val, _exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> Any:
         self.end_time = time.perf_counter()
         self.elapsed = self.end_time - self.start_time
 
@@ -82,7 +82,7 @@ class Timer:
 class MemoryMonitor:
     """Context manager for monitoring memory usage."""
 
-    def __init__(self, description: str = "Memory usage"):
+    def __init__(self, description -> Any: str = "Memory usage"):
         self.description = description
         self.start_memory = None
         self.end_memory = None
@@ -90,12 +90,12 @@ class MemoryMonitor:
         self.gpu_start = None
         self.gpu_end = None
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         self.start_memory = measure_memory_usage()
         self.gpu_start = measure_gpu_memory()
         return self
 
-    def __exit__(self, exc_type, _exc_val, _exc_tb):
+    def __exit__(self, exc_type, _exc_val, _exc_tb) -> Any:
         self.end_memory = measure_memory_usage()
         self.gpu_end = measure_gpu_memory()
 
@@ -226,10 +226,10 @@ def estimate_training_time(
     return estimated_seconds
 
 
-def create_progress_callback(description: str):
+def create_progress_callback(description -> Any: str):
     """Create a progress callback for training."""
 
-    def callback(epoch: int, loss: float, metrics: dict[str, float]):
+    def callback(epoch -> Any: int, loss: float, metrics: dict[str, float]):
         print(f"Epoch {epoch}: Loss = {loss:.4f}")
         for metric, value in metrics.items():
             print(f"  {metric}: {value:.4f}")

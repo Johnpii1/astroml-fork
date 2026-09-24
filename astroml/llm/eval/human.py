@@ -12,7 +12,7 @@ from typing import Any
 class HumanEvaluator:
     """Manages human review feedback and annotations for LLM outputs."""
 
-    def __init__(self, storage_path: str = "data/eval/human_feedback.json"):
+    def __init__(self, storage_path -> Any: str = "data/eval/human_feedback.json"):
         self.storage_path = storage_path
         self.feedback_list: list[dict[str, Any]] = []
         self._load()

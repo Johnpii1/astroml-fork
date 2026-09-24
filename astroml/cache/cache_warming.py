@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class CacheWarmer:
     """Cache warming service for pre-loading hot data paths."""
 
-    def __init__(self, cache_client=None):
+    def __init__(self, cache_client=None) -> Any:
         """Initialize cache warmer.
 
         Args:

@@ -13,7 +13,7 @@ from .tracker import global_tracker
 class FraudExplainer:
     """Generates explanations for fraud alerts with evidence."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         self.provider = get_llm_provider()
         self.cache = SemanticCache(ttl=86400)  # Cache for 24 hours
 
@@ -82,7 +82,7 @@ class FraudExplainer:
 
 
 class TransactionExplainer:
-    def __init__(self):
+    def __init__(self) -> Any:
         self.prompt_template = """
 Explain the following blockchain transaction in plain language (under 100 words):
 Transaction ID: {tx_id}

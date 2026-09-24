@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Batch scoring scheduler for fraud detection.
 
@@ -221,7 +222,7 @@ async def _scheduler_loop(
     logger.info("Batch scheduler stopped")
 
 
-def build_score_fn():
+def build_score_fn() -> Any:
     """Return a scoring callable wired to the active model when available."""
     try:
         from api.services.scorer import load_scorer  # noqa: PLC0415

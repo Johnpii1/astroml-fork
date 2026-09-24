@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class RecommendationEngine:
     """Orchestrates recommendation generation and ranking."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         """Initialize recommendation engine."""
         self.profiler = UserProfiler()
         self.ranker = RecommendationRanker()

@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Restore service for database and model artifacts (issue #304)."""
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class RestoreService:
     """Service for restoring from backups."""
 
-    def __init__(self, config: BackupConfig):
+    def __init__(self, config -> Any: BackupConfig):
         """Initialize restore service.
 
         Args:

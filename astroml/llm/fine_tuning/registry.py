@@ -51,7 +51,7 @@ class FineTuneRegistry:
     deployment management for fine-tuned models.
     """
 
-    def __init__(self, storage_path: str = "./fine_tune_registry"):
+    def __init__(self, storage_path -> Any: str = "./fine_tune_registry"):
         self.storage_path = storage_path
         os.makedirs(storage_path, exist_ok=True)
         self._records: dict[str, FineTuneModelRecord] = {}

@@ -64,7 +64,7 @@ class SchemaVersion:
     created_at: datetime = field(default_factory=datetime.utcnow)
     checksum: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         if not self.checksum:
             import hashlib
 

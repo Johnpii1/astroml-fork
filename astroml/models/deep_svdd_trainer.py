@@ -274,7 +274,7 @@ class DeepSVDDTrainer:
         else:
             raise ValueError(f"Unknown scheduler type: {scheduler_type}")
 
-    def _save_checkpoint(self):
+    def _save_checkpoint(self) -> Any:
         """Save best model checkpoint and log it to MLflow."""
         checkpoint = {
             'model_state_dict': self.model.state_dict(),

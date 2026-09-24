@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class StreamAggregator:
     """Combines/aggregates tokens from multiple streaming LLM outputs into one."""
 
-    def __init__(self, buffer_max_size: int = 200):
+    def __init__(self, buffer_max_size -> Any: int = 200):
         self.buffer = StreamBuffer[dict[str, Any]](max_size=buffer_max_size)
         self._tasks: list[asyncio.Task] = []
         self._active_sources = 0

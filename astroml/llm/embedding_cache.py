@@ -62,7 +62,7 @@ class _TFIDFEncoder:
     that ``dot(a, b) == cosine_similarity(a, b)``.
     """
 
-    def __init__(self, max_vocab: int = 4096):
+    def __init__(self, max_vocab -> Any: int = 4096):
         self._max_vocab = max_vocab
         self._vocab: dict[str, int] = {}  # token → column index
         self._df: dict[str, int] = {}  # token → document frequency

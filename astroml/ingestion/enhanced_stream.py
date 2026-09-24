@@ -77,7 +77,7 @@ class EnhancedStreamConfig:
 class RateLimitTracker:
     """Tracks rate limit status and implements adaptive throttling."""
 
-    def __init__(self, backoff_factor: float = 1.5):
+    def __init__(self, backoff_factor -> Any: float = 1.5):
         self.backoff_factor = backoff_factor
         self.last_rate_limit_time: float | None = None
         self.current_backoff: float = 1.0
@@ -116,7 +116,7 @@ class RateLimitTracker:
 class ConnectionHealthMonitor:
     """Monitors connection health and detects drops."""
 
-    def __init__(self, check_interval: float = 30.0, max_consecutive_failures: int = 3):
+    def __init__(self, check_interval -> Any: float = 30.0, max_consecutive_failures: int = 3):
         self.check_interval = check_interval
         self.last_successful_request: float | None = None
         self.last_health_check: float | None = None

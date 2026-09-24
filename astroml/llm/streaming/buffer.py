@@ -18,7 +18,7 @@ class StreamBuffer(Generic[T]):
     If the queue grows too large, pushing is blocked or slower to handle backpressure.
     """
 
-    def __init__(self, max_size: int = 100):
+    def __init__(self, max_size -> Any: int = 100):
         self._queue: asyncio.Queue[T] = asyncio.Queue(maxsize=max_size)
         self._max_size = max_size
         self._aborted = False

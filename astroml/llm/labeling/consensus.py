@@ -46,7 +46,7 @@ class ConsensusResult:
 class ConsensusLabeler:
     """Multi-LLM consensus labeling for improved accuracy."""
 
-    def __init__(self, min_agreement: float = 0.7):
+    def __init__(self, min_agreement -> Any: float = 0.7):
         """Initialize consensus labeler.
 
         Args:

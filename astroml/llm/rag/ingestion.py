@@ -9,7 +9,7 @@ from typing import Any
 class DocumentIngestor:
     """Ingests documents from various sources."""
 
-    def __init__(self, embeddings_service: Any, retriever: Any):
+    def __init__(self, embeddings_service -> Any: Any, retriever: Any):
         """Initialize ingestor.
 
         Args:

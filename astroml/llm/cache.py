@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Semantic caching for LLM responses using Redis."""
 
@@ -13,7 +14,7 @@ except ImportError:
 class SemanticCache:
     """Redis-backed cache for LLM responses with TTL expiration."""
 
-    def __init__(self, ttl: int = 3600):
+    def __init__(self, ttl -> Any: int = 3600):
         self.ttl = ttl
 
         if redis is None:

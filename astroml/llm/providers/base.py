@@ -31,7 +31,7 @@ class LLMResponse(BaseModel):
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
 
-    def __init__(self, api_key: str, model: str = ""):
+    def __init__(self, api_key -> Any: str, model: str = ""):
         self.api_key = api_key
         self.model = model
         self.last_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}

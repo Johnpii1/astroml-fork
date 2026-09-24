@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api/v1/anomalies", tags=["Anomalies"])
 
 
 # Dependency injection for the explanation engine
-def get_explanation_engine():
+def get_explanation_engine() -> Any:
     # In a real scenario, you'd pass the actual LLM provider here
     return AnomalyExplanationEngine(llm_provider=None)
 

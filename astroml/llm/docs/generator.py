@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """
 Documentation generation orchestrator.
@@ -105,7 +106,7 @@ class DocumentationGenerator:
     - Updates
     """
 
-    def __init__(self, config: GenerationConfig = None):
+    def __init__(self, config -> Any: GenerationConfig = None):
         """
         Initialize the documentation generator.
 
@@ -487,7 +488,7 @@ class DocumentationGenerator:
         lines.append("```")
 
         # Generate tree structure
-        def generate_tree(path: Path, prefix: str = ""):
+        def generate_tree(path -> Any: Path, prefix: str = ""):
             items = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name))
             for i, item in enumerate(items):
                 is_last = i == len(items) - 1

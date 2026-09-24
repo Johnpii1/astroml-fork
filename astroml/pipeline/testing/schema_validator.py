@@ -114,7 +114,7 @@ class SchemaDefinition:
     version: str = "v1"
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         if not self.required_columns:
             self.required_columns = set(self.columns.keys())
 

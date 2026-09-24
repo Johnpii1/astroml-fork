@@ -48,7 +48,7 @@ class ValidationRule:
 class LabelValidator:
     """Validator for generated labels."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         """Initialize label validator."""
         self.rules: List[ValidationRule] = []
         self._register_default_rules()

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class StreamHandler:
     """Manages an active LLM streaming generation session."""
 
-    def __init__(self, session_id: str, buffer_max_size: int = 100):
+    def __init__(self, session_id -> Any: str, buffer_max_size: int = 100):
         self.session_id = session_id
         self.buffer = StreamBuffer[str](max_size=buffer_max_size)
         self.start_time: float = 0.0

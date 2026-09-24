@@ -30,21 +30,21 @@ class ErrorTaxonomy:
 
 
 class CircuitBreaker:
-    def __init__(self, failure_threshold: int = 5, recovery_timeout: int = 30):
+    def __init__(self, failure_threshold -> Any: int = 5, recovery_timeout: int = 30):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
         self.failures = 0
         self.last_failure_time = 0
         self.state = "CLOSED"  # CLOSED, OPEN, HALF-OPEN
 
-    def record_failure(self):
+    def record_failure(self) -> Any:
         self.failures += 1
         self.last_failure_time = time.time()
         if self.failures >= self.failure_threshold:
             self.state = "OPEN"
             logger.warning(f"Circuit breaker OPENED after {self.failures} failures.")
 
-    def record_success(self):
+    def record_success(self) -> Any:
         self.failures = 0
         self.state = "CLOSED"
 
@@ -70,9 +70,9 @@ def with_exponential_backoff(
     max_delay: float = 10.0,
     exceptions: tuple[type[Exception]] = (Exception,),
 ):
-    def decorator(func: Callable):
+    def decorator(func -> Any: Callable):
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
             retries = 0
             while retries <= max_retries:
                 try:
@@ -94,7 +94,7 @@ def with_exponential_backoff(
 
 
 class FallbackProviderChain:
-    def __init__(self, providers: list[Callable]):
+    def __init__(self, providers -> Any: list[Callable]):
         self.providers = providers
         self.circuit_breakers = {
             id(provider): CircuitBreaker(failure_threshold=5) for provider in providers
@@ -114,7 +114,7 @@ class FallbackProviderChain:
                     max_retries=2,
                     exceptions=(ErrorTaxonomy.RateLimitError, ErrorTaxonomy.TimeoutError),
                 )
-                def run_provider():
+                def run_provider() -> Any:
                     return provider(*args, **kwargs)
 
                 result = run_provider()

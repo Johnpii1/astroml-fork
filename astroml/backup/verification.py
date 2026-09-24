@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Backup verification utilities for issue #304."""
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class BackupVerifier:
     """Verifier for backup integrity."""
 
-    def __init__(self, config: BackupConfig):
+    def __init__(self, config -> Any: BackupConfig):
         """Initialize backup verifier.
 
         Args:

@@ -46,7 +46,7 @@ class CacheStore(ABC):
 class RedisStore(CacheStore):
     """Redis-backed cache store (hot cache)."""
 
-    def __init__(self, redis_url: str = None):
+    def __init__(self, redis_url -> Any: str = None):
         """Initialize Redis store.
 
         Args:
@@ -115,7 +115,7 @@ class RedisStore(CacheStore):
 class SQLiteStore(CacheStore):
     """SQLite-backed cache store (warm cache)."""
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path -> Any: str = None):
         """Initialize SQLite store.
 
         Args:
@@ -127,7 +127,7 @@ class SQLiteStore(CacheStore):
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._init_db()
 
-    def _init_db(self):
+    def _init_db(self) -> Any:
         """Initialize database schema."""
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS cache (
@@ -184,7 +184,7 @@ class SQLiteStore(CacheStore):
             return json.loads(row[0])
         return None
 
-    def cleanup_expired(self):
+    def cleanup_expired(self) -> Any:
         """Remove expired entries."""
         now = int(time.time())
         self.conn.execute("DELETE FROM cache WHERE expires_at <= ?", (now,))
@@ -194,7 +194,7 @@ class SQLiteStore(CacheStore):
 class DiskStore(CacheStore):
     """Disk-backed cache store (cold storage)."""
 
-    def __init__(self, cache_dir: str = None):
+    def __init__(self, cache_dir -> Any: str = None):
         """Initialize disk store.
 
         Args:

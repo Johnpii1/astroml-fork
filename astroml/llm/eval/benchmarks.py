@@ -14,7 +14,7 @@ from astroml.llm.eval.metrics import calculate_bleu, calculate_custom_scores, ca
 class BenchmarkRunner:
     """Executes prompt datasets against an LLM and measures response quality."""
 
-    def __init__(self, model_name: str, generation_fn: Callable[[str], Awaitable[str]]):
+    def __init__(self, model_name -> Any: str, generation_fn: Callable[[str], Awaitable[str]]):
         self.model_name = model_name
         self.generation_fn = generation_fn
 

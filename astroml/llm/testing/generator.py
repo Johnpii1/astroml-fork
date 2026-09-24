@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Test generation orchestrator.
 
@@ -65,7 +66,7 @@ class TestGenerator:
     and comprehensive assertions.
     """
 
-    def __init__(self, config: TestGenerationConfig | None = None):
+    def __init__(self, config -> Any: TestGenerationConfig | None = None):
         self.config = config or TestGenerationConfig()
 
     def generate_from_function(
@@ -219,13 +220,13 @@ class TestGenerator:
         return textwrap.dedent("""\
             import pytest
 
-            def test_generated_function():
+            def test_generated_function() -> Any:
                 assert True
 
-            def test_edge_case_empty():
+            def test_edge_case_empty() -> Any:
                 assert True
 
-            def test_negative_case():
+            def test_negative_case() -> Any:
                 with pytest.raises((ValueError, TypeError)):
                     pass
         """)
@@ -272,7 +273,7 @@ class TestGenerator:
                 GeneratedTest(
                     name=f"test_{source_name}_auto",
                     body=textwrap.dedent(f"""\
-                    def test_{source_name}_auto():
+                    def test_{source_name}_auto() -> Any:
                         result = {source_name}()
                         assert result is not None
                 """),

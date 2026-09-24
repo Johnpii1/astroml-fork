@@ -162,7 +162,7 @@ class BaseFeatureComputer(CoreFeatureComputer):
     Implements the core FeatureComputer ABC for dependency injection (issue #573).
     """
 
-    def __init__(self, name: str):
+    def __init__(self, name -> Any: str):
         """Initialize feature computer.
 
         Args:
@@ -280,7 +280,7 @@ class BaseFeatureComputer(CoreFeatureComputer):
 class FrequencyFeatureComputer(BaseFeatureComputer):
     """Computer for frequency-based features."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("frequency_features")
 
         # Add data dependencies
@@ -330,7 +330,7 @@ class FrequencyFeatureComputer(BaseFeatureComputer):
 class StructuralFeatureComputer(BaseFeatureComputer):
     """Computer for structural graph features."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("structural_features")
 
         # Add data dependencies
@@ -384,7 +384,7 @@ class StructuralFeatureComputer(BaseFeatureComputer):
 class NodeFeatureComputer(BaseFeatureComputer):
     """Computer for basic node features."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("node_features")
 
         # Add data dependencies
@@ -423,7 +423,7 @@ class NodeFeatureComputer(BaseFeatureComputer):
 class AssetFeatureComputer(BaseFeatureComputer):
     """Computer for asset-related features."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("asset_features")
 
         # Add data dependencies
@@ -463,7 +463,7 @@ class ComputationEngine:
     dependency resolution, and error handling.
     """
 
-    def __init__(self, max_workers: int = 4):
+    def __init__(self, max_workers -> Any: int = 4):
         """Initialize computation engine.
 
         Args:
@@ -752,7 +752,7 @@ class ComputationEngine:
         logger.info("Cleared completed tasks")
 
     @contextmanager
-    def computation_context(self):
+    def computation_context(self) -> Any:
         """Context manager for computation operations."""
         try:
             yield self
@@ -869,7 +869,7 @@ def feature_computer(
 
     def decorator(func: Callable) -> BaseFeatureComputer:
         class DecoratedComputer(BaseFeatureComputer):
-            def __init__(self):
+            def __init__(self) -> Any:
                 super().__init__(name)
 
                 # Add dependencies

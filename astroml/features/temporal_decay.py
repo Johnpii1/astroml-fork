@@ -13,7 +13,7 @@ import numpy as np
 class TemporalDecayWeighter:
     """Apply exponential decay to transaction weights based on recency."""
 
-    def __init__(self, lambda_param: float = 0.01):
+    def __init__(self, lambda_param -> Any: float = 0.01):
         """Initialize temporal decay weighter.
 
         Args:

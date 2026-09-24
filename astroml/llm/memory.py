@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Redis-backed conversation memory for LLM multi-turn chat (issue #360)."""
 
@@ -22,7 +23,7 @@ class ConversationSummarizer:
     ``BlockchainContextBuilder.analyze_token_size`` (AC4.4).
     """
 
-    def __init__(self, recent_verbatim: int = 10, token_threshold: int = 3000):
+    def __init__(self, recent_verbatim -> Any: int = 10, token_threshold: int = 3000):
         self.recent_verbatim = recent_verbatim
         self.token_threshold = token_threshold
 

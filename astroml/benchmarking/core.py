@@ -48,7 +48,7 @@ class BenchmarkConfig:
     save_model: bool = True
     save_predictions: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         if self.metrics is None:
             self.metrics = ["accuracy", "precision", "recall", "f1", "auc"]
 
@@ -101,7 +101,7 @@ class BenchmarkResult:
 class ModelBenchmark:
     """Main benchmarking class for GNN models."""
 
-    def __init__(self, config: BenchmarkConfig):
+    def __init__(self, config -> Any: BenchmarkConfig):
         """Initialize benchmark with configuration."""
         self.config = config
         self.device = torch.device(config.device)
@@ -392,7 +392,7 @@ class ModelBenchmark:
 
         return result
 
-    def _save_results(self, result: BenchmarkResult):
+    def _save_results(self, result -> Any: BenchmarkResult):
         """Save benchmark results and configuration to file for reproducibility.
 
         Saves:
@@ -441,7 +441,7 @@ class ModelBenchmark:
             json.dump(metadata, f, indent=2)
         print(f"Metadata saved to {metadata_path}")
 
-    def _save_config(self):
+    def _save_config(self) -> Any:
         """Save benchmark configuration with environment info for reproducibility."""
         from .utils import get_environment_info
 
@@ -468,7 +468,7 @@ class ModelBenchmark:
 
         print(f"Configuration saved to {config_path}")
 
-    def _save_model(self):
+    def _save_model(self) -> Any:
         """Save trained model to artifact store."""
         if self.model is not None:
             # Initialize artifact store with configured URI

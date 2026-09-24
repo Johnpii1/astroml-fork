@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional, Union, Callable
 from astroml.utils.exceptions import AstroMLError
 """Notification service for contributor activities.
 
@@ -52,7 +53,7 @@ class NotificationEvent:
     actor: str | None = None  # GitHub username who triggered it
     timestamp: datetime = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         if self.timestamp is None:
             self.timestamp = datetime.now(timezone.utc)
 
@@ -60,7 +61,7 @@ class NotificationEvent:
 class NotificationService:
     """Manages notification delivery across channels."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db -> Any: Session):
         self.db = db
 
     def send_notification(
@@ -279,7 +280,7 @@ class NotificationPreferences:
 class GitHubWebhookHandler:
     """Handles GitHub webhook events."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db -> Any: Session):
         self.db = db
         self.service = NotificationService(db)
 
@@ -374,7 +375,7 @@ class GitHubWebhookHandler:
 class DigestEmailGenerator:
     """Generates weekly digest emails."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db -> Any: Session):
         self.db = db
 
     def generate_digest(self, user_id: int) -> dict:

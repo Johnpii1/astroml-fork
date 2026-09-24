@@ -94,7 +94,7 @@ class BackupMetadata:
 class BackupService:
     """Service for creating and managing backups."""
 
-    def __init__(self, config: BackupConfig):
+    def __init__(self, config -> Any: BackupConfig):
         """Initialize backup service.
 
         Args:

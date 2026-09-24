@@ -355,9 +355,9 @@ class ModelAuditLogger:
             def train_model(model_id: str, data_path: str) -> dict:
                 return {"epochs": 10, "loss": 0.05}
         """
-        def decorator(func):
+        def decorator(func) -> Any:
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args, **kwargs) -> Any:
                 start = time.monotonic()
                 details: dict[str, Any] = {}
 

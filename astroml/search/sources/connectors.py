@@ -5,7 +5,7 @@ from typing import Any
 
 
 class BaseSourceConnector:
-    def __init__(self, name: str):
+    def __init__(self, name -> Any: str):
         self.name = name
 
     def fetch_documents(self) -> list[dict[str, Any]]:
@@ -13,7 +13,7 @@ class BaseSourceConnector:
 
 
 class DocsConnector(BaseSourceConnector):
-    def __init__(self, docs_dir: str = "docs"):
+    def __init__(self, docs_dir -> Any: str = "docs"):
         super().__init__("documentation")
         self.docs_dir = docs_dir
 
@@ -54,7 +54,7 @@ class DocsConnector(BaseSourceConnector):
 
 
 class TransactionsConnector(BaseSourceConnector):
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("transactions")
 
     def fetch_documents(self) -> list[dict[str, Any]]:
@@ -78,7 +78,7 @@ class TransactionsConnector(BaseSourceConnector):
 
 
 class AlertsConnector(BaseSourceConnector):
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("alerts")
 
     def fetch_documents(self) -> list[dict[str, Any]]:
@@ -109,7 +109,7 @@ class AlertsConnector(BaseSourceConnector):
 
 
 class ModelsConnector(BaseSourceConnector):
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("models")
 
     def fetch_documents(self) -> list[dict[str, Any]]:
@@ -125,7 +125,7 @@ class ModelsConnector(BaseSourceConnector):
 
 
 class CodeConnector(BaseSourceConnector):
-    def __init__(self):
+    def __init__(self) -> Any:
         super().__init__("code")
 
     def fetch_documents(self) -> list[dict[str, Any]]:

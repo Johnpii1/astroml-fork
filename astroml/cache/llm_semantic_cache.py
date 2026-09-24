@@ -300,7 +300,7 @@ class SimpleDeterministicEmbeddingProvider(LLMEmbeddingProvider):
     Produces a fixed-length vector derived from hash of text.
     """
 
-    def __init__(self, dim: int = 64):
+    def __init__(self, dim -> Any: int = 64):
         self.dim = dim
 
     def embed(self, *, text: str, model: str) -> list[float]:

@@ -117,7 +117,7 @@ class RedisCache:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, config: CacheConfig | None = None):
+    def __init__(self, config -> Any: CacheConfig | None = None):
         """Initialize Redis cache.
 
         Args:
@@ -445,7 +445,7 @@ def cached(
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
             cache = RedisCache()
 
             # Generate cache key

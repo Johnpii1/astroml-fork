@@ -274,7 +274,7 @@ def get_query_profiler() -> QueryProfiler | None:
 
 
 @contextmanager
-def profile_query_context(engine: Engine | None = None):
+def profile_query_context(engine -> Any: Engine | None = None):
     """Context manager for profiling a block of queries.
 
     Args:

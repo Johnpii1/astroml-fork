@@ -95,7 +95,7 @@ class ValidationStageConfig:
 class ValidationPipeline:
     """Comprehensive validation pipeline for data quality checks."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         """Initialize the validation pipeline."""
         self.stages: dict[ValidationStage, ValidationStageConfig] = {}
         self.metrics: dict[str, Any] = {

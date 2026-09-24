@@ -126,7 +126,7 @@ class CacheEntry:
 class MemoryCache:
     """In-memory cache implementation."""
 
-    def __init__(self, config: CacheConfig):
+    def __init__(self, config -> Any: CacheConfig):
         """Initialize memory cache.
 
         Args:
@@ -218,7 +218,7 @@ class MemoryCache:
 class RedisCache:
     """Redis-based distributed cache implementation."""
 
-    def __init__(self, config: CacheConfig):
+    def __init__(self, config -> Any: CacheConfig):
         """Initialize Redis cache.
 
         Args:
@@ -308,7 +308,7 @@ class RedisCache:
 class DiskCache:
     """Disk-based cache implementation."""
 
-    def __init__(self, config: CacheConfig):
+    def __init__(self, config -> Any: CacheConfig):
         """Initialize disk cache.
 
         Args:
@@ -537,7 +537,7 @@ class DiskCache:
 class FeatureCache:
     """Unified feature cache interface."""
 
-    def __init__(self, config: CacheConfig):
+    def __init__(self, config -> Any: CacheConfig):
         """Initialize feature cache.
 
         Args:
@@ -700,7 +700,7 @@ class FeatureCache:
 class FeatureStorageOptimizer:
     """Optimizes feature storage for efficient access."""
 
-    def __init__(self, storage_config: StorageConfig):
+    def __init__(self, storage_config -> Any: StorageConfig):
         """Initialize storage optimizer.
 
         Args:
@@ -830,7 +830,7 @@ def cached_feature(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> Any:
             # Generate cache key
             if key_func:
                 cache_key = key_func(*args, **kwargs)

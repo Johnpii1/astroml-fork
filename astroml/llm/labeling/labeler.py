@@ -45,7 +45,7 @@ class LabelResult:
 class DataLabeler:
     """Core data labeling service using LLMs."""
 
-    def __init__(self):
+    def __init__(self) -> Any:
         """Initialize data labeler."""
         self.schemas: Dict[str, LabelSchema] = {}
         self.labeling_stats: Dict[str, Dict[str, Any]] = {}
