@@ -804,3 +804,74 @@ with timer("Feature Retrieval"):
 - **StorageFormat**: Storage formats
 
 For detailed API documentation, see the inline documentation in the source code.
+
+## Declarative Feature Builders (YAML) — Issues #742 / #743 / #744
+
+### YAML-configurable builders (#742)
+
+Feature builders can be declared in YAML (see
+[`configs/feature_builders.yaml`](../configs/feature_builders.yaml)) so new
+features are added **without writing code**. Each definition specifies the
+feature name, description, computation primitive, inputs, trailing window,
+output column, and metadata. Built-in primitives: `count`, `sum`, `mean`,
+`max`, `min`, `std`, `unique_count`, `ratio`; custom primitives can be
+supplied at registration time.
+
+```python
+from astroml.features.yaml_builders import (
+    load_feature_builder_specs,
+    register_feature_builder_specs,
+)
+from astroml.features.feature_registry import create_feature_registry
+
+specs = load_feature_builder_specs("configs/feature_builders.yaml")
+registry = create_feature_registry()
+definitions = register_feature_builder_specs(registry, specs)
+```
+
+### Caching expensive features (#743)
+
+`CachedFeatureBuilder` caches computations keyed by
+`(feature, window, data_version, definition_hash, entity)`. A cache hit
+returns instantly; a miss evaluates the primitive and stores the result with a
+configurable TTL. Changing the YAML definition (window/params) changes the
+definition hash, producing a new cache key — stale entries are never read and
+simply expire. Bump `data_version` when the underlying data changes to force a
+full recompute.
+
+```python
+from astroml.features.cached_builders import CachedFeatureBuilder
+from astroml.features.feature_cache import CacheConfig, FeatureCache
+from astroml.features.yaml_builders import FEATURE_PRIMITIVES
+
+builder = CachedFeatureBuilder(
+    cache=FeatureCache(CacheConfig(max_size=10_000, ttl_seconds=3600)),
+    data_version="2026-09-24",
+    primitives=FEATURE_PRIMITIVES,
+)
+
+result = builder.compute(specs[0], rows, entity_id="account_123")
+print(result.value, "cache_hit:", result.cache_hit)
+
+# Force a fresh value (e.g. after backfilling data)
+result = builder.recompute(specs[0], rows, entity_id="account_123")
+```
+
+### Feature importance and selection (#744)
+
+Permutation importance measures how much a scorer degrades when a single
+feature's column is shuffled; it works with any fitted predictor exposing a
+`predict(X) -> array` callable. `select_features` then applies transparent
+filters (variance / missing-rate / correlation, matching the thresholds in
+`configs/feature_engineering.yaml`) and optional importance-based cuts.
+
+```python
+from astroml.features.importance import compute_permutation_importance, select_features
+
+report = compute_permutation_importance(model.predict, X, y, n_repeats=5)
+print(report.top_k(10))
+
+selection = select_features(X, y, predict=model.predict, top_k=30)
+X_selected = selection.transform(X)
+print("dropped:", selection.dropped)
+```
