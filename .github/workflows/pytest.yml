@@ -61,7 +61,18 @@ jobs:
       # Issue #204: -p no:randomly prevents non-deterministic ordering;
       # --forked (if available) isolates shared-state flakiness in test_dedupe.
       # Issue #338: Run property-based tests with coverage reporting.
-      run: pytest -v -m "not gpu" -p no:randomly --tb=short --cov=astroml --cov-report=xml --cov-report=term
+      # Issue #716: --cov-fail-under gates the pipeline on the coverage floor
+      # declared in [tool.coverage.report] (fail_under); the value is repeated
+      # here so the gate stays visible in CI logs even if pyproject is bypassed.
+      run: pytest -v -m "not gpu" -p no:randomly --tb=short --cov=astroml --cov-report=xml --cov-report=term-missing --cov-fail-under=70
+
+    - name: Coverage gate report (issue #716)
+      # Always runs so a coverage breach prints the per-file missing-lines
+      # table that tells the author exactly what to cover, instead of only a
+      # bare "FAIL Required test coverage of 70% not reached" line.
+      if: always() && matrix.flavor == 'cpu'
+      run: |
+        python -m coverage report --show-missing --skip-covered --include="astroml/*" | tail -40
 
     - name: Upload coverage to Codecov
       if: matrix.flavor == 'cpu'
