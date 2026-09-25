@@ -49,10 +49,19 @@ class DatabaseConfig(BaseModel):
     name: str = Field(default="astroml", min_length=1, description="Database name")
     user: str = Field(default="astroml", min_length=1, description="Database user")
     password: str = Field(default="", description="Database password")
-    pool_size: int = Field(default=10, description="Connection pool size")
-    max_overflow: int = Field(default=20, description="Max overflow connections")
-    pool_timeout: int = Field(default=30, description="Pool timeout seconds")
-    pool_recycle: int = Field(default=1800, description="Pool connection recycle seconds")
+    # Issue #989 — pool sizing drives connection cost; reject values that
+    # would disable pooling or make SQLAlchemy fail late at engine creation.
+    pool_size: int = Field(default=10, ge=1, description="Connection pool size")
+    max_overflow: int = Field(default=20, ge=0, description="Max overflow connections")
+    pool_timeout: int = Field(default=30, ge=1, description="Pool timeout seconds")
+    pool_recycle: int = Field(
+        default=1800, ge=-1, description="Pool connection recycle seconds (-1 disables)"
+    )
+
+    @property
+    def max_connections(self) -> int:
+        """Upper bound on concurrent connections this engine may open."""
+        return self.pool_size + self.max_overflow
 
     @field_validator("host")
     @classmethod
@@ -187,6 +196,11 @@ def get_engine() -> Engine:
             pool_recycle=config.pool_recycle,
         )
     except Exception:
+        logger.warning(
+            "Falling back to default database pool settings",
+            extra={"pool_size": 10, "max_overflow": 20},
+            exc_info=True,
+        )
         engine = create_engine(
             resolve_database_url(),
             pool_pre_ping=True,
