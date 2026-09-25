@@ -131,13 +131,34 @@ def _malformed_window_spec_error(window: str) -> SnapshotWindowError:
     )
 
 
-@dataclass(frozen=True)
+def _mask_account_id(value: str) -> str:
+    """Mask a Stellar account/address identifier for safe logging.
+
+    Account identifiers are graph node labels and, per the project's PII
+    handling standard, must never appear in full in logs. Keeps a short,
+    non-identifying prefix/suffix for debuggability while redacting the
+    middle of the value.
+    """
+    if not value:
+        return value
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}…{value[-4:]}"
+
+
+@dataclass(frozen=True, repr=False)
 class Edge:
     src: str
     dst: str
     # Epoch seconds for efficient comparisons; can be any monotonic numeric timestamp
     timestamp: int
 
+    def __repr__(self) -> str:
+        """Mask src/dst so accidentally logging an Edge can't leak account ids."""
+        return (
+            f"Edge(src={_mask_account_id(self.src)!r}, "
+            f"dst={_mask_account_id(self.dst)!r}, timestamp={self.timestamp!r})"
+        )
 
 
 def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> list[Edge]:

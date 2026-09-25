@@ -105,3 +105,48 @@ def test_invalid_params():
         assert False, "expected ValueError for non-positive days"
     except ValueError:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Issue #967 — Edge repr/str must never leak full account identifiers to logs
+# ---------------------------------------------------------------------------
+
+
+def test_edge_repr_masks_account_ids():
+    src = "GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890AB"
+    dst = "GZYXWVUTSRQPONMLKJIHGFEDCBA0987654321ZY"
+    edge = Edge(src=src, dst=dst, timestamp=100)
+
+    rendered = repr(edge)
+
+    assert src not in rendered
+    assert dst not in rendered
+    assert src[:4] in rendered and src[-4:] in rendered
+    assert dst[:4] in rendered and dst[-4:] in rendered
+
+
+def test_edge_str_matches_masked_repr():
+    edge = Edge(src="GABCDEFGHIJKLMNOP", dst="GZYXWVUTSRQPONML", timestamp=1)
+
+    # dataclasses fall back to __repr__ for __str__ when __str__ isn't
+    # defined — accidentally logging an Edge via f"{edge}" must be just as
+    # safe as logging repr(edge).
+    assert str(edge) == repr(edge)
+    assert "GABCDEFGHIJKLMNOP" not in str(edge)
+
+
+def test_edge_repr_fully_masks_short_ids():
+    edge = Edge(src="abc", dst="xy", timestamp=1)
+
+    rendered = repr(edge)
+
+    assert "abc" not in rendered
+    assert "xy" not in rendered
+
+
+def test_edge_equality_unaffected_by_masked_repr():
+    # Regression guard: overriding __repr__ must not disturb the
+    # dataclass-generated __eq__/__hash__ that callers rely on.
+    a = Edge(src="alice", dst="bob", timestamp=1)
+    b = Edge(src="alice", dst="bob", timestamp=1)
+    assert a == b
