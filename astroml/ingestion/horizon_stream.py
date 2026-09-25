@@ -68,7 +68,7 @@ class HorizonStreamingClient:
             try:
                 await writer.wait_closed()
             except Exception:  # pragma: no cover - transport specific
-                pass
+                self._logger.debug("Error closing Horizon stream writer", exc_info=True)
 
         if self._task is not None:
             task = self._task
@@ -164,7 +164,7 @@ class HorizonStreamingClient:
             try:
                 await writer.wait_closed()
             except Exception:  # pragma: no cover - transport specific
-                pass
+                self._logger.debug("Error closing Horizon stream writer", exc_info=True)
             if self._writer is writer:
                 self._writer = None
 
@@ -183,13 +183,25 @@ class HorizonStreamingClient:
             self._logger.warning("Skipping non-object transaction payload: %r", tx)
             return
 
+        # Issue #983 — advance the cursor optimistically, but roll it back if
+        # the handler fails so the reconnect resumes from the last
+        # successfully handled transaction instead of skipping this one.
+        previous_cursor = self._cursor
         paging_token = tx.get("paging_token")
         if paging_token is not None:
             self._cursor = str(paging_token)
 
-        result = on_transaction(tx)
-        if inspect.isawaitable(result):
-            await result
+        try:
+            result = on_transaction(tx)
+            if inspect.isawaitable(result):
+                await result
+        except BaseException:
+            self._cursor = previous_cursor
+            self._logger.warning(
+                "Transaction handler failed; cursor rolled back",
+                extra={"cursor": previous_cursor, "paging_token": paging_token},
+            )
+            raise
 
     def _request_path(self) -> str:
         query = urlencode({"cursor": self._cursor, "stream": "true"})
