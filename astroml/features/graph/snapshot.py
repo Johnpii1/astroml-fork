@@ -627,3 +627,61 @@ def compute_node_features_parallel(
             all_results[nid] = feat
 
     return all_results
+
+
+# ---------------------------------------------------------------------------
+# Resource analysis — issue #984
+# ---------------------------------------------------------------------------
+
+# Rough per-object footprint used for capacity planning, not exact accounting.
+EDGE_BYTES_ESTIMATE = 200
+NODE_BYTES_ESTIMATE = 100
+
+
+@dataclass(frozen=True)
+class SnapshotResourceReport:
+    """Aggregate resource usage across a set of snapshot windows."""
+
+    window_count: int
+    total_edges: int
+    total_nodes: int
+    max_edges: int
+    max_nodes: int
+    peak_window_index: int | None
+    estimated_peak_bytes: int
+
+
+def analyze_snapshot_resources(windows: Sequence[SnapshotWindow]) -> SnapshotResourceReport:
+    """Summarise edge/node counts and estimated peak memory for ``windows``.
+
+    Args:
+        windows: Snapshot windows to analyse (may be empty).
+
+    Returns:
+        A :class:`SnapshotResourceReport`. ``peak_window_index`` is the
+        ``index`` of the window with the largest estimated footprint, or
+        ``None`` when ``windows`` is empty.
+    """
+    total_edges = total_nodes = max_edges = max_nodes = peak_bytes = 0
+    peak_index: int | None = None
+    for w in windows:
+        n_edges, n_nodes = len(w.edges), len(w.nodes)
+        total_edges += n_edges
+        total_nodes += n_nodes
+        max_edges = max(max_edges, n_edges)
+        max_nodes = max(max_nodes, n_nodes)
+        size = n_edges * EDGE_BYTES_ESTIMATE + n_nodes * NODE_BYTES_ESTIMATE
+        if peak_index is None or size > peak_bytes:
+            peak_bytes, peak_index = size, w.index
+
+    report = SnapshotResourceReport(
+        window_count=len(windows),
+        total_edges=total_edges,
+        total_nodes=total_nodes,
+        max_edges=max_edges,
+        max_nodes=max_nodes,
+        peak_window_index=peak_index,
+        estimated_peak_bytes=peak_bytes,
+    )
+    logger.debug("snapshot resource report", extra={"report": report})
+    return report
