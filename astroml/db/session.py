@@ -238,10 +238,21 @@ def _enable_query_profiling_if_debug(engine: Engine) -> None:
             logger.warning("Query profiler module not available")
 
 
+@lru_cache(maxsize=1)
+def get_session_factory() -> sessionmaker[Session]:
+    """Return a cached session factory bound to the shared engine.
+
+    Issue #982 — building a ``sessionmaker`` per call is wasted work on hot
+    paths; the factory is created once and reused. Call
+    ``get_session_factory.cache_clear()`` alongside ``get_engine.cache_clear()``
+    when the engine is rebuilt.
+    """
+    return sessionmaker(bind=get_engine())
+
+
 def get_session() -> Session:
-    """Return a new SQLAlchemy session."""
-    factory = sessionmaker(bind=get_engine())
-    return factory()
+    """Return a new SQLAlchemy session from the cached factory."""
+    return get_session_factory()()
 
 
 def get_pool_stats() -> PoolStats:
