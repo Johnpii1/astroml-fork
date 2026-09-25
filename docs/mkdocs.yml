@@ -17,6 +17,8 @@ plugins:
 nav:
   - Home: index.md
   - API Reference: api/index.md
+  - Model Registry: model-registry.md
+  - Feature Store: FEATURE_STORE.md
   - Model Cards: models/index.md
   - Pipelines: pipelines/index.md
 
