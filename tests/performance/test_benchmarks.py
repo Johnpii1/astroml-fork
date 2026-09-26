@@ -12,14 +12,15 @@ Thresholds:
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
-import networkx as nx
 from typing import List
 
-from astroml.graph_utils import graph_to_pyg_data
-from astroml.features.graph_validation import check_isolated_nodes
+import networkx as nx
+import numpy as np
+import pytest
+
 from astroml.features.frequency import compute_frequency_features
+from astroml.features.graph_validation import check_isolated_nodes
+from astroml.graph_utils import graph_to_pyg_data
 
 
 @pytest.mark.benchmark(group="graph-building")
@@ -93,9 +94,11 @@ def test_database_query_1000_records(benchmark, db_session):
 
     Threshold: should complete in <500ms
     """
-    from astroml.db.schema import NormalizedTransaction
     from datetime import datetime, timedelta, timezone
+
     from sqlalchemy import select
+
+    from astroml.db.schema import NormalizedTransaction
 
     # Create test data
     now = datetime.now(timezone.utc)

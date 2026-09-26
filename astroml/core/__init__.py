@@ -11,12 +11,12 @@ the contracts for key services in the system, enabling:
 from __future__ import annotations
 
 from .abstracts import (
-    Ingestor,
+    ComputationResult,
     FeatureComputer,
+    Graph,
     GraphBuilder,
     IngestionResult,
-    ComputationResult,
-    Graph,
+    Ingestor,
 )
 
 __all__ = [

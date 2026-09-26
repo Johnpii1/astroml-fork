@@ -10,19 +10,22 @@ Tests tenacity retry decorators used in enhanced_stream.py to ensure:
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from stellar_sdk.exceptions import (
+    BadRequestError,
+    BaseHorizonError,
+    NotFoundError,
+)
+from stellar_sdk.exceptions import (
+    ConnectionError as StellarConnectionError,
+)
 from tenacity import RetryError, stop_after_attempt, wait_exponential
 
 from astroml.ingestion.enhanced_stream import (
     EnhancedStellarStream,
     EnhancedStreamConfig,
-)
-from stellar_sdk.exceptions import (
-    BaseHorizonError,
-    ConnectionError as StellarConnectionError,
-    BadRequestError,
-    NotFoundError,
 )
 
 

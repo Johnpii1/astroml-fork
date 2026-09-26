@@ -13,18 +13,19 @@ Tests graph validation functions in astroml/features/graph_validation.py:
 
 from __future__ import annotations
 
-import pytest
-import pandas as pd
-import networkx as nx
 import warnings
 
+import networkx as nx
+import pandas as pd
+import pytest
+
 from astroml.features.graph_validation import (
-    check_isolated_nodes,
-    check_edge_consistency,
-    graph_summary_statistics,
-    validate_graph,
     GraphValidationError,
     GraphValidationWarning,
+    check_edge_consistency,
+    check_isolated_nodes,
+    graph_summary_statistics,
+    validate_graph,
 )
 
 

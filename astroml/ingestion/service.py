@@ -15,15 +15,18 @@ Dependencies:
 
 from __future__ import annotations
 
+import gc
 import logging
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Literal, Optional
 
-from astroml.core.abstracts import Ingestor, IngestionResult as BaseIngestionResult
+from astroml.core.abstracts import IngestionResult as BaseIngestionResult
+from astroml.core.abstracts import Ingestor
 from astroml.utils.validators import validate_positive_int, validate_range
 
+from .batch_metrics import BatchMetricsRecorder
 from .state import StateStore
 
 logger = logging.getLogger("astroml.ingestion.service")
@@ -220,6 +223,8 @@ class IngestionService(Ingestor):
         from astroml.observability.metrics import track_active_job
 
         pending_flush = 0
+        batch_metrics = BatchMetricsRecorder()
+        batch_metrics.start()
         try:
             # Active ingestion jobs gauge (issue #567). Entering the context
             # here keeps the gauge balanced even if the caller abandons the
@@ -227,23 +232,33 @@ class IngestionService(Ingestor):
             with track_active_job("ingestion"):
                 for offset, ledger_id in enumerate(range(start_ledger, end_ledger + 1), start=1):
                     if ledger_id in processed_set:
-                        yield ledger_id, LedgerOutcome(ledger_id=ledger_id, status="skipped")
+                        outcome = LedgerOutcome(ledger_id=ledger_id, status="skipped")
                     else:
-                        payload = fetch(ledger_id)
-                        process(ledger_id, payload)
-                        processed_set.add(ledger_id)
-                        state.last_processed_ledger = (
-                            ledger_id
-                            if state.last_processed_ledger is None
-                            else max(state.last_processed_ledger, ledger_id)
-                        )
+                        try:
+                            payload = fetch(ledger_id)
+                            process(ledger_id, payload)
+                        except Exception as exc:
+                            batch_metrics.observe(
+                                LedgerOutcome(ledger_id=ledger_id, status="error")
+                            )
+                            batch_metrics.finish()
+                            logger.error("Ingestion error for ledger %d: %s", ledger_id, exc)
+                            raise
+                        # Also stamps ``state.last_processed_at`` — the heartbeat
+                        # the ingestion staleness probe reads.
+                        state.record_processed(ledger_id)
                         pending_flush += 1
                         if pending_flush >= batch_size:
                             self.state.save(state)
                             pending_flush = 0
-                        yield ledger_id, LedgerOutcome(ledger_id=ledger_id, status="processed")
+                        outcome = LedgerOutcome(ledger_id=ledger_id, status="processed")
+
+                    batch_metrics.observe(outcome)
+                    yield ledger_id, outcome
 
                     if offset % batch_size == 0:
+                        batch_metrics.finish()
+                        batch_metrics.start()
                         logger.info(
                             "ingest_stream progress: %d/%d ledgers (up to %d)",
                             offset,
@@ -253,6 +268,193 @@ class IngestionService(Ingestor):
         finally:
             if pending_flush:
                 self.state.save(state)
+            batch_metrics.finish()
+
+    def ingest_incremental(
+        self,
+        latest_ledger_fn: Callable[[], int | None],
+        fetch_fn: Callable[[int], object] | None = None,
+        process_fn: Callable[[int, object], None] | None = None,
+        batch_size: int = 100,
+        max_ledgers: int | None = None,
+        start_from: int | None = None,
+    ) -> IngestionResult:
+        """Ingest only ledgers newer than the last one already ingested (issue #729).
+
+        A repeated run of :meth:`ingest` over a fixed range still walks every
+        ledger in that range — each already-processed id is looked up and yielded
+        as ``skipped`` — so the cost of "catch me up" grows with history rather
+        than with how much is actually new. This mode instead asks the state
+        store where it got to, asks the network where the head is, and touches
+        only what lies between.
+
+        Args:
+            latest_ledger_fn: Returns the newest ledger available upstream. May
+                return ``None`` when the head is unknown (e.g. the source is
+                unreachable), in which case no work is attempted.
+            fetch_fn: Fetches a ledger's payload; defaults to an identity payload.
+            process_fn: Handles a fetched ledger; defaults to a no-op.
+            batch_size: Progress-logging and state-flush granularity, forwarded
+                to :meth:`ingest_stream`.
+            max_ledgers: Optional cap on how many ledgers a single run will
+                process. Lets a scheduled run bound its own duration when it has
+                fallen a long way behind; the remainder is picked up next run.
+            start_from: Where to begin on a **cold** state store (no ledger has
+                ever been processed). Defaults to the current head, i.e. "start
+                watching from now" rather than backfilling all of history, which
+                is what an incremental mode is for. Ignored once state exists.
+
+        Returns:
+            An :class:`IngestionResult`. When nothing new is available the result
+            is empty and ``fetch_fn`` is never called — the point of the mode is
+            that an up-to-date run does no work.
+
+        Idempotency and restart-safety are unchanged: this delegates to
+        :meth:`ingest`, so per-ledger state, the processed-set skip check and the
+        batched flush all behave exactly as they do for an explicit range.
+        """
+        state = self.state.load()
+        head = latest_ledger_fn()
+
+        if head is None:
+            logger.info("ingest_incremental: upstream head unknown, nothing to do")
+            return self._empty_result()
+
+        if state.last_processed_ledger is None:
+            start = head if start_from is None else start_from
+        else:
+            start = state.last_processed_ledger + 1
+
+        if start > head:
+            logger.info(
+                "ingest_incremental: already up to date at ledger %d",
+                state.last_processed_ledger if state.last_processed_ledger is not None else head,
+            )
+            return self._empty_result()
+
+        end = head
+        if max_ledgers is not None:
+            if max_ledgers < 1:
+                raise ValueError("max_ledgers must be >= 1")
+            end = min(head, start + max_ledgers - 1)
+
+        logger.info(
+            "ingest_incremental: fetching ledgers %d..%d (head=%d)",
+            start,
+            end,
+            head,
+        )
+
+        return self.ingest(
+            start_ledger=start,
+            end_ledger=end,
+            fetch_fn=fetch_fn,
+            process_fn=process_fn,
+            batch_size=batch_size,
+        )
+
+    @staticmethod
+    def _empty_result() -> IngestionResult:
+        """An IngestionResult representing a run that had nothing to do."""
+        now = datetime.utcnow()
+        return IngestionResult(
+            attempted=[],
+            processed=[],
+            skipped=[],
+            start_time=now,
+            end_time=now,
+            errors=[],
+        )
+
+    def ingest_backfill_chunked(
+        self,
+        start_ledger: int,
+        end_ledger: int,
+        chunk_size: int = 10_000,
+        fetch_fn: Callable[[int], object] | None = None,
+        process_fn: Callable[[int, object], None] | None = None,
+        batch_size: int = 100,
+    ) -> Generator[dict[str, Any], None, None]:
+        """Memory-efficient backfill for very large ledger ranges — issue #766.
+
+        For multi-million-ledger ranges :meth:`ingest` keeps every ledger id
+        in three Python lists (attempted/processed/skipped) for the duration
+        of the call. At 100M ledgers that alone exceeds 1 GiB of resident
+        memory before any payload work begins.
+
+        This method partitions the range into ``chunk_size`` sub-ranges and
+        processes each independently via :meth:`ingest_stream`, discarding
+        accumulated ids and explicitly running the garbage collector between
+        chunks. Peak RSS is therefore proportional to ``chunk_size`` instead
+        of the full range length.
+
+        Yields one summary ``dict`` per chunk:
+
+        .. code-block:: python
+
+            {
+                "chunk_start": int,
+                "chunk_end": int,
+                "processed": int,
+                "skipped": int,
+                "errors": int,
+            }
+
+        Args:
+            start_ledger: First ledger to process (inclusive).
+            end_ledger: Last ledger to process (inclusive).
+            chunk_size: Number of ledgers per memory-bounded batch. Default 10 000.
+            fetch_fn: Forwarded to :meth:`ingest_stream`.
+            process_fn: Forwarded to :meth:`ingest_stream`.
+            batch_size: State-flush cadence inside each chunk, forwarded to
+                :meth:`ingest_stream`.
+        """
+        if end_ledger < start_ledger:
+            raise ValueError("end_ledger must be >= start_ledger")
+        if chunk_size < 1:
+            raise ValueError("chunk_size must be >= 1")
+
+        current = start_ledger
+        while current <= end_ledger:
+            chunk_end = min(current + chunk_size - 1, end_ledger)
+            n_processed = 0
+            n_skipped = 0
+            n_errors = 0
+
+            try:
+                for _ledger_id, outcome in self.ingest_stream(
+                    start_ledger=current,
+                    end_ledger=chunk_end,
+                    fetch_fn=fetch_fn,
+                    process_fn=process_fn,
+                    batch_size=batch_size,
+                ):
+                    if outcome.status == "processed":
+                        n_processed += 1
+                    else:
+                        n_skipped += 1
+            except Exception as exc:
+                logger.error(
+                    "Backfill chunk %d-%d failed: %s",
+                    current,
+                    chunk_end,
+                    exc,
+                )
+                n_errors += 1
+
+            yield {
+                "chunk_start": current,
+                "chunk_end": chunk_end,
+                "processed": n_processed,
+                "skipped": n_skipped,
+                "errors": n_errors,
+            }
+
+            # Release per-chunk temporaries and compact the heap before the
+            # next chunk's fetch allocations begin.  gc.collect() is a no-op
+            # when the GC would have run anyway, so the overhead is negligible.
+            gc.collect()
+            current = chunk_end + 1
 
     def get_status(self) -> Dict[str, Any]:
         """Get current status of the ingestor (issue #573).

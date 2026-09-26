@@ -176,6 +176,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print effective database configuration",
     )
+    config.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate all configuration without starting services",
+    )
+    config.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed validation output (use with --dry-run)",
+    )
 
     quickstart = sub.add_parser(
         "quickstart",
@@ -268,6 +278,25 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "config":
+        if args.dry_run:
+            from astroml.config_dry_run import run_dry_run
+
+            result = run_dry_run(
+                config_path=args.config,
+                verbose=args.verbose,
+            )
+            if not args.verbose:
+                if result["valid"]:
+                    print("Configuration validation: PASS")
+                else:
+                    print("Configuration validation: FAIL")
+                    for r in result["results"]:
+                        for error in r.errors:
+                            print(f"  ERROR: {error}")
+                        for warning in r.warnings:
+                            print(f"  WARN: {warning}")
+            return result["exit_code"]
+
         if args.print_db:
             try:
                 db_config = load_database_config(args.config)

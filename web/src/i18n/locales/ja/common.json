@@ -2,7 +2,8 @@
   "app": {
     "title": "モデルパフォーマンスモニタリング",
     "loyalty": "ロイヤルティダッシュボード",
-    "transactions": "取引履歴"
+    "transactions": "取引履歴",
+    "skipToContent": "メインコンテンツへスキップ"
   },
   "monitoring": {
     "title": "モデルパフォーマンスモニタリング",

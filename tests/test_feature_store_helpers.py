@@ -6,9 +6,9 @@ import pytest
 
 from astroml.features.feature_store import (
     FeatureDefinition,
+    FeatureStatus,
     FeatureStorage,
     FeatureType,
-    FeatureStatus,
     _safe_json_loads,
 )
 

@@ -2,7 +2,8 @@
   "app": {
     "title": "Model Performance Monitoring",
     "loyalty": "Loyalty Dashboard",
-    "transactions": "Transaction History"
+    "transactions": "Transaction History",
+    "skipToContent": "Skip to main content"
   },
   "monitoring": {
     "title": "Model Performance Monitoring",
@@ -128,6 +129,56 @@
       "placeholder": "-"
     },
     "showing": "Showing {start} of {total} transactions"
+  },
+  "account": {
+    "title": "Account Details",
+    "not_found": "Account not found",
+    "fields": {
+      "balance": "Balance",
+      "sequence": "Sequence Number",
+      "home_domain": "Home Domain",
+      "flags": "Flags"
+    },
+    "fraud": {
+      "title": "Fraud Summary",
+      "total": "Total Alerts",
+      "high": "High Risk",
+      "medium": "Medium Risk",
+      "low": "Low Risk"
+    },
+    "loyalty": {
+      "title": "Loyalty Summary",
+      "tier": "Tier",
+      "points": "Points Balance"
+    },
+    "transactions": {
+      "title": "Recent Transactions",
+      "none": "No transactions found for this account"
+    }
+  },
+  "transaction": {
+    "title": "Transaction Details",
+    "not_found": "Transaction not found",
+    "fields": {
+      "status": "Status",
+      "type": "Operation Type",
+      "amount": "Amount",
+      "fee": "Fee",
+      "ledger": "Ledger Sequence",
+      "date": "Created At",
+      "source_account": "Source Account",
+      "destination_account": "Destination Account",
+      "memo_type": "Memo Type"
+    }
+  },
+  "search": {
+    "placeholder": "Search accounts, transactions...",
+    "no_results": "No results found",
+    "loading": "Searching...",
+    "accounts": "Accounts",
+    "transactions": "Transactions",
+    "recent": "Recent",
+    "clear_history": "Clear"
   },
   "fraud": {
     "title": "Fraud Detection",

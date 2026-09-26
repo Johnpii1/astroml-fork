@@ -11,10 +11,11 @@ These tests run after deployment with a 5-minute timeout.
 
 from __future__ import annotations
 
+import time
+from typing import Any, Dict
+
 import pytest
 import requests
-from typing import Dict, Any
-import time
 
 
 class TestDeploymentSmoke:

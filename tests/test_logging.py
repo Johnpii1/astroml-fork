@@ -6,8 +6,8 @@ import logging
 
 import pytest
 
-from astroml.utils.logging import configure_logging, StructuredJsonFormatter
 from astroml.features import feature_store
+from astroml.utils.logging import StructuredJsonFormatter, configure_logging
 
 
 @pytest.fixture(autouse=True)

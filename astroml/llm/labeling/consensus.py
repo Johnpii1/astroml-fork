@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .schemas import Label, LabelDefinition
 from .labeler import DataLabeler
+from .schemas import Label, LabelDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,7 @@ class ConsensusLabeler:
                 by_name[label.label_name] = []
             by_name[label.label_name].append(label)
 
-        consensus_labels = []
-
-       for label_name, label_list in by_name.items():
+        for label_name, label_list in by_name.items():
             # Count value occurrences
             values = [l.value for l in label_list]
             value_counts = Counter(values)

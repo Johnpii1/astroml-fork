@@ -2,7 +2,8 @@
   "app": {
     "title": "模型性能监控",
     "loyalty": "忠诚度仪表板",
-    "transactions": "交易历史"
+    "transactions": "交易历史",
+    "skipToContent": "跳到主要内容"
   },
   "monitoring": {
     "title": "模型性能监控",
