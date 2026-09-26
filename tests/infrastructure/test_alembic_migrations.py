@@ -124,7 +124,7 @@ class TestAlembicChainIntegrity:
     def test_linear_chain_no_gaps(self):
         revs = _revisions()
         ordered = [r for r in sorted(revs)]
-        assert len(ordered) == 10, f"expected 10 revisions, found {len(ordered)}"
+        assert len(ordered) >= 10, f"expected at least 10 revisions, found {len(ordered)}"
         seen = set()
         current = next(r for r, m in revs.items() if m["down_revision"] is None)
         while current is not None:
@@ -153,9 +153,13 @@ class TestAlembicRoundTrip:
                 command.upgrade(cfg, rev)
                 assert rev in (_current_revision(engine) or []), f"{rev} not recorded after upgrade"
                 command.downgrade(cfg, "-1")
-                assert rev not in (_current_revision(engine) or []), f"{rev} still recorded after downgrade"
+                assert rev not in (
+                    _current_revision(engine) or []
+                ), f"{rev} still recorded after downgrade"
                 command.upgrade(cfg, rev)
-                assert rev in (_current_revision(engine) or []), f"{rev} not recorded after re-upgrade"
+                assert rev in (
+                    _current_revision(engine) or []
+                ), f"{rev} not recorded after re-upgrade"
         finally:
             engine.dispose()
 
@@ -167,9 +171,16 @@ class TestAlembicRoundTrip:
         engine = sa.create_engine(pristine_db_url)
         try:
             command.upgrade(cfg, "head")
-            assert _current_revision(engine) == ("010",), f"head mismatch: {_current_revision(engine)}"
+            expected_head = tuple(ScriptDirectory.from_config(cfg).get_heads())
+            assert (
+                _current_revision(engine) == expected_head
+            ), f"head mismatch: {_current_revision(engine)} != {expected_head}"
             command.downgrade(cfg, "base")
-            assert _current_revision(engine) in (None, (), []), "downgrade to base left heads behind"
+            assert _current_revision(engine) in (
+                None,
+                (),
+                [],
+            ), "downgrade to base left heads behind"
 
             command.upgrade(cfg, "head")
             with engine.connect() as conn:

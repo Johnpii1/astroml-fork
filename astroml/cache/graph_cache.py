@@ -1,14 +1,3 @@
-"""Graph computation cache — issue #767.
-
-Caches intermediate graph outputs (adjacency lists, edge features) keyed by
-data version and window parameters so repeated experiments on the same slice
-of the ledger avoid redundant reconstruction.
-
-The cache uses the existing :class:`~astroml.cache.redis_cache.RedisCache`
-layer and therefore inherits its TTL configuration, hit/miss metrics, and
-Redis connection pooling.  A local in-process LRU layer sits in front to
-short-circuit Redis for the most recently accessed windows within a single
-process.
 """Graph computation cache for repeated graph outputs — issue #767.
 
 Caches intermediate graph outputs (adjacency lists, edge features, node
@@ -18,53 +7,52 @@ experiments.  Supports both in-memory (default) and Redis backends.
 
 from __future__ import annotations
 
-import functools
 import hashlib
 import json
 import logging
+import threading
 from collections import OrderedDict
-from typing import Any
-
-from astroml.cache.redis_cache import CacheKeyPrefix, RedisCache
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum
+from functools import wraps
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-_ADJACENCY_PREFIX = CacheKeyPrefix.GRAPH_WINDOW
-_EDGE_FEATURE_PREFIX = CacheKeyPrefix.GRAPH_SNAPSHOT
-
-# Default in-process LRU capacity (number of entries, not bytes).
-_DEFAULT_LRU_CAPACITY = 128
+F = TypeVar("F", bound=Callable[..., Any])
 
 
-def _window_key(data_version: str, start_ts: int, end_ts: int, extra: str = "") -> str:
-    """Stable cache key from window parameters."""
-    payload = f"{data_version}:{start_ts}:{end_ts}:{extra}"
-    digest = hashlib.sha256(payload.encode()).hexdigest()[:16]
-    return digest
+class GraphCacheBackend(Enum):
+    """Backend for graph computation cache."""
+
+    MEMORY = "memory"
+    REDIS = "redis"
 
 
-class _LRUCache:
-    """Minimal thread-unsafe in-process LRU backed by an OrderedDict."""
+@dataclass
+class GraphCacheConfig:
+    """Configuration for graph computation cache."""
 
-    def __init__(self, capacity: int = _DEFAULT_LRU_CAPACITY) -> None:
-        self._cap = max(1, capacity)
-        self._store: OrderedDict[str, Any] = OrderedDict()
+    backend: GraphCacheBackend = GraphCacheBackend.MEMORY
+    max_size: int = 512
+    default_ttl_seconds: int = 3600  # 1 hour
+    redis_url: str = "redis://localhost:6379"
+    # Per-prefix TTL overrides (seconds)
+    adjacency_ttl: int = 3600
+    edge_feature_ttl: int = 1800
+    node_feature_ttl: int = 1800
+    snapshot_ttl: int = 3600
 
-    def get(self, key: str) -> Any:
-        if key not in self._store:
-            return None
-        self._store.move_to_end(key)
-        return self._store[key]
 
-    def set(self, key: str, value: Any) -> None:
-        if key in self._store:
-            self._store.move_to_end(key)
-        self._store[key] = value
-        if len(self._store) > self._cap:
-            self._store.popitem(last=False)
+@dataclass
+class GraphCacheStats:
+    """Graph cache hit/miss statistics."""
 
-    def invalidate(self, key: str) -> None:
-        self._store.pop(key, None)
+    hits: int = 0
+    misses: int = 0
+    sets: int = 0
+    evictions: int = 0
 
     @property
     def hit_rate(self) -> float:
@@ -148,28 +136,18 @@ class _MemoryGraphStore:
 
 
 class GraphComputationCache:
-    """Two-level cache (in-process LRU → Redis) for graph intermediate outputs.
+    """Cache for graph computation results — adjacency lists, edge features,
+    node features, and intermediate outputs keyed by data version and window.
 
-    Adjacency lists and edge feature tensors/dicts can be expensive to rebuild
-    for large windows.  This class stores them under a key derived from
-    ``data_version`` and the window bounds so experiments that share the same
-    data slice reuse the cached result.
-
-    Args:
-        redis_ttl_adjacency: Redis TTL for adjacency list entries in seconds
-            (default 30 minutes).
-        redis_ttl_edge_features: Redis TTL for edge feature entries in seconds
-            (default 1 hour).
-        lru_capacity: Number of entries to keep in the in-process LRU.
-
-    Example::
+    Usage::
 
         cache = GraphComputationCache()
 
-        adj = cache.get_adjacency("v1.2", start_ts=1_000_000, end_ts=1_010_000)
-        if adj is None:
-            adj = build_adjacency(edges, start_ts, end_ts)
-            cache.set_adjacency("v1.2", 1_000_000, 1_010_000, adj)
+        @cache.cached_adjacency(version="v3", window="7d")
+        def build_adjacency(window_edges):
+            ...
+
+        adj = build_adjacency(edges)  # cached per (version, window, edges_hash)
     """
 
     _instance: GraphComputationCache | None = None
@@ -308,39 +286,63 @@ class GraphComputationCache:
 
     def cached_adjacency(
         self,
-        data_version: str,
-        start_ts: int,
-        end_ts: int,
-    ) -> None:
-        """Evict an adjacency entry from both cache levels."""
-        key = self._adj_key(data_version, start_ts, end_ts)
-        self._lru.invalidate(key)
-        self._redis.delete(key)
+        version: str = "latest",
+        window: str = "7d",
+        ttl_seconds: int | None = None,
+    ) -> Callable[[F], F]:
+        """Cache adjacency list computation per data version and window."""
 
-    # ------------------------------------------------------------------ #
-    # Edge feature caching
-    # ------------------------------------------------------------------ #
+        def decorator(func: F) -> F:
+            @wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                arg_hash = self._hash_args(*args, **kwargs)
+                cache_key = f"adj:{version}:{window}:{arg_hash}"
+                cached_value = self.get("graph:adjacency", cache_key)
+                if cached_value is not None:
+                    return cached_value
+                result = func(*args, **kwargs)
+                self.set(
+                    "graph:adjacency",
+                    cache_key,
+                    result,
+                    ttl_seconds or self.config.adjacency_ttl,
+                )
+                return result
 
-    def get_edge_features(
+            return wrapper  # type: ignore[return-value]
+
+        return decorator
+
+    def cached_edge_features(
         self,
-        data_version: str,
-        start_ts: int,
-        end_ts: int,
-        feature_set: str = "default",
-    ) -> Any | None:
-        """Return cached edge features or ``None`` on miss."""
-        key = self._ef_key(data_version, start_ts, end_ts, feature_set)
-        hit = self._lru.get(key)
-        if hit is not None:
-            logger.debug("GraphComputationCache: edge_features LRU hit for %s", key[:12])
-            return hit
-        value = self._redis.get(key)
-        if value is not None:
-            logger.debug("GraphComputationCache: edge_features Redis hit for %s", key[:12])
-            self._lru.set(key, value)
-        return value
+        version: str = "latest",
+        window: str = "7d",
+        ttl_seconds: int | None = None,
+    ) -> Callable[[F], F]:
+        """Cache edge feature computation per data version and window."""
 
-    def set_edge_features(
+        def decorator(func: F) -> F:
+            @wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                arg_hash = self._hash_args(*args, **kwargs)
+                cache_key = f"ef:{version}:{window}:{arg_hash}"
+                cached_value = self.get("graph:edge_features", cache_key)
+                if cached_value is not None:
+                    return cached_value
+                result = func(*args, **kwargs)
+                self.set(
+                    "graph:edge_features",
+                    cache_key,
+                    result,
+                    ttl_seconds or self.config.edge_feature_ttl,
+                )
+                return result
+
+            return wrapper  # type: ignore[return-value]
+
+        return decorator
+
+    def cached_node_features(
         self,
         version: str = "latest",
         window: str = "7d",
@@ -383,22 +385,77 @@ def get_graph_cache(config: GraphCacheConfig | None = None) -> GraphComputationC
 def invalidate_graph_cache(prefix: str = "", key: str | None = None) -> int:
     """Invalidate graph cache entries.
 
+    Args:
+        prefix: Cache prefix (e.g. ``'graph:adjacency'``). Empty string clears all.
+        key: Specific key within prefix. ``None`` clears all for the prefix.
+
+    Returns:
+        Number of entries invalidated.
+    """
+    cache = get_graph_cache()
+    if prefix:
+        return cache.invalidate(prefix, key)
+    return cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Window-keyed computation helpers (issue #767 convenience API)
+# ---------------------------------------------------------------------------
+
+
+def _window_key(data_version: str, start_ts: int, end_ts: int, extra: str = "") -> str:
+    """Stable cache key digest from window parameters."""
+    payload = f"{data_version}:{start_ts}:{end_ts}:{extra}"
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+class _LRUCache:
+    """Minimal thread-unsafe in-process LRU backed by an OrderedDict."""
+
+    def __init__(self, capacity: int = 128) -> None:
+        self._cap = max(1, capacity)
+        self._store: OrderedDict[str, Any] = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+        self.sets = 0
+        self.evictions = 0
+
+    def get(self, key: str) -> Any:
+        if key not in self._store:
+            self.misses += 1
+            return None
+        self.hits += 1
+        self._store.move_to_end(key)
+        return self._store[key]
+
+    def set(self, key: str, value: Any) -> None:
+        self.sets += 1
+        if key in self._store:
+            self._store.move_to_end(key)
+        self._store[key] = value
+        if len(self._store) > self._cap:
+            self._store.popitem(last=False)
+            self.evictions += 1
+
+    def invalidate(self, key: str) -> None:
+        self._store.pop(key, None)
+
+    def __len__(self) -> int:
+        return len(self._store)
+
     @property
-    def lru_size(self) -> int:
-        """Number of entries currently in the in-process LRU."""
-        return len(self._lru)
+    def hit_rate(self) -> float:
+        total = self.hits + self.misses
+        return self.hits / total if total > 0 else 0.0
 
-    # ------------------------------------------------------------------ #
-    # Private helpers
-    # ------------------------------------------------------------------ #
-
-    def _adj_key(self, version: str, start: int, end: int) -> str:
-        digest = _window_key(version, start, end)
-        return f"{_ADJACENCY_PREFIX.value}:adj:{digest}"
-
-    def _ef_key(self, version: str, start: int, end: int, feature_set: str) -> str:
-        digest = _window_key(version, start, end, feature_set)
-        return f"{_EDGE_FEATURE_PREFIX.value}:ef:{digest}"
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "hits": self.hits,
+            "misses": self.misses,
+            "sets": self.sets,
+            "evictions": self.evictions,
+            "hit_rate": self.hit_rate,
+        }
 
 
 def cached_graph_computation(
@@ -420,7 +477,31 @@ def cached_graph_computation(
         def build_adjacency(data_version: str, start_ts: int, end_ts: int):
             ...  # expensive graph construction
     """
-    cache = get_graph_cache()
-    if prefix:
-        return cache.invalidate(prefix, key)
-    return cache.clear()
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            def param(name: str, index: int) -> Any:
+                if name in kwargs:
+                    return kwargs[name]
+                if len(args) > index:
+                    return args[index]
+                raise TypeError(f"{func.__name__}() missing {name}")
+
+            digest = _window_key(
+                str(param(data_version_arg, 0)),
+                int(param(start_ts_arg, 1)),
+                int(param(end_ts_arg, 2)),
+            )
+            cache_key = f"gc:{digest}"
+            target = cache if cache is not None else get_graph_cache()
+            cached_value = target.get("graph:computation", cache_key)
+            if cached_value is not None:
+                return cached_value
+            result = func(*args, **kwargs)
+            target.set("graph:computation", cache_key, result, ttl_seconds)
+            return result
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
