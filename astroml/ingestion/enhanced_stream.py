@@ -30,7 +30,11 @@ from tenacity import (
 
 from astroml.db.schema import Effect, Operation
 from astroml.db.session import get_session
+from astroml.ingestion.batch import BatchBuffer, chunked_merge
 from astroml.ingestion.metrics import (
+    BATCH_BUFFER_SIZE,
+    BATCH_FLUSH_DURATION,
+    BATCH_FLUSH_TOTAL,
     STREAM_CONNECTION_HEALTH,
     STREAM_CURSOR,
     STREAM_ERRORS,
@@ -66,6 +70,7 @@ class EnhancedStreamConfig:
     health_check_interval: float = 30.0
     batch_size: int = 100
     batch_timeout: float = 5.0
+    persist_chunk_size: int = 50
 
 
 class RateLimitTracker:
@@ -158,6 +163,7 @@ class EnhancedStellarStream:
         self._processed_count: int = 0
         self._last_record_created_at: float | None = None
         self._stream_id = f"{config.stream_type}-{config.horizon_url.replace('https://', '').replace('http://', '').replace('/', '_')}"
+        self._batch_buffer: BatchBuffer | None = None
 
     def _update_stream_state(self) -> None:
         """Update the stream state in the API router."""
@@ -194,21 +200,38 @@ class EnhancedStellarStream:
     async def __aenter__(self) -> EnhancedStellarStream:
         """Async context manager entry."""
         self._running = True
+        session = get_session()
+        self._batch_buffer = BatchBuffer(
+            session,
+            chunk_size=self.config.persist_chunk_size,
+            flush_on_exit=True,
+        )
         STREAM_CONNECTION_HEALTH.labels(
             stream_type=self.config.stream_type, horizon_url=self.config.horizon_url
         ).set(1)
         self._update_stream_state()
         logger.info(
-            "EnhancedStellarStream initialized | horizon=%s stream=%s cursor=%s",
+            "EnhancedStellarStream initialized | horizon=%s stream=%s cursor=%s chunk_size=%d",
             self.config.horizon_url,
             self.config.stream_type,
             self._cursor or "now",
+            self.config.persist_chunk_size,
         )
         return self
 
     async def __aexit__(self, exc_type, _exc_val, _exc_tb) -> None:
         """Async context manager exit."""
         self._running = False
+        if self._batch_buffer is not None:
+            try:
+                flushed = self._batch_buffer.total_flushed
+                self._batch_buffer.close()
+                logger.info("Batch buffer closed | total_flushed=%d flush_count=%d",
+                    flushed, self._batch_buffer.flush_count)
+            except Exception:
+                logger.exception("Error closing batch buffer")
+            finally:
+                self._batch_buffer = None
         STREAM_CONNECTION_HEALTH.labels(
             stream_type=self.config.stream_type, horizon_url=self.config.horizon_url
         ).set(0)
@@ -486,23 +509,29 @@ class EnhancedStellarStream:
             )
 
     async def _process_effect(self, effect_data: dict[str, Any]) -> None:
-        """Process and persist a single effect."""
+        """Process and buffer a single effect for batch persistence."""
         try:
             effect = parse_effect(effect_data)
             logger.debug("Processing effect %d (type=%s)", effect.id, effect.type)
 
-            await asyncio.to_thread(self._persist_effect, effect)
+            if self._batch_buffer is not None:
+                self._batch_buffer.add(effect)
+            else:
+                self._persist_effect(effect)
 
         except Exception as e:
             logger.exception("Failed to process effect: %s", e)
 
     async def _process_operation(self, operation_data: dict[str, Any]) -> None:
-        """Process and persist a single operation."""
+        """Process and buffer a single operation for batch persistence."""
         try:
             operation = parse_operation(operation_data)
             logger.debug("Processing operation %d (type=%s)", operation.id, operation.type)
 
-            await asyncio.to_thread(self._persist_operation, operation)
+            if self._batch_buffer is not None:
+                self._batch_buffer.add(operation)
+            else:
+                self._persist_operation(operation)
 
         except Exception as e:
             logger.exception("Failed to process operation: %s", e)

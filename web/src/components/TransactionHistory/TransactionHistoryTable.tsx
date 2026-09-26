@@ -8,12 +8,16 @@ export function TransactionHistoryTable({
   page,
   pageSize,
   onPageChange,
+  onAccountClick,
+  onTransactionClick,
 }: {
   response: TransactionHistoryResponse | undefined
   loading: boolean
   page: number
   pageSize: number
   onPageChange: (p: number) => void
+  onAccountClick?: (publicKey: string) => void
+  onTransactionClick?: (hash: string) => void
 }) {
   const { t } = useTranslation()
   const total = response?.total ?? 0
@@ -26,6 +30,10 @@ export function TransactionHistoryTable({
   const formatAddress = (address: string) => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`
   }
+
+  const linkStyle: React.CSSProperties = onAccountClick || onTransactionClick
+    ? { cursor: 'pointer', textDecoration: 'underline', color: 'var(--link-color, #0066cc)' }
+    : {}
 
   return (
     <div>
@@ -75,19 +83,37 @@ export function TransactionHistoryTable({
             {!loading && response?.data.map((tx) => (
               <tr key={tx.hash}>
                 <td style={td}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                  <span
+                    style={{ fontFamily: 'monospace', fontSize: '12px', ...linkStyle }}
+                    onClick={onTransactionClick ? () => onTransactionClick(tx.hash) : undefined}
+                    role={onTransactionClick ? 'button' : undefined}
+                    tabIndex={onTransactionClick ? 0 : undefined}
+                    onKeyDown={onTransactionClick ? (e) => { if (e.key === 'Enter') onTransactionClick(tx.hash) } : undefined}
+                  >
                     {formatHash(tx.hash)}
                   </span>
                 </td>
                 <td style={td}>{tx.ledgerSequence}</td>
                 <td style={td}>
-                  <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                  <span
+                    style={{ fontFamily: 'monospace', fontSize: '12px', ...linkStyle }}
+                    onClick={onAccountClick ? () => onAccountClick(tx.sourceAccount) : undefined}
+                    role={onAccountClick ? 'button' : undefined}
+                    tabIndex={onAccountClick ? 0 : undefined}
+                    onKeyDown={onAccountClick ? (e) => { if (e.key === 'Enter') onAccountClick(tx.sourceAccount) } : undefined}
+                  >
                     {formatAddress(tx.sourceAccount)}
                   </span>
                 </td>
                 <td style={td}>
                   {tx.destinationAccount ? (
-                    <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                    <span
+                      style={{ fontFamily: 'monospace', fontSize: '12px', ...linkStyle }}
+                      onClick={onAccountClick ? () => onAccountClick(tx.destinationAccount!) : undefined}
+                      role={onAccountClick ? 'button' : undefined}
+                      tabIndex={onAccountClick ? 0 : undefined}
+                      onKeyDown={onAccountClick ? (e) => { if (e.key === 'Enter') onAccountClick(tx.destinationAccount!) } : undefined}
+                    >
                       {formatAddress(tx.destinationAccount)}
                     </span>
                   ) : (

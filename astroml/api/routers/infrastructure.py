@@ -4,6 +4,7 @@ Provides cost optimization and resource analysis information.
 """
 
 from __future__ import annotations
+
 from typing import List
 
 from fastapi import APIRouter

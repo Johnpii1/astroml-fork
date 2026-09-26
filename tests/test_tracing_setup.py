@@ -1,9 +1,10 @@
 """Tests for the API tracing configuration."""
 
 from __future__ import annotations
-from api import tracing
 
 import pytest
+
+from api import tracing
 
 pytest.importorskip("opentelemetry")
 pytest.importorskip("opentelemetry.instrumentation.fastapi")

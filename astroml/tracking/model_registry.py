@@ -7,6 +7,7 @@ Enhanced with:
 - Rollback capability
 - A/B testing support
 - Deployment tracking
+- Model lineage tracking (training provenance + parent/child version links)
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from astroml.db.schema import Model, ModelVersion
 from astroml.db.session import get_session
+from astroml.tracking.lineage import ModelLineage, TrainingLineage
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,15 @@ class DeploymentEnvironment(str, Enum):
     STAGING = "staging"
     PRODUCTION = "production"
     CANARY = "canary"
+
+
+class ModelStage(str, Enum):
+    """Lifecycle stage for a model version."""
+
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"
+    ARCHIVED = "archived"
 
 
 class InvalidStatusTransitionError(ValueError):
@@ -271,6 +282,9 @@ class ModelRegistry:
         version: str | None = None,
         metadata: dict[str, Any] | None = None,
         auto_version: bool = True,
+        mlflow_run_id: str | None = None,
+        parent_model_id: int | None = None,
+        parent_version: str | None = None,
     ) -> ModelVersion:
         """Create a new model version.
 
@@ -283,6 +297,9 @@ class ModelRegistry:
             version: Optional version string. If not provided and auto_version=True, auto-generates.
             metadata: Optional additional metadata
             auto_version: Whether to auto-generate version if not provided
+            mlflow_run_id: Optional MLflow run ID to link this version to
+            parent_model_id: Optional ID of the model this version is derived from
+            parent_version: Optional version of the parent model to link
 
         Returns:
             Created ModelVersion instance
@@ -308,6 +325,18 @@ class ModelRegistry:
         if existing:
             raise ValueError(f"Version '{version}' already exists for model {model_id}")
 
+        # A parent link needs both halves, and the parent must already exist.
+        if (parent_model_id is None) != (parent_version is None):
+            raise ValueError(
+                "Both parent_model_id and parent_version are required to link a parent version"
+            )
+        if parent_model_id is not None and parent_version is not None:
+            parent = self.get_model_version(parent_model_id, parent_version)
+            if parent is None:
+                raise ValueError(
+                    f"Parent version '{parent_version}' not found for model {parent_model_id}"
+                )
+
         model_version = ModelVersion(
             model_id=model_id,
             version=version,
@@ -316,10 +345,25 @@ class ModelRegistry:
             metrics=metrics or {},
             status=status,
             metadata=metadata or {},
+            mlflow_run_id=mlflow_run_id,
         )
         self.session.add(model_version)
         self.session.commit()
         self.session.refresh(model_version)
+
+        # Persist the parent link as a fork lineage event (append-only).
+        if parent_model_id is not None and parent_version is not None:
+            model_version.lineage = _append_lineage(
+                model_version.lineage,
+                {
+                    "type": "fork",
+                    "at": datetime.now(timezone.utc).isoformat(),
+                    "parent_model_id": parent_model_id,
+                    "parent_version": parent_version,
+                },
+            )
+            self.session.commit()
+            self.session.refresh(model_version)
 
         logger.info(
             "Created model version: %s (id=%d, model_id=%d)",
@@ -402,7 +446,15 @@ class ModelRegistry:
         if not version:
             return None
 
-        version.metrics.update(metrics)
+        # Reassign rather than mutate in place (issue #738).
+        #
+        # ``metrics`` is a plain JSON column, so SQLAlchemy compares it by
+        # identity: an in-place ``dict.update`` leaves the attribute pointing
+        # at the same object, the instance is never marked dirty, ``commit``
+        # writes nothing, and the ``refresh`` below then reloads the old value
+        # over the change. The update was discarded in silence — the caller
+        # got a version object back and no error.
+        version.metrics = {**(version.metrics or {}), **metrics}
         self.session.commit()
         self.session.refresh(version)
         logger.info("Updated metrics for model version: %s (id=%d)", version.version, version_id)
@@ -469,22 +521,120 @@ class ModelRegistry:
         version_str = f"{major}.{minor}.{patch}"
         return self.get_model_version(model_id, version_str)
 
+    # ── Serving activation / rollback (issue #718) ──────────────────────────
+    #
+    # Both transitions go through _switch_serving_version, which performs the
+    # demote-and-promote as a single unit of work. The previous implementation
+    # committed twice — outgoing version first, incoming second — so a failure
+    # between them left the model with *no* deployed version at all. It also
+    # recorded lineage by assigning to ``version.metadata``, which is
+    # SQLAlchemy's reserved MetaData attribute rather than a column, so the
+    # transition record was silently discarded.
+
+    def _switch_serving_version(
+        self,
+        target: ModelVersion,
+        transition: str,
+        reason: str,
+        actor: str | None = None,
+    ) -> tuple[ModelVersion, ModelVersion | None]:
+        """Atomically make ``target`` the deployed version for its model.
+
+        Returns ``(target, previous)`` where ``previous`` is the version that was
+        serving beforehand, or ``None`` if there was none.
+        """
+        previous = self.get_latest_deployed_version(target.model_id)
+        if previous is not None and previous.id == target.id:
+            raise ValueError(f"Version '{target.version}' is already deployed")
+
+        now = datetime.now(timezone.utc)
+        record: dict[str, Any] = {
+            "transition": transition,
+            "at": now.isoformat(),
+            "reason": reason,
+            "actor": actor,
+            "from_version": previous.version if previous else None,
+            "to_version": target.version,
+        }
+
+        # One transaction: either serving moves to the new version and both
+        # lineage records land, or nothing changes at all.
+        try:
+            if previous is not None:
+                previous.status = "archived"
+                previous.lineage = _append_lineage(
+                    previous.lineage, {**record, "role": "superseded"}
+                )
+
+            target.status = "deployed"
+            target.deployed_at = now
+            target.lineage = _append_lineage(target.lineage, {**record, "role": "activated"})
+
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+
+        self.session.refresh(target)
+        if previous is not None:
+            self.session.refresh(previous)
+
+        logger.info(
+            "Serving switched to version %s for model %d (%s: %s)",
+            target.version,
+            target.model_id,
+            transition,
+            reason,
+        )
+        return target, previous
+
+    def activate(
+        self,
+        model_id: int,
+        version: str,
+        reason: str = "Activation requested",
+        actor: str | None = None,
+    ) -> tuple[ModelVersion, ModelVersion | None]:
+        """Make ``version`` the served version for ``model_id``.
+
+        Args:
+            model_id: Model ID.
+            version: Version string to activate.
+            reason: Why the switch is happening; recorded in lineage.
+            actor: Who requested it; recorded in lineage.
+
+        Returns:
+            Tuple of (activated_version, previously_deployed_version_or_None).
+
+        Raises:
+            ValueError: If the version does not exist, or is already deployed.
+        """
+        target = self.get_model_version(model_id, version)
+        if not target:
+            raise ValueError(f"Version '{version}' not found for model {model_id}")
+
+        return self._switch_serving_version(
+            target, transition="activate", reason=reason, actor=actor
+        )
+
     def rollback_to_version(
         self,
         model_id: int,
         target_version: str,
         reason: str = "Rollback requested",
-    ) -> tuple[ModelVersion, ModelVersion]:
+        actor: str | None = None,
+    ) -> tuple[ModelVersion, ModelVersion | None]:
         """
-        Rollback to a previous version.
+        Rollback serving to a previous version.
 
         Args:
             model_id: Model ID
             target_version: Version to rollback to
             reason: Reason for rollback
+            actor: Who requested the rollback; recorded in lineage
 
         Returns:
-            Tuple of (new_version, target_version)
+            Tuple of (target_version, previously_deployed_version_or_None)
 
         Raises:
             ValueError: If target version not found or is already deployed
@@ -496,39 +646,9 @@ class ModelRegistry:
         if target.status == "deployed":
             raise ValueError(f"Target version '{target_version}' is already deployed")
 
-        current = self.get_latest_deployed_version(model_id)
-
-        # Mark current as rollback
-        if current:
-            current.status = "rollback"
-            current.metadata = {
-                **(current.metadata or {}),
-                "rollback_reason": reason,
-                "rollback_target": target_version,
-                "rollback_at": datetime.now(timezone.utc).isoformat(),
-            }
-            self.session.commit()
-
-        # Deploy target
-        target.status = "deployed"
-        target.deployed_at = datetime.now(timezone.utc)
-        target.metadata = {
-            **(target.metadata or {}),
-            "deployment_type": "rollback",
-            "rollback_reason": reason,
-            "rollback_from": current.version if current else None,
-        }
-        self.session.commit()
-        self.session.refresh(target)
-
-        logger.info(
-            "Rolled back to version %s for model %d (reason: %s)",
-            target_version,
-            model_id,
-            reason,
+        return self._switch_serving_version(
+            target, transition="rollback", reason=reason, actor=actor
         )
-
-        return target, current
 
     def get_version_history(self, model_id: int, limit: int = 10) -> list[dict[str, Any]]:
         """Get version history with status transitions for a model."""
@@ -542,9 +662,11 @@ class ModelRegistry:
                     "version": version.version,
                     "status": version.status,
                     "metrics": version.metrics,
+                    "mlflow_run_id": version.mlflow_run_id,
                     "created_at": version.created_at.isoformat(),
                     "deployed_at": version.deployed_at.isoformat() if version.deployed_at else None,
                     "metadata": version.metadata,
+                    "lineage": version.lineage,
                 }
             )
 
@@ -571,7 +693,15 @@ class ModelRegistry:
                 all_metrics.update(v.metrics.keys())
 
         comparison = {
-            "versions": [{"id": v.id, "version": v.version, "status": v.status} for v in versions],
+            "versions": [
+                {
+                    "id": v.id,
+                    "version": v.version,
+                    "status": v.status,
+                    "mlflow_run_id": v.mlflow_run_id,
+                }
+                for v in versions
+            ],
             "metrics": {},
             "summary": {},
         }
@@ -752,6 +882,242 @@ class ModelRegistry:
         return version.metadata.get("deployments", []) if version.metadata else []
 
     # ------------------------------------------------------------------
+    # MLflow run linkage (issue #764)
+    # ------------------------------------------------------------------
+
+    def get_mlflow_run_details(
+        self,
+        model_id: int,
+        version: str,
+    ) -> dict[str, Any] | None:
+        """Retrieve MLflow run details for a registered model version.
+
+        Looks up the ``mlflow_run_id`` stored on the version and fetches
+        the corresponding run data from the MLflow tracking server.
+
+        Args:
+            model_id: Parent model ID.
+            version: Version string.
+
+        Returns:
+            A dict with run metadata (run_id, experiment_id, status,
+            metrics, params, tags, artifact_uri) or ``None`` if the
+            version has no linked run or MLflow is unavailable.
+        """
+        mv = self.get_model_version(model_id, version)
+        if not mv or not mv.mlflow_run_id:
+            return None
+
+        try:
+            import mlflow
+
+            run = mlflow.get_run(mv.mlflow_run_id)
+            return {
+                "run_id": run.info.run_id,
+                "experiment_id": run.info.experiment_id,
+                "status": run.info.status,
+                "start_time": run.info.start_time,
+                "end_time": run.info.end_time,
+                "metrics": dict(run.data.metrics),
+                "params": dict(run.data.params),
+                "tags": dict(run.data.tags),
+                "artifact_uri": run.info.artifact_uri,
+            }
+        except ImportError:
+            logger.warning("mlflow package not installed — cannot fetch run details")
+            return None
+        except Exception as exc:
+            logger.warning("Failed to fetch MLflow run %s: %s", mv.mlflow_run_id, exc)
+            return None
+
+    # ------------------------------------------------------------------
+    # Model lineage tracking
+    # ------------------------------------------------------------------
+    #
+    # ``ModelVersion.lineage`` is an append-only JSON column shared by serving
+    # transitions (activate / rollback, issue #718) and the training / fork
+    # events recorded here. Events are appended via _append_lineage so every
+    # record is retained; the most recent ``training`` event is the current
+    # provenance for the version.
+
+    @staticmethod
+    def _lineage_events(lineage: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """Return the recorded lineage events of a raw lineage dict."""
+        return list((lineage or {}).get("events", []))
+
+    @staticmethod
+    def _training_lineage_from_event(event: dict[str, Any]) -> TrainingLineage:
+        """Build a TrainingLineage from a persisted ``training`` lineage event."""
+        kwargs = {
+            key: event.get(key)
+            for key in (
+                "dataset_id",
+                "dataset_version",
+                "dataset_hash",
+                "code_repository",
+                "commit_hash",
+                "branch",
+                "pipeline_run_id",
+                "parent_model_id",
+                "parent_version",
+                "hyperparameters",
+                "environment",
+                "artifact_hashes",
+            )
+        }
+        return TrainingLineage(**kwargs)
+
+    def record_training_lineage(
+        self,
+        model_id: int,
+        version: str,
+        *,
+        dataset_id: str,
+        dataset_version: str = "latest",
+        dataset_hash: str | None = None,
+        code_repository: str | None = None,
+        commit_hash: str | None = None,
+        branch: str | None = None,
+        pipeline_run_id: str | None = None,
+        parent_model_id: int | None = None,
+        parent_version: str | None = None,
+        hyperparameters: dict[str, Any] | None = None,
+        environment: dict[str, str] | None = None,
+        artifact_hashes: dict[str, str] | None = None,
+    ) -> ModelVersion | None:
+        """Record training provenance for a model version.
+
+        Appends a ``training`` event to the version's ``lineage`` JSON column,
+        retrievable later through :meth:`get_model_lineage`. Multiple calls
+        append; the most recent training event wins when reconstructing the
+        current ``TrainingLineage``.
+
+        Args:
+            model_id: Parent model ID.
+            version: Version string whose lineage is being recorded.
+            dataset_id: Dataset identifier used for training.
+            dataset_version: Dataset version (default ``"latest"``).
+            dataset_hash: Optional dataset content hash.
+            code_repository: Optional code repository URL.
+            commit_hash: Optional training code commit hash.
+            branch: Optional training code git branch.
+            pipeline_run_id: Optional orchestration run ID.
+            parent_model_id: Optional ID of the model this version derives from.
+            parent_version: Optional version of the parent model.
+            hyperparameters: Optional hyperparameters used for training.
+            environment: Optional training environment snapshot.
+            artifact_hashes: Optional artifact name-to-hash mapping.
+
+        Returns:
+            The updated ModelVersion, or ``None`` if the version does not exist.
+        """
+        mv = self.get_model_version(model_id, version)
+        if mv is None:
+            return None
+
+        mv.lineage = _append_lineage(
+            mv.lineage,
+            {
+                "type": "training",
+                "at": datetime.now(timezone.utc).isoformat(),
+                "dataset_id": dataset_id,
+                "dataset_version": dataset_version,
+                "dataset_hash": dataset_hash,
+                "code_repository": code_repository,
+                "commit_hash": commit_hash,
+                "branch": branch,
+                "pipeline_run_id": pipeline_run_id,
+                "parent_model_id": parent_model_id,
+                "parent_version": parent_version,
+                "hyperparameters": hyperparameters or {},
+                "environment": environment or {},
+                "artifact_hashes": artifact_hashes or {},
+            },
+        )
+        self.session.commit()
+        self.session.refresh(mv)
+        logger.info("Recorded training lineage for model version: %s:%s", model_id, version)
+        return mv
+
+    def get_model_lineage(
+        self,
+        model_id: int,
+        version: str,
+    ) -> ModelLineage | None:
+        """Return the structured lineage for a model version.
+
+        Reconstructs a :class:`ModelLineage` from the version's persisted
+        ``training`` events and its child versions.
+
+        Args:
+            model_id: Parent model ID.
+            version: Version string.
+
+        Returns:
+            A :class:`ModelLineage` if training provenance has been recorded,
+            ``None`` otherwise (or if the version does not exist).
+        """
+        mv = self.get_model_version(model_id, version)
+        if mv is None:
+            return None
+
+        events = self._lineage_events(mv.lineage)
+        training_events = [e for e in events if e.get("type") == "training"]
+        if not training_events:
+            return None
+
+        training = self._training_lineage_from_event(training_events[-1])
+
+        model_name = mv.model.name if mv.model else str(model_id)
+
+        upstream_nodes: list[str] = []
+        if training.dataset_id:
+            upstream_nodes.append(training.dataset_id)
+        if training.parent_model_id is not None and training.parent_version is not None:
+            upstream_nodes.append(f"{training.parent_model_id}:{training.parent_version}")
+
+        downstream_nodes = [
+            f"{child.model.name if child.model else child.model_id}:{child.version}"
+            for child in self.list_child_versions(model_id, version)
+        ]
+
+        return ModelLineage(
+            model_name=model_name,
+            version=version,
+            training_lineage=training,
+            upstream_nodes=upstream_nodes,
+            downstream_nodes=downstream_nodes,
+        )
+
+    def list_child_versions(
+        self,
+        model_id: int,
+        version: str,
+    ) -> list[ModelVersion]:
+        """List versions whose lineage records ``model_id:version`` as parent.
+
+        A child references its parent through a ``training`` or ``fork`` lineage
+        event carrying matching ``parent_model_id`` and ``parent_version``
+        fields. Because the references live inside JSON lineage records, they
+        are resolved in Python rather than in SQL.
+
+        Returns:
+            List of ModelVersion rows that declare this version as a parent.
+        """
+        children: list[ModelVersion] = []
+        for candidate in self.session.execute(select(ModelVersion)).scalars().all():
+            for event in self._lineage_events(candidate.lineage):
+                if event.get("type") not in ("training", "fork"):
+                    continue
+                if (
+                    event.get("parent_model_id") == model_id
+                    and event.get("parent_version") == version
+                ):
+                    children.append(candidate)
+                    break
+        return children
+
+    # ------------------------------------------------------------------
     # Validation helpers
     # ------------------------------------------------------------------
 
@@ -778,3 +1144,15 @@ class ModelRegistry:
             return True
         except ValueError:
             return False
+
+
+def _append_lineage(existing: dict[str, Any] | None, entry: dict[str, Any]) -> dict[str, Any]:
+    """Append a transition to a version's lineage record.
+
+    A new dict is returned rather than mutating in place: SQLAlchemy only marks a
+    JSON column dirty on assignment, so mutating the existing dict would not be
+    persisted.
+    """
+    events = list((existing or {}).get("events", []))
+    events.append(entry)
+    return {**(existing or {}), "events": events, "latest": entry}

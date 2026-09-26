@@ -143,10 +143,14 @@ class FeatureDefinition:
         """Create from dictionary representation."""
         data = data.copy()
         data.pop("feature_id", None)
-        data["feature_type"] = FeatureType(data["feature_type"])
-        data["status"] = FeatureStatus(data["status"])
-        data["created_at"] = datetime.fromisoformat(data["created_at"])
-        data["updated_at"] = datetime.fromisoformat(data["updated_at"])
+        if isinstance(data.get("feature_type"), str):
+            data["feature_type"] = FeatureType(data["feature_type"])
+        if isinstance(data.get("status"), str):
+            data["status"] = FeatureStatus(data["status"])
+        if isinstance(data.get("created_at"), str):
+            data["created_at"] = datetime.fromisoformat(data["created_at"])
+        if isinstance(data.get("updated_at"), str):
+            data["updated_at"] = datetime.fromisoformat(data["updated_at"])
         return cls(**data)
 
 
@@ -580,6 +584,8 @@ class FeatureStorage:
 class FeatureRegistry:
     """Registry for managing feature definitions and computations."""
 
+    _global_computers: dict[str, FeatureComputer] = {}
+
     def __init__(self, storage: FeatureStorage):
         """Initialize feature registry.
 
@@ -643,10 +649,9 @@ class FeatureRegistry:
         Raises:
             TypeError: If plugin is missing required methods
         """
-        if hasattr(plugin_cls, "compute"):
-            if not callable(plugin_cls.compute):
-                raise TypeError(f"Plugin {plugin_cls.__name__}.compute must be callable")
-        elif not callable(plugin_cls):
+        has_compute = hasattr(plugin_cls, "compute") and callable(getattr(plugin_cls, "compute"))
+        is_callable_cls = callable(plugin_cls)
+        if not (has_compute or is_callable_cls):
             raise TypeError(
                 f"Plugin {plugin_cls.__name__} must either be callable "
                 f"or have a callable 'compute' method"
@@ -745,6 +750,7 @@ class FeatureRegistry:
             metadata: Feature metadata
         """
         self._computers[name] = computer
+        FeatureRegistry._global_computers[name] = computer
 
         # Create feature definition
         feature_def = FeatureDefinition(
@@ -768,11 +774,14 @@ class FeatureRegistry:
         Returns:
             Feature computer if found, None otherwise
         """
-        return self._computers.get(name)
+        if name in self._computers:
+            return self._computers[name]
+        return FeatureRegistry._global_computers.get(name)
 
     def list_features(self) -> list[str]:
         """List all registered feature names."""
-        return list(self._computers.keys())
+        all_keys = set(self._computers.keys()) | set(FeatureRegistry._global_computers.keys())
+        return list(all_keys)
 
 
 class FeatureStore:
@@ -832,6 +841,14 @@ class FeatureStore:
         self.storage = FeatureStorage(storage_path)
         self.registry = FeatureRegistry(self.storage)
 
+        from .offline_store import OfflineFeatureStore, create_offline_store
+        from .online_store import BaseOnlineStore, create_online_store
+
+        self.online_store: BaseOnlineStore = create_online_store(backend="memory")
+        self.offline_store: OfflineFeatureStore = create_offline_store(
+            storage_path=Path(storage_path) / "offline"
+        )
+
         # Lightweight metadata cache (feature definitions rarely change).
         self._metadata_cache: dict[str, FeatureDefinition] = {}
 
@@ -846,9 +863,10 @@ class FeatureStore:
         max_cache_size_mb: int,
     ) -> None:
         """Initialize the value cache (TTL+LRU) and related metrics."""
-        self._cache_lock: threading.Lock = threading.Lock()
+        self._cache_lock: threading.RLock = threading.RLock()
         self._cache_ttl_seconds: int = cache_ttl_seconds
         self._cache_maxsize: int = cache_maxsize
+
         self._value_cache: TTLCache = TTLCache(
             maxsize=cache_maxsize,
             ttl=cache_ttl_seconds,
@@ -878,8 +896,8 @@ class FeatureStore:
     def register_feature(
         self,
         name: str,
-        computer: FeatureComputer,
-        description: str,
+        computer: FeatureComputer | None = None,
+        description: str = "",
         feature_type: FeatureType = FeatureType.NUMERIC,
         tags: list[str] | None = None,
         owner: str = "",
@@ -907,7 +925,18 @@ class FeatureStore:
             "parameters": parameters or {},
         }
 
-        self.registry.register_computer(name, computer, metadata)
+        if computer is not None:
+            self.registry.register_computer(name, computer, metadata)
+        else:
+            feature_def = FeatureDefinition(
+                name=name,
+                description=description,
+                feature_type=feature_type,
+                tags=tags or [],
+                owner=owner,
+                parameters=parameters or {},
+            )
+            self.storage.store_feature_definition(feature_def)
 
         # Return the created feature definition
         feature_def = self.storage.get_feature_definition(f"{name}_v1")
@@ -955,9 +984,7 @@ class FeatureStore:
         return result
 
     @staticmethod
-    def _validate_input_columns(
-        data: pd.DataFrame, entity_col: str, timestamp_col: str
-    ) -> None:
+    def _validate_input_columns(data: pd.DataFrame, entity_col: str, timestamp_col: str) -> None:
         """Raise ValueError if required columns are missing from *data*."""
         missing_cols = [col for col in [entity_col, timestamp_col] if col not in data.columns]
         if missing_cols:
@@ -1030,8 +1057,7 @@ class FeatureStore:
         chunks = self._split_data_into_chunks(data, entity_col)
 
         logger.info(
-            f"Processing {len(data)} rows in {len(chunks)} chunks "
-            f"with {self._max_workers} workers"
+            f"Processing {len(data)} rows in {len(chunks)} chunks with {self._max_workers} workers"
         )
 
         results = self._process_chunks_parallel(
@@ -1042,9 +1068,7 @@ class FeatureStore:
             return pd.concat(results, axis=0)
         return pd.DataFrame()
 
-    def _split_data_into_chunks(
-        self, data: pd.DataFrame, entity_col: str
-    ) -> list[pd.DataFrame]:
+    def _split_data_into_chunks(self, data: pd.DataFrame, entity_col: str) -> list[pd.DataFrame]:
         """Split *data* into chunks of at most ``_chunk_size`` unique entities."""
         unique_entities = data[entity_col].unique()
         chunks: list[pd.DataFrame] = []
@@ -1062,6 +1086,7 @@ class FeatureStore:
         **kwargs: Any,
     ) -> list[pd.DataFrame]:
         """Process data chunks in parallel using ThreadPoolExecutor."""
+
         def process_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
             try:
                 return computer(chunk, entity_col, timestamp_col, **kwargs)
@@ -1071,9 +1096,7 @@ class FeatureStore:
 
         results: list[pd.DataFrame] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-            future_to_chunk = {
-                executor.submit(process_chunk, chunk): chunk for chunk in chunks
-            }
+            future_to_chunk = {executor.submit(process_chunk, chunk): chunk for chunk in chunks}
             for future in concurrent.futures.as_completed(future_to_chunk):
                 try:
                     results.append(future.result())
@@ -1090,6 +1113,7 @@ class FeatureStore:
         metadata: dict[str, Any] | None = None,
         validate_schema: bool = True,
         dry_run: bool = False,
+        auto_register: bool = True,
     ) -> ValidationResult:
         """Store computed feature values.
 
@@ -1099,6 +1123,7 @@ class FeatureStore:
             metadata: Additional metadata
             validate_schema: Whether to validate schema before storing
             dry_run: If True, validate but don't store
+            auto_register: Whether to auto-register definition if not found
 
         Returns:
             ValidationResult if validate_schema=True, otherwise empty ValidationResult
@@ -1106,7 +1131,20 @@ class FeatureStore:
         # Get feature definition
         feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
         if feature_def is None:
-            raise ValueError(f"Feature '{feature_name}' not found")
+            feature_def = self.storage.get_feature_definition(feature_name)
+        if feature_def is None:
+            if auto_register:
+                feature_def = FeatureDefinition(
+                    name=feature_name,
+                    description=f"Feature {feature_name}",
+                    feature_type=FeatureType.NUMERIC,
+                    version=1,
+                )
+                self.storage.store_feature_definition(feature_def)
+            else:
+                raise ValueError(f"Feature '{feature_name}' not found")
+
+
 
         # Validate schema if requested
         if validate_schema:
@@ -1177,7 +1215,6 @@ class FeatureStore:
         with self._cache_lock:
             return feature_id not in self._value_cache
 
-    @cache_feature_store(ttl_seconds=900)
     def get_feature(
         self,
         feature_name: str,
@@ -1192,6 +1229,8 @@ class FeatureStore:
         provides both TTL-based expiry and LRU eviction automatically.
         """
         feature_def = self._resolve_feature_def(feature_name)
+        if feature_def is None:
+            return None
         feature_id = feature_def.feature_id
 
         # Cache lookup
@@ -1209,15 +1248,16 @@ class FeatureStore:
 
         return values
 
-    def _resolve_feature_def(self, feature_name: str) -> FeatureDefinition:
+    def _resolve_feature_def(self, feature_name: str) -> FeatureDefinition | None:
         """Resolve a feature definition, using the metadata cache when possible."""
         if feature_name in self._metadata_cache:
             return self._metadata_cache[feature_name]
 
         feature_def = self.storage.get_feature_definition(f"{feature_name}_v1")
         if feature_def is None:
-            raise ValueError(f"Feature '{feature_name}' not found")
-        self._metadata_cache[feature_name] = feature_def
+            feature_def = self.storage.get_feature_definition(feature_name)
+        if feature_def is not None:
+            self._metadata_cache[feature_name] = feature_def
         return feature_def
 
     def _lookup_cached_values(
@@ -1256,9 +1296,7 @@ class FeatureStore:
         with self._cache_lock:
             if self._current_cache_size_bytes + value_size_bytes > self._max_cache_size_bytes:
                 required_space = (
-                    self._current_cache_size_bytes
-                    + value_size_bytes
-                    - self._max_cache_size_bytes
+                    self._current_cache_size_bytes + value_size_bytes - self._max_cache_size_bytes
                 )
                 logger.debug(f"Cache at memory cap, freeing {required_space} bytes")
                 self._evict_lru_features(required_space)
@@ -1426,9 +1464,7 @@ class FeatureStore:
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(self._max_workers, len(feature_names))
             ) as executor:
-                future_to_feature = {
-                    executor.submit(fetch_feature, fn): fn for fn in feature_names
-                }
+                future_to_feature = {executor.submit(fetch_feature, fn): fn for fn in feature_names}
                 for future in concurrent.futures.as_completed(future_to_feature):
                     feature_name = future_to_feature[future]
                     try:
@@ -1460,6 +1496,90 @@ class FeatureStore:
             List of feature definitions
         """
         return self.storage.list_feature_definitions(status, tags, owner)
+
+    def get_online_features(
+        self,
+        entity_keys: Sequence[str],
+        feature_names: Sequence[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Retrieve low-latency online features for real-time inference."""
+        return self.online_store.get_online_features(entity_keys, feature_names)
+
+    def write_online_features(
+        self,
+        features: list[Any] | pd.DataFrame,
+        entity_col: str = "entity_id",
+        timestamp_col: str | None = None,
+        ttl_seconds: int | None = None,
+    ) -> int:
+        """Write features to the online feature store."""
+        return self.online_store.write_online_features(
+            features,
+            entity_col=entity_col,
+            timestamp_col=timestamp_col,
+            ttl_seconds=ttl_seconds,
+        )
+
+    def get_historical_features(
+        self,
+        entity_df: pd.DataFrame,
+        feature_names: Sequence[str],
+        entity_col: str = "entity_id",
+        timestamp_col: str = "timestamp",
+        lookback_seconds: int | None = None,
+    ) -> pd.DataFrame:
+        """Retrieve point-in-time correct historical features for training datasets."""
+        return self.offline_store.get_historical_features(
+            entity_df=entity_df,
+            feature_names=feature_names,
+            entity_col=entity_col,
+            timestamp_col=timestamp_col,
+            lookback_seconds=lookback_seconds,
+        )
+
+    def write_offline_features(
+        self,
+        feature_name: str,
+        df: pd.DataFrame,
+        entity_col: str = "entity_id",
+        timestamp_col: str = "timestamp",
+    ) -> int:
+        """Write feature values to offline Parquet storage."""
+        return self.offline_store.write_offline_features(
+            feature_name=feature_name,
+            df=df,
+            entity_col=entity_col,
+            timestamp_col=timestamp_col,
+        )
+
+    def materialize_to_online(
+        self,
+        feature_names: Sequence[str],
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        ttl_seconds: int | None = None,
+    ) -> int:
+        """Materialize offline features into the online store for low-latency serving."""
+        total_written = 0
+        for feat in feature_names:
+            df = self.offline_store.read_offline_feature(
+                feat, start_time=start_time, end_time=end_time
+            )
+            if not df.empty:
+                count = self.online_store.write_online_features(df, ttl_seconds=ttl_seconds)
+                total_written += count
+        return total_written
+
+    def get_feature_statistics(
+        self,
+        feature_name: str,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Get monitoring and statistical summary for a feature."""
+        return self.offline_store.get_feature_statistics(
+            feature_name, start_time=start_time, end_time=end_time
+        )
 
     def clear_cache(self) -> None:
         """Clear all in-process caches (metadata and value) and reset metrics."""

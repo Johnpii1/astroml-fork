@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
+from dataclasses import asdict, dataclass
+from dataclasses import field as dc_field
 from datetime import datetime
 from typing import Any
 
@@ -408,3 +410,79 @@ def _build_dag(
         _add_edges(r)
 
     return dag
+
+
+# ---------------------------------------------------------------------------
+# Training Lineage Data Structures
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TrainingLineage:
+    """Tracks end-to-end model training provenance."""
+
+    dataset_id: str
+    dataset_version: str = "latest"
+    dataset_hash: str | None = None
+    code_repository: str | None = None
+    commit_hash: str | None = None
+    branch: str | None = None
+    pipeline_run_id: str | None = None
+    parent_model_id: str | None = None
+    parent_version: str | None = None
+    hyperparameters: dict[str, Any] = None
+    environment: dict[str, str] = None
+    artifact_hashes: dict[str, str] = None
+    created_at: str = None
+
+    def __post_init__(self) -> None:
+        if self.hyperparameters is None:
+            self.hyperparameters = {}
+        if self.environment is None:
+            self.environment = {}
+        if self.artifact_hashes is None:
+            self.artifact_hashes = {}
+        if self.created_at is None:
+            self.created_at = datetime.utcnow().isoformat()
+
+    def to_dict(self) -> dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TrainingLineage:
+        known = {
+            "dataset_id", "dataset_version", "dataset_hash", "code_repo", "code_repository",
+            "commit_hash", "branch", "pipeline_run_id", "parent_model_id", "parent_version",
+            "hyperparameters", "environment", "artifact_hashes", "created_at"
+        }
+        filtered = {k: v for k, v in data.items() if k in known}
+        if "code_repo" in filtered and "code_repository" not in filtered:
+            filtered["code_repository"] = filtered.pop("code_repo")
+        return cls(**filtered)
+
+
+@dataclass
+class ModelLineage:
+    """Full lineage record for a model version including upstream and downstream nodes."""
+
+    model_name: str
+    version: str
+    training_lineage: TrainingLineage
+    upstream_nodes: list[str] = None
+    downstream_nodes: list[str] = None
+
+    def __post_init__(self) -> None:
+        if self.upstream_nodes is None:
+            self.upstream_nodes = [self.training_lineage.dataset_id]
+        if self.downstream_nodes is None:
+            self.downstream_nodes = []
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_name": self.model_name,
+            "version": self.version,
+            "training_lineage": self.training_lineage.to_dict(),
+            "upstream_nodes": self.upstream_nodes,
+            "downstream_nodes": self.downstream_nodes,
+        }

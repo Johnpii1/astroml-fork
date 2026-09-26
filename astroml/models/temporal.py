@@ -609,3 +609,26 @@ class TemporalModelFactory:
             num_layers=config.get("num_layers", 3),
             dropout=config.get("dropout", 0.1),
         )
+
+    @staticmethod
+    def create_tgn(config):
+        """Create a TemporalGraphNetwork (issue #737).
+
+        Imported here rather than at module scope: tgn.py depends only on
+        torch, and importing it from a module that already requires
+        torch_geometric would tie it to a dependency it does not need.
+        """
+        from .tgn import TemporalGraphNetwork
+
+        return TemporalGraphNetwork(
+            input_dim=config.input_dim,
+            hidden_dim=config.hidden_dim,
+            output_dim=config.output_dim,
+            memory_dim=config.get("memory_dim", 64),
+            time_dim=config.get("temporal_dim", 32),
+            edge_dim=config.get("edge_dim", 0),
+            message_dim=config.get("message_dim", 64),
+            num_nodes=config.get("num_nodes", None),
+            dropout=config.get("dropout", 0.1),
+            message_aggregation=config.get("message_aggregation", "mean"),
+        )

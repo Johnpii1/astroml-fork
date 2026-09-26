@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 from typing import Any
 
 import numpy as np
-import torch
-import torch.nn as nn
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    import torch.nn as nn
+
 
 from api.models.orm import ModelRegistry
 from astroml.db.session import get_session
@@ -110,7 +112,7 @@ class MLflowTracker:
 
     def log_model_artifact(
         self,
-        model: nn.Module,
+        model: "nn.Module",
         artifact_path: str = "model",
         checkpoint_path: str | None = None,
     ) -> str | None:
@@ -146,6 +148,13 @@ class MLflowTracker:
             # Create temporary file
             tmp_file = tempfile.NamedTemporaryFile(suffix=".pth", delete=False)
             tmp_file.close()
+            # Imported here rather than at module scope: this is the only
+            # line in the module that needs torch, and importing it eagerly
+            # made the whole astroml.tracking package — including the
+            # metadata-only ModelRegistry — unimportable without a deep
+            # learning stack installed.
+            import torch
+
             torch.save(model.state_dict(), tmp_file.name)
             file_to_log = tmp_file.name
             should_cleanup = True

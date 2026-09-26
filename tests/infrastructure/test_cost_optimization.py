@@ -1,5 +1,6 @@
 import pytest
-from astroml.infrastructure.cost_optimizer import CostOptimizer, CostAllocation
+
+from astroml.infrastructure.cost_optimizer import CostAllocation, CostOptimizer
 from astroml.infrastructure.recommendations import RecommendationEngine
 from astroml.infrastructure.resource_analyzer import (
     ResourceAnalyzer,

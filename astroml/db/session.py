@@ -29,7 +29,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -60,6 +60,19 @@ class DatabaseConfig(BaseModel):
         """Validate host is not empty."""
         if not v or not v.strip():
             raise ValueError("Database host cannot be empty")
+        return v.strip()
+
+    @field_validator("name", "user")
+    @classmethod
+    def validate_not_blank(cls, v: str, info: ValidationInfo) -> str:
+        """Reject whitespace-only values and strip surrounding whitespace.
+
+        ``min_length=1`` alone lets a value like ``"   "`` through, which would
+        silently produce a malformed connection URL (issue #977) instead of
+        failing validation the way an empty ``host`` already does.
+        """
+        if not v.strip():
+            raise ValueError(f"Database {info.field_name} cannot be blank")
         return v.strip()
 
     def to_url(self) -> str:
