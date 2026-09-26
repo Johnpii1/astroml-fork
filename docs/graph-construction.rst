@@ -12,7 +12,7 @@ Who this is for
 
 This is the maintainers' overview of how a table of Stellar transactions
 becomes the sequence of graphs a model trains on. It is a companion to
-:doc:`graph-batch-processing`, which covers *tuning* the batch layer; this page
+``docs/graph-batch-processing.md``, which covers *tuning* the batch layer; this page
 covers *what the layers are and why they are split where they are*.
 
 Read it before changing anything under ``astroml/features/graph/``, and before
@@ -322,7 +322,7 @@ Where to go next
    * - If you want to
      - Look at
    * - Choose or tune a batch size
-     - :doc:`graph-batch-processing`
+     - ``docs/graph-batch-processing.md``
    * - Sample a mini-batch that fits a GPU
      - ``astroml/features/graph/subgraph.py`` (issue #734)
    * - Add a node feature
