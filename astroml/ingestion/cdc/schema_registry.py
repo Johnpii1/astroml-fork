@@ -83,6 +83,15 @@ class SchemaVersion:
         return None
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialise the version, including the checksum it was minted with.
+
+        Returns:
+            The schema's fields in registry form. ``created_at`` is an
+                ISO-8601 string and ``checksum`` is the SHA-256 prefix computed
+                from ``fields`` at construction, so two versions that compare
+                equal here describe the same shape. ``fields`` is shared, not
+                copied — treat the result as read-only.
+        """
         return {
             "table_name": self.table_name,
             "version": self.version,

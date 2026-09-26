@@ -76,7 +76,18 @@ class EnhancedStreamConfig:
 class RateLimitTracker:
     """Tracks rate limit status and implements adaptive throttling."""
 
-    def __init__(self, backoff_factor: float = 1.5):
+    def __init__(self, backoff_factor: float = 1.5) -> None:
+        """Start with no requests recorded and the minimum backoff applied.
+
+        Args:
+            backoff_factor: Multiplier applied to the wait each time Horizon
+                rate-limits us, up to the 300 second ceiling in
+                :meth:`handle_rate_limit`.
+
+        Side effects: takes the current wall clock as the start of the first
+            measurement window, so a tracker built long before its first
+            request opens that window early.
+        """
         self.backoff_factor = backoff_factor
         self.last_rate_limit_time: float | None = None
         self.current_backoff: float = 1.0
@@ -115,7 +126,20 @@ class RateLimitTracker:
 class ConnectionHealthMonitor:
     """Monitors connection health and detects drops."""
 
-    def __init__(self, check_interval: float = 30.0, max_consecutive_failures: int = 3):
+    def __init__(self, check_interval: float = 30.0, max_consecutive_failures: int = 3) -> None:
+        """Start assumed healthy, with no requests and no health check yet.
+
+        Args:
+            check_interval: Minimum seconds between health probes, as read by
+                :meth:`should_check_health`.
+            max_consecutive_failures: Failures in a row before the connection
+                is declared unhealthy.
+
+        Side effects: none — the clock is deliberately not read here. A
+            monitor that has never seen a request reports ``is_healthy``
+            ``True`` and ``should_check_health`` ``True``, which is the
+            conservative pair: probe early, do not assume death.
+        """
         self.check_interval = check_interval
         self.last_successful_request: float | None = None
         self.last_health_check: float | None = None
@@ -130,7 +154,14 @@ class ConnectionHealthMonitor:
         self.is_healthy = True
 
     def record_failure(self) -> None:
-        """Record a failed request."""
+        """Count one failed request, declaring the connection unhealthy at the limit.
+
+        Side effects: increments the consecutive-failure count and, once it
+            reaches ``max_consecutive_failures``, clears ``is_healthy``. A
+            single success afterwards resets both (see
+            :meth:`record_success`), so a flapping connection stays healthy
+            while a genuinely dead one stays flagged.
+        """
         self.consecutive_failures += 1
         if self.consecutive_failures >= self.max_consecutive_failures:
             self.is_healthy = False
@@ -487,7 +518,26 @@ class EnhancedStellarStream:
             logger.error("Stream stopped after max retries")
 
     async def run(self) -> None:
-        """Main streaming loop."""
+        """Consume the configured stream until it ends or the block exits.
+
+        Dispatches on ``config.stream_type``: ``"effects"`` streams effects,
+        anything else streams operations. Each record is handed to the
+        batching persister, so durability follows
+        ``config.persist_chunk_size`` rather than one write per record.
+
+        Raises:
+            Exception: Anything the underlying stream raises that the retry loop
+                in :meth:`_stream_with_retry` could not absorb — a bad request,
+                or ``max_retries`` exhausted. It is logged, reported in the
+                closing line, and re-raised rather than swallowed, so a caller
+                cannot mistake a dead stream for a finished one.
+
+        Note:
+            Must be awaited from inside ``async with`` — that is what sets
+            ``_running`` and opens the batch buffer. Called bare, the inner
+            ``while self._running`` loop exits at once and this returns having
+            processed nothing, with no error to say so.
+        """
         logger.info("Starting enhanced stream | type=%s", self.config.stream_type)
 
         try:
@@ -564,7 +614,14 @@ class EnhancedStellarStream:
 
     @property
     def cursor(self) -> str | None:
-        """Current cursor position."""
+        """Horizon paging token to resume from, or ``None`` for "not yet set".
+
+        Advanced as records are consumed, so after a restart a new stream
+        constructed with this value as its ``cursor`` continues where the last
+        one stopped. ``None`` means no record has been seen under this
+        instance — treat it as "start where the config says", not as "resume
+        from the beginning of time".
+        """
         return self._cursor
 
     @property
