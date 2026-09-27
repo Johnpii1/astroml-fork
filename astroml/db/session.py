@@ -204,7 +204,16 @@ def get_engine() -> Engine:
             pool_timeout=config.pool_timeout,
             pool_recycle=config.pool_recycle,
         )
-    except Exception:
+    except Exception as e:
+        # Issue #970 — this previously swallowed the error silently, so a
+        # malformed config/database.yaml (as opposed to the expected "no
+        # config file in this environment" case) would fail over to default
+        # pool settings with no trace of why. Log it with the original
+        # error before falling back so misconfigurations are still visible.
+        logger.warning(
+            "Failed to load database config (%s); falling back to default pool settings",
+            e,
+        )
         engine = create_engine(
             resolve_database_url(),
             pool_pre_ping=True,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bisect
 import logging
+import time
 import uuid
 from collections.abc import Generator, Iterator, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -131,13 +132,44 @@ def _malformed_window_spec_error(window: str) -> SnapshotWindowError:
     )
 
 
-@dataclass(frozen=True)
+# Issue #972 — bounded retry for the DB-backed window builder used by the
+# ThreadPoolExecutor/joblib orchestration paths below (see "Parallel
+# snapshot construction"). A single transient DB failure (e.g. a dropped
+# connection) previously aborted the whole parallel backfill; retrying a
+# few times with backoff lets the orchestration recover from blips instead
+# of failing the entire run.
+DEFAULT_SNAPSHOT_BUILD_MAX_RETRIES = 3
+DEFAULT_SNAPSHOT_BUILD_RETRY_BASE_DELAY = 0.5  # seconds
+
+
+def _mask_account_id(value: str) -> str:
+    """Mask a Stellar account/address identifier for safe logging.
+
+    Account identifiers are graph node labels and, per the project's PII
+    handling standard, must never appear in full in logs. Keeps a short,
+    non-identifying prefix/suffix for debuggability while redacting the
+    middle of the value.
+    """
+    if not value:
+        return value
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}…{value[-4:]}"
+
+
+@dataclass(frozen=True, repr=False)
 class Edge:
     src: str
     dst: str
     # Epoch seconds for efficient comparisons; can be any monotonic numeric timestamp
     timestamp: int
 
+    def __repr__(self) -> str:
+        """Mask src/dst so accidentally logging an Edge can't leak account ids."""
+        return (
+            f"Edge(src={_mask_account_id(self.src)!r}, "
+            f"dst={_mask_account_id(self.dst)!r}, timestamp={self.timestamp!r})"
+        )
 
 
 def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> list[Edge]:
@@ -381,57 +413,89 @@ def _build_snapshot_window(
     window_start: datetime,
     window_end: datetime,
     chunk_size: int,
+    max_retries: int = DEFAULT_SNAPSHOT_BUILD_MAX_RETRIES,
 ) -> SnapshotWindow:
-    """Build a single snapshot window from the database."""
+    """Build a single snapshot window from the database.
+
+    Retries up to ``max_retries`` times (issue #972) with exponential
+    backoff if the query/build fails — e.g. a transient DB connection drop
+    during a long-running parallel backfill — so one flaky window doesn't
+    abort the whole orchestration run. Each failed attempt is logged with
+    its attempt number and error context; once retries are exhausted the
+    final exception is re-raised so genuine (non-transient) failures still
+    surface to the caller.
+    """
     from sqlalchemy import select
 
     from astroml.db.schema import NormalizedTransaction
     from astroml.db.session import get_session
 
-    session = get_session()
-    try:
-        result = session.execute(
-            select(
-                NormalizedTransaction.sender,
-                NormalizedTransaction.receiver,
-                NormalizedTransaction.timestamp,
+    attempt = 0
+    while True:
+        attempt += 1
+        session = get_session()
+        try:
+            result = session.execute(
+                select(
+                    NormalizedTransaction.sender,
+                    NormalizedTransaction.receiver,
+                    NormalizedTransaction.timestamp,
+                )
+                .where(
+                    NormalizedTransaction.timestamp >= window_start,
+                    NormalizedTransaction.timestamp <= window_end,
+                    NormalizedTransaction.receiver.isnot(None),
+                    NormalizedTransaction.sender != NormalizedTransaction.receiver,
+                )
+                .order_by(NormalizedTransaction.timestamp)
             )
-            .where(
-                NormalizedTransaction.timestamp >= window_start,
-                NormalizedTransaction.timestamp <= window_end,
-                NormalizedTransaction.receiver.isnot(None),
-                NormalizedTransaction.sender != NormalizedTransaction.receiver,
+
+            edges: list[Edge] = []
+            nodes: set[str] = set()
+
+            for row in result.yield_per(chunk_size):
+                edge = Edge(
+                    src=row.sender,
+                    dst=row.receiver,
+                    timestamp=int(row.timestamp.timestamp()),
+                )
+                edges.append(edge)
+                nodes.add(edge.src)
+                nodes.add(edge.dst)
+
+            # Issue #546 — drop the SQLAlchemy result/cursor buffers before
+            # allocating the returned SnapshotWindow so the two aren't briefly
+            # alive together at peak.
+            del result
+
+            return SnapshotWindow(
+                index=index,
+                start=window_start,
+                end=window_end,
+                edges=edges,
+                nodes=nodes,
             )
-            .order_by(NormalizedTransaction.timestamp)
-        )
-
-        edges: list[Edge] = []
-        nodes: set[str] = set()
-
-        for row in result.yield_per(chunk_size):
-            edge = Edge(
-                src=row.sender,
-                dst=row.receiver,
-                timestamp=int(row.timestamp.timestamp()),
+        except Exception as exc:
+            if attempt > max_retries:
+                logger.error(
+                    "Snapshot window %d build failed after %d attempt(s), giving up: %s",
+                    index,
+                    attempt,
+                    exc,
+                )
+                raise
+            delay = DEFAULT_SNAPSHOT_BUILD_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+            logger.warning(
+                "Snapshot window %d build failed (attempt %d/%d): %s; retrying in %.2fs",
+                index,
+                attempt,
+                max_retries + 1,
+                exc,
+                delay,
             )
-            edges.append(edge)
-            nodes.add(edge.src)
-            nodes.add(edge.dst)
-
-        # Issue #546 — drop the SQLAlchemy result/cursor buffers before
-        # allocating the returned SnapshotWindow so the two aren't briefly
-        # alive together at peak.
-        del result
-
-        return SnapshotWindow(
-            index=index,
-            start=window_start,
-            end=window_end,
-            edges=edges,
-            nodes=nodes,
-        )
-    finally:
-        session.close()
+            time.sleep(delay)
+        finally:
+            session.close()
 
 
 SNAPSHOT_MAX_ATTEMPTS = 3

@@ -11,6 +11,28 @@ Key components:
 Dependencies:
 - StateStore: Persistent state management
 - observability.metrics: Job tracking metrics
+
+Intended use (issue #969):
+- Backfilling or incrementally ingesting a range of Stellar ledgers via
+  ``ingest``/``ingest_stream``/``ingest_backfill_chunked``, and catching up
+  to the network head via ``ingest_incremental``.
+- ``fetch_fn``/``process_fn`` are supplied by the caller; this module owns
+  ordering, idempotency (skip-if-already-processed), state persistence, and
+  batching — not how a ledger is fetched or what "processing" it means.
+
+Limitations:
+- No built-in retry/backoff for a failing ``fetch_fn``/``process_fn``: an
+  exception is logged and aborts the current ``ingest``/``ingest_stream``
+  call (see ``ingest_stream``). Callers that need resilience to transient
+  fetch/process failures must implement retries in their own callbacks.
+- Idempotency relies on ``process_fn`` itself tolerating being re-invoked
+  for the same ledger id — this module only prevents *re-attempting* a
+  ledger already recorded as processed; it does not undo partial side
+  effects from an attempt that failed midway.
+- Not safe for concurrent ``ingest*`` calls sharing the same ``StateStore``.
+
+Test coverage: ``tests/test_ingestion_service_streaming.py``,
+``tests/test_backfill_chunked.py``, ``tests/ingestion/test_incremental_ingestion.py``.
 """
 
 from __future__ import annotations
