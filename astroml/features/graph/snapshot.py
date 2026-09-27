@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import bisect
 import logging
+import time
+import uuid
 from collections.abc import Generator, Iterator, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -17,14 +19,157 @@ logger = logging.getLogger(__name__)
 # edge individually so callers never see a fully-materialised window list.
 DEFAULT_STREAM_CHUNK_SIZE = 5_000
 
+# RFC 7807 (application/problem+json) "type" base for this module's problems
+# — issue #949. These raise sites previously raised bare ``ValueError``s
+# with only a free-text message, so a caller that surfaced the error at an
+# API boundary had nothing structured to render as a problem-details
+# response. See :class:`SnapshotWindowError`.
+_PROBLEM_TYPE_BASE = "https://astroml.dev/problems/graph-snapshot"
+
 
 @dataclass(frozen=True)
+class ProblemDetail:
+    """RFC 7807 ``application/problem+json`` payload (issue #949).
+
+    Field names and semantics follow RFC 7807 §3.1:
+
+    - ``type``: a URI identifying the problem type (not necessarily
+      dereferenceable); stable per distinct failure kind so clients can
+      branch on it without parsing ``detail``.
+    - ``title``: short, human-readable summary, constant per ``type``.
+    - ``status``: the HTTP status code an API layer should map this to.
+    - ``detail``: human-readable explanation specific to this occurrence.
+    - ``instance``: a URI identifying this specific occurrence; defaults to
+      a freshly generated URN so repeated failures are distinguishable in
+      logs even without a request URL to anchor to.
+    """
+
+    type: str
+    title: str
+    status: int
+    detail: str
+    instance: str = field(default_factory=lambda: f"urn:uuid:{uuid.uuid4()}")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the RFC 7807 member set as a plain dict, ready to serialize
+        as ``application/problem+json``."""
+        return {
+            "type": self.type,
+            "title": self.title,
+            "status": self.status,
+            "detail": self.detail,
+            "instance": self.instance,
+        }
+
+
+class SnapshotWindowError(ValueError):
+    """A graph-snapshot windowing error with an attached RFC 7807 problem detail.
+
+    Subclasses :class:`ValueError` so existing ``except ValueError`` call
+    sites (and bare ``except Exception``) keep working unchanged; the
+    difference is ``problem`` now carries structured, machine-readable
+    detail an API boundary can render as ``application/problem+json``
+    instead of only a free-text ``str(exc)``.
+    """
+
+    def __init__(self, problem: ProblemDetail) -> None:
+        super().__init__(problem.detail)
+        self.problem = problem
+
+    def to_problem_detail(self) -> dict[str, Any]:
+        """Convenience accessor for ``self.problem.to_dict()``."""
+        return self.problem.to_dict()
+
+
+def _invalid_window_bounds_error(start_ts: int, end_ts: int) -> SnapshotWindowError:
+    return SnapshotWindowError(
+        ProblemDetail(
+            type=f"{_PROBLEM_TYPE_BASE}/invalid-window-bounds",
+            title="Invalid snapshot window bounds",
+            status=400,
+            detail=f"start_ts must be <= end_ts (got start_ts={start_ts}, end_ts={end_ts})",
+        )
+    )
+
+
+def _invalid_day_count_error(days: int) -> SnapshotWindowError:
+    return SnapshotWindowError(
+        ProblemDetail(
+            type=f"{_PROBLEM_TYPE_BASE}/invalid-day-count",
+            title="Invalid snapshot day count",
+            status=400,
+            detail=f"days must be >= 1 (got days={days})",
+        )
+    )
+
+
+def _unknown_window_unit_error(window: str, unit: str) -> SnapshotWindowError:
+    return SnapshotWindowError(
+        ProblemDetail(
+            type=f"{_PROBLEM_TYPE_BASE}/unknown-window-unit",
+            title="Unknown window size unit",
+            status=400,
+            detail=(
+                f"Unknown window unit '{unit}' in window spec '{window}'. "
+                "Use 'd' (days), 'h' (hours), or 's' (seconds)."
+            ),
+        )
+    )
+
+
+def _malformed_window_spec_error(window: str) -> SnapshotWindowError:
+    return SnapshotWindowError(
+        ProblemDetail(
+            type=f"{_PROBLEM_TYPE_BASE}/malformed-window-spec",
+            title="Malformed window size specification",
+            status=400,
+            detail=(
+                f"Could not parse window spec '{window}'. Expected a numeric "
+                "value followed by 'd' (days), 'h' (hours), or 's' (seconds), "
+                "e.g. '7d', '24h', '3600s'."
+            ),
+        )
+    )
+
+
+# Issue #972 — bounded retry for the DB-backed window builder used by the
+# ThreadPoolExecutor/joblib orchestration paths below (see "Parallel
+# snapshot construction"). A single transient DB failure (e.g. a dropped
+# connection) previously aborted the whole parallel backfill; retrying a
+# few times with backoff lets the orchestration recover from blips instead
+# of failing the entire run.
+DEFAULT_SNAPSHOT_BUILD_MAX_RETRIES = 3
+DEFAULT_SNAPSHOT_BUILD_RETRY_BASE_DELAY = 0.5  # seconds
+
+
+def _mask_account_id(value: str) -> str:
+    """Mask a Stellar account/address identifier for safe logging.
+
+    Account identifiers are graph node labels and, per the project's PII
+    handling standard, must never appear in full in logs. Keeps a short,
+    non-identifying prefix/suffix for debuggability while redacting the
+    middle of the value.
+    """
+    if not value:
+        return value
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}…{value[-4:]}"
+
+
+@dataclass(frozen=True, repr=False)
 class Edge:
     src: str
     dst: str
     # Epoch seconds for efficient comparisons; can be any monotonic numeric timestamp
     timestamp: int
 
+    def __repr__(self) -> str:
+        """Mask src/dst so accidentally logging an Edge can't leak account ids."""
+        return (
+            f"Edge(src={_mask_account_id(self.src)!r}, "
+            f"dst={_mask_account_id(self.dst)!r}, timestamp={self.timestamp!r})"
+        )
 
 
 def _ensure_sorted_by_ts(edges: Sequence[Edge]) -> list[Edge]:
@@ -54,7 +199,7 @@ def window_snapshot(
       Uses binary search to find left/right indices and then slices, O(log N + K).
     """
     if start_ts > end_ts:
-        raise ValueError("start_ts must be <= end_ts")
+        raise _invalid_window_bounds_error(start_ts, end_ts)
 
     # Issue #546 — skip the defensive copy when the caller already handed us
     # a list; `list(edges)` on an already-materialised list still allocates
@@ -104,7 +249,7 @@ def snapshot_last_n_days(
     Example: days=1 -> [now_ts-86400, now_ts].
     """
     if days <= 0:
-        raise ValueError("days must be >= 1")
+        raise _invalid_day_count_error(days)
     seconds = days * 86400
     start_ts = now_ts - seconds
     if start_ts < 0:
@@ -129,16 +274,32 @@ class SnapshotWindow:
 
 
 def _parse_window_size(window: str) -> timedelta:
-    """Parse a window size string like '7d', '24h', '3600s' into a timedelta."""
+    """Parse a window size string like '7d', '24h', '3600s' into a timedelta.
+
+    Raises:
+        ValueError: if the string is empty/malformed or the size is not
+            positive. Issue #991 — a zero or negative size made the snapshot
+            iterators loop forever (``window_start += step`` never advanced).
+    """
+    if not isinstance(window, str) or len(window.strip()) < 2:
+        raise ValueError(f"Invalid window size {window!r}. Use e.g. '7d', '24h', '3600s'.")
+    window = window.strip()
     unit = window[-1].lower()
-    value = int(window[:-1])
+    try:
+        value = int(window[:-1])
+    except ValueError:
+        raise ValueError(
+            f"Invalid window size {window!r}. Use e.g. '7d', '24h', '3600s'."
+        ) from None
+    if value <= 0:
+        raise ValueError(f"Window size must be positive, got {window!r}.")
     if unit == "d":
         return timedelta(days=value)
     if unit == "h":
         return timedelta(hours=value)
     if unit == "s":
         return timedelta(seconds=value)
-    raise ValueError(f"Unknown window unit '{unit}'. Use 'd', 'h', or 's'.")
+    raise _unknown_window_unit_error(window, unit)
 
 
 @dataclass(frozen=True)
@@ -252,57 +413,120 @@ def _build_snapshot_window(
     window_start: datetime,
     window_end: datetime,
     chunk_size: int,
+    max_retries: int = DEFAULT_SNAPSHOT_BUILD_MAX_RETRIES,
 ) -> SnapshotWindow:
-    """Build a single snapshot window from the database."""
+    """Build a single snapshot window from the database.
+
+    Retries up to ``max_retries`` times (issue #972) with exponential
+    backoff if the query/build fails — e.g. a transient DB connection drop
+    during a long-running parallel backfill — so one flaky window doesn't
+    abort the whole orchestration run. Each failed attempt is logged with
+    its attempt number and error context; once retries are exhausted the
+    final exception is re-raised so genuine (non-transient) failures still
+    surface to the caller.
+    """
     from sqlalchemy import select
 
     from astroml.db.schema import NormalizedTransaction
     from astroml.db.session import get_session
 
-    session = get_session()
-    try:
-        result = session.execute(
-            select(
-                NormalizedTransaction.sender,
-                NormalizedTransaction.receiver,
-                NormalizedTransaction.timestamp,
+    attempt = 0
+    while True:
+        attempt += 1
+        session = get_session()
+        try:
+            result = session.execute(
+                select(
+                    NormalizedTransaction.sender,
+                    NormalizedTransaction.receiver,
+                    NormalizedTransaction.timestamp,
+                )
+                .where(
+                    NormalizedTransaction.timestamp >= window_start,
+                    NormalizedTransaction.timestamp <= window_end,
+                    NormalizedTransaction.receiver.isnot(None),
+                    NormalizedTransaction.sender != NormalizedTransaction.receiver,
+                )
+                .order_by(NormalizedTransaction.timestamp)
             )
-            .where(
-                NormalizedTransaction.timestamp >= window_start,
-                NormalizedTransaction.timestamp <= window_end,
-                NormalizedTransaction.receiver.isnot(None),
-                NormalizedTransaction.sender != NormalizedTransaction.receiver,
+
+            edges: list[Edge] = []
+            nodes: set[str] = set()
+
+            for row in result.yield_per(chunk_size):
+                edge = Edge(
+                    src=row.sender,
+                    dst=row.receiver,
+                    timestamp=int(row.timestamp.timestamp()),
+                )
+                edges.append(edge)
+                nodes.add(edge.src)
+                nodes.add(edge.dst)
+
+            # Issue #546 — drop the SQLAlchemy result/cursor buffers before
+            # allocating the returned SnapshotWindow so the two aren't briefly
+            # alive together at peak.
+            del result
+
+            return SnapshotWindow(
+                index=index,
+                start=window_start,
+                end=window_end,
+                edges=edges,
+                nodes=nodes,
             )
-            .order_by(NormalizedTransaction.timestamp)
-        )
-
-        edges: list[Edge] = []
-        nodes: set[str] = set()
-
-        for row in result.yield_per(chunk_size):
-            edge = Edge(
-                src=row.sender,
-                dst=row.receiver,
-                timestamp=int(row.timestamp.timestamp()),
+        except Exception as exc:
+            if attempt > max_retries:
+                logger.error(
+                    "Snapshot window %d build failed after %d attempt(s), giving up: %s",
+                    index,
+                    attempt,
+                    exc,
+                )
+                raise
+            delay = DEFAULT_SNAPSHOT_BUILD_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+            logger.warning(
+                "Snapshot window %d build failed (attempt %d/%d): %s; retrying in %.2fs",
+                index,
+                attempt,
+                max_retries + 1,
+                exc,
+                delay,
             )
-            edges.append(edge)
-            nodes.add(edge.src)
-            nodes.add(edge.dst)
+            time.sleep(delay)
+        finally:
+            session.close()
 
-        # Issue #546 — drop the SQLAlchemy result/cursor buffers before
-        # allocating the returned SnapshotWindow so the two aren't briefly
-        # alive together at peak.
-        del result
 
-        return SnapshotWindow(
-            index=index,
-            start=window_start,
-            end=window_end,
-            edges=edges,
-            nodes=nodes,
-        )
-    finally:
-        session.close()
+SNAPSHOT_MAX_ATTEMPTS = 3
+
+
+def _build_snapshot_window_with_retry(
+    index: int,
+    window_start: datetime,
+    window_end: datetime,
+    chunk_size: int,
+    max_attempts: int = SNAPSHOT_MAX_ATTEMPTS,
+) -> SnapshotWindow:
+    """Build a snapshot window, retrying transient failures (issue #979).
+
+    Each failed attempt is logged; the last exception is re-raised once
+    ``max_attempts`` is exhausted.
+    """
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be >= 1")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return _build_snapshot_window(index, window_start, window_end, chunk_size)
+        except Exception:
+            logger.warning(
+                "snapshot window build failed",
+                extra={"window_index": index, "attempt": attempt, "max_attempts": max_attempts},
+                exc_info=True,
+            )
+            if attempt == max_attempts:
+                raise
+    raise AssertionError("unreachable")
 
 
 def iter_db_snapshots(
@@ -382,7 +606,7 @@ def iter_db_snapshots(
                 while window_start < t_now and len(futures) < workers:
                     window_end = min(window_start + win_delta, t_now)
                     future = executor.submit(
-                        _build_snapshot_window,
+                        _build_snapshot_window_with_retry,
                         index,
                         window_start,
                         window_end,
