@@ -233,6 +233,22 @@ class IngestionService(Ingestor):
         an outer ``ingest_backfill_chunked`` chunk loop), it's inherited
         as-is; otherwise a fresh one is generated for this run and scoped to
         the lifetime of the generator via :class:`~astroml.utils.logging.CorrelationId`.
+
+        Args:
+            start_ledger: First ledger to process (inclusive). If None, resumes
+                from ``last_processed_ledger + 1``; yields nothing on a cold
+                state store.
+            end_ledger: Last ledger to process (inclusive). If None, only
+                ``start_ledger`` is processed.
+            fetch_fn: Fetches a ledger's payload; defaults to an identity payload.
+            process_fn: Handles a fetched ledger; defaults to a no-op.
+            batch_size: Progress-logging and state-flush granularity; must be
+                ``>= 1``.
+
+        Yields:
+            ``(ledger_id, LedgerOutcome)`` per ledger, with a status of
+            ``"processed"`` or ``"skipped"``. An exception from ``fetch_fn`` or
+            ``process_fn`` is logged and re-raised, aborting the generator.
         """
         inherited_correlation_id = get_correlation_id()
         with CorrelationId(inherited_correlation_id):
@@ -474,6 +490,11 @@ class IngestionService(Ingestor):
             process_fn: Forwarded to :meth:`ingest_stream`.
             batch_size: State-flush cadence inside each chunk, forwarded to
                 :meth:`ingest_stream`.
+
+        Yields one summary ``dict`` per chunk, where ``errors`` counts the
+        chunks that failed. A failed chunk is also reported through
+        ``self.notifier`` (e.g. ``SlackIntegration(config).send_webhook``),
+        matching :meth:`ingest` — see issue #993.
         """
         if end_ledger < start_ledger:
             raise ValueError("end_ledger must be >= start_ledger")
@@ -507,6 +528,11 @@ class IngestionService(Ingestor):
                     exc,
                 )
                 n_errors += 1
+                # A chunked backfill swallows the per-chunk exception and keeps
+                # going, so without this the operator gets no alert at all: a
+                # backfill where every chunk fails looks exactly like a
+                # successful one from the notifier's point of view (issue #993).
+                self._notify_failure(exc, [], [])
 
             yield {
                 "chunk_start": current,
