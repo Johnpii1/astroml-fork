@@ -44,6 +44,13 @@ class LedgerReader:
 
     @property
     def data_dir(self) -> pathlib.Path:
+        """Directory the reader lists and streams from.
+
+        Normalised to a :class:`~pathlib.Path` at construction, and the
+        directory is *not* required to exist — an empty result from
+        :meth:`list_ledger_files` is the answer for a missing path, not an
+        error.
+        """
         return self._data_dir
 
     def list_ledger_files(

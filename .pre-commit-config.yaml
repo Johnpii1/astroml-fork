@@ -44,3 +44,12 @@ repos:
         additional_dependencies: ["interrogate>=1.7.0,<2.0"]
         args: ["astroml", "api", "tests"]
         pass_filenames: false
+
+      # Stdlib-only, so it runs against the checkout's own interpreter rather
+      # than a pre-commit-managed venv.
+      - id: doc-links
+        name: Check internal documentation links
+        entry: python scripts/check_doc_links.py
+        language: system
+        pass_filenames: false
+        files: ^(docs/|README\.md|CONTRIBUTING\.md)

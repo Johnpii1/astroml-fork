@@ -81,11 +81,13 @@ def run_benchmark(
     os.makedirs(os.path.dirname(results_path), exist_ok=True)
 
     def default_fetch(ledger_id: int) -> object:
+        """Stand-in fetch: sleeps ``fetch_cost_us`` and returns a dummy payload."""
         if fetch_cost_us > 0:
             time.sleep(fetch_cost_us / 1_000_000.0)
         return {"ledger": ledger_id}
 
     def default_process(ledger_id: int, payload: object) -> None:
+        """Stand-in process: does no work, sleeping ``process_cost_us`` if asked."""
         # no-op processing; simulate CPU time if requested
         if process_cost_us > 0:
             time.sleep(process_cost_us / 1_000_000.0)
@@ -189,11 +191,13 @@ def run_chunked_benchmark(
     os.makedirs(os.path.dirname(results_path) or ".", exist_ok=True)
 
     def default_fetch(ledger_id: int) -> object:
+        """Stand-in fetch: sleeps ``fetch_cost_us`` and returns a dummy payload."""
         if fetch_cost_us > 0:
             time.sleep(fetch_cost_us / 1_000_000.0)
         return {"ledger": ledger_id}
 
     def default_process(ledger_id: int, payload: object) -> None:
+        """Stand-in process: does no work, sleeping ``process_cost_us`` if asked."""
         if process_cost_us > 0:
             time.sleep(process_cost_us / 1_000_000.0)
 

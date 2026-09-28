@@ -134,8 +134,13 @@ class StellarLedgerDownloader:
         )
 
 
-async def main():
-    """Simple CLI for the downloader."""
+async def main() -> None:
+    """Command line entry point for the downloader.
+
+    Parses ``--start``/``--end``/``--output``/``--format``, applies the central
+    logging configuration, and runs the download to completion. Intended to be
+    invoked via :func:`asyncio.run` from ``__main__``.
+    """
     import argparse  # noqa: E402
     import sys  # noqa: E402
 
