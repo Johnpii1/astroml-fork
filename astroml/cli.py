@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import pathlib
-from typing import Optional
 
 from sqlalchemy import func, select, update
 
@@ -50,7 +49,7 @@ Environment variables:
 """
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="astroml",
         description=CLI_DESCRIPTION,
@@ -79,13 +78,11 @@ def main(argv: Optional[list[str]] = None) -> int:
             "ASTROML_ENV is already set in the process environment."
         ),
     )
-
     sub = parser.add_subparsers(dest="command", required=True)
 
     # LLM subcommand
     llm_parser = sub.add_parser(
-        "llm",
-        help="LLM operations (generate, chat, rag, prompts, eval, models, cost, cache)",
+        "llm", help="LLM operations (generate, chat, rag, prompts, eval, models, cost, cache)"
     )
     llm_sub = llm_parser.add_subparsers(dest="llm_command", required=True)
     from .cli_llm.commands import register_llm_subcommands
@@ -399,8 +396,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         elif args.subcommand == "transition":
             entry = db.scalar(
                 select(ModelRegistry).where(
-                    ModelRegistry.name == args.model_name,
-                    ModelRegistry.version == args.version,
+                    ModelRegistry.name == args.model_name, ModelRegistry.version == args.version
                 )
             )
             if not entry:
@@ -410,10 +406,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             if args.stage == "active":
                 db.execute(
                     update(ModelRegistry)
-                    .where(
-                        ModelRegistry.name == args.model_name,
-                        ModelRegistry.id != entry.id,
-                    )
+                    .where(ModelRegistry.name == args.model_name, ModelRegistry.id != entry.id)
                     .values(status="inactive")
                 )
 
@@ -481,14 +474,12 @@ def main(argv: Optional[list[str]] = None) -> int:
         elif args.subcommand == "compare":
             v1 = db.scalar(
                 select(ModelRegistry).where(
-                    ModelRegistry.name == args.model_name,
-                    ModelRegistry.version == args.version1,
+                    ModelRegistry.name == args.model_name, ModelRegistry.version == args.version1
                 )
             )
             v2 = db.scalar(
                 select(ModelRegistry).where(
-                    ModelRegistry.name == args.model_name,
-                    ModelRegistry.version == args.version2,
+                    ModelRegistry.name == args.model_name, ModelRegistry.version == args.version2
                 )
             )
 

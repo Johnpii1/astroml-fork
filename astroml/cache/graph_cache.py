@@ -785,7 +785,7 @@ def cached_graph_computation(
     data_version_arg: str = "data_version",
     start_ts_arg: str = "start_ts",
     end_ts_arg: str = "end_ts",
-    cache: GraphComputationCache | None = None,
+    cache: "GraphComputationCache | None" = None,
     ttl_seconds: int = 1_800,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Cache a graph computation per data version and window.

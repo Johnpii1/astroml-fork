@@ -16,9 +16,9 @@ from astroml.db.schema import NormalizedTransaction
 from astroml.ingestion.parsers import (
     _PATH_PAYMENT_TYPES,
     _extract_amount,
-    _extract_asset,
     _extract_destination,
     _parse_datetime,
+    extract_asset_string,
     extract_path_payment_hops,
     ledger_sequence_from_operation_id,
 )
@@ -52,14 +52,7 @@ def normalize_operation(data: dict) -> NormalizedTransaction:
     amount_str = _extract_amount(data)
     amount = float(amount_str) if amount_str is not None else None
 
-    asset_code, asset_issuer = _extract_asset(data)
-
-    if asset_code == "XLM" and asset_issuer is None:
-        normalized_asset = "XLM"
-    else:
-        normalized_asset = (
-            f"{asset_code}:{asset_issuer}" if asset_code and asset_issuer else "UNKNOWN"
-        )
+    normalized_asset = extract_asset_string(data)
 
     timestamp = _parse_datetime(data["created_at"])
     transaction_hash = data["transaction_hash"]
