@@ -343,6 +343,7 @@ class GraphComputationCache:
         """
         if getattr(self, "_initialized", False):
             return
+
         self.config = config or GraphCacheConfig()
         self._stats = GraphCacheStats()
         self._store: _MemoryGraphStore | None = None
