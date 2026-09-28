@@ -510,7 +510,11 @@ class EnhancedStellarStream:
                     logger.error("Max retries exceeded, stopping")
                     raise
 
-                await asyncio.sleep(self.config.base_retry_delay * retry_count)
+                delay = min(
+                    self.config.base_retry_delay * (2 ** (retry_count - 1)),
+                    self.config.max_retry_delay
+                )
+                await asyncio.sleep(delay)
 
         if not self._running:
             logger.info("Stream stopped by user")
