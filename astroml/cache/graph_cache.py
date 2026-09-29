@@ -806,7 +806,7 @@ def cached_graph_computation(
     Example::
 
         @cached_graph_computation()
-        def build_adjacency(data_version: str, start_ts: int, end_ts: int):
+        def build_adjacency(data_version -> Any: str, start_ts: int, end_ts: int):
             ...  # expensive graph construction
     """
     _cache = cache or GraphComputationCache()

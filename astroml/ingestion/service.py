@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Ingestion service for processing Stellar network ledgers.
 
 This module provides the core ingestion service for processing Stellar ledger data
@@ -75,7 +76,7 @@ class IngestionResult(BaseIngestionResult):
     end_time: datetime
     errors: List[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> Any:
         if self.errors is None:
             self.errors = []
 
@@ -167,7 +168,7 @@ class IngestionService(Ingestor):
                     processed.append(ledger_id)
                 else:
                     skipped.append(ledger_id)
-        except Exception as e:
+        except AstroMLError as e:
             errors.append(str(e))
             logger.error(f"Ingestion error: {e}")
             self._notify_failure(e, attempted, processed)

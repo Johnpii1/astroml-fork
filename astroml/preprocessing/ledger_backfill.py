@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Polars-based preprocessing for large ledger backfill datasets.
 
 This module is designed for backfills with millions of rows. It keeps work in
@@ -86,7 +87,7 @@ def upsert_processed_ledger(
             select(ProcessedLedger).where(ProcessedLedger.ledger_sequence == ledger_sequence)
         ).scalar_one()
 
-    except Exception:
+    except AstroMLError:
         # Fallback to SQLAlchemy merge for SQLite or other databases
         existing = session.execute(
             select(ProcessedLedger).where(ProcessedLedger.ledger_sequence == ledger_sequence)

@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Module for downloading historical Stellar ledger data."""
 
 from __future__ import annotations

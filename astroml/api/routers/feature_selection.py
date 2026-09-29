@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Feature selection API router for AstroML.
 
 Provides REST endpoints for filter, wrapper, embedded, hybrid and pipelined
@@ -759,6 +760,6 @@ async def evaluate_selection(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except AstroMLError as e:
         logger.exception("Error evaluating selection")
         raise HTTPException(status_code=500, detail=str(e))

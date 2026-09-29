@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Horizon Streaming Client for real-time Stellar data ingestion.
 
 Connects to a Stellar Horizon server via Server-Sent Events (SSE) and
@@ -81,7 +82,7 @@ class HorizonStreamClient:
                 self._batch_buffer.close()
                 logger.info("Batch buffer closed | total_flushed=%d flush_count=%d",
                     flushed, self._batch_buffer.flush_count)
-            except Exception:
+            except AstroMLError:
                 logger.exception("Error closing batch buffer")
             finally:
                 self._batch_buffer = None
@@ -145,7 +146,7 @@ class HorizonStreamClient:
                 if not self._running:
                     break
                 await self._handle_reconnect(exc)
-            except Exception:
+            except AstroMLError:
                 logger.exception("Unexpected error in stream loop")
                 if not self._running:
                     break
@@ -216,7 +217,7 @@ class HorizonStreamClient:
             else:
                 logger.warning("Unsupported endpoint: %s", endpoint)
                 return
-        except Exception:
+        except AstroMLError:
             logger.exception("Failed to persist event (paging_token=%s)", paging_token)
             return
 
@@ -241,7 +242,7 @@ class HorizonStreamClient:
             try:
                 session = self._batch_buffer._session
                 existing_ledger = session.get(Ledger, tx.ledger_sequence)
-            except Exception:
+            except AstroMLError:
                 pass
             if existing_ledger is None:
                 ledger = Ledger(
@@ -287,7 +288,7 @@ class HorizonStreamClient:
             session.merge(op)
             NormalizedTransactionRepository(session).upsert(normalized)
             session.commit()
-        except Exception:
+        except AstroMLError:
             session.rollback()
             raise
         finally:
@@ -300,7 +301,7 @@ class HorizonStreamClient:
         try:
             session.merge(model)
             session.commit()
-        except Exception:
+        except AstroMLError:
             session.rollback()
             raise
         finally:

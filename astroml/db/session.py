@@ -1,3 +1,4 @@
+from astroml.utils.exceptions import AstroMLError
 """Database session factory for AstroML.
 
 This module provides database connection management and session creation with:
