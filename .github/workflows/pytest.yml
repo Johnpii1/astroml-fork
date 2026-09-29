@@ -65,6 +65,15 @@ jobs:
           elif [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
+          # The CPU legs run the whole tests/ tree, and a chunk of it imports
+          # the API layer (fastapi, httpx, aiosqlite, pydantic-settings,
+          # strawberry). Neither requirements-cpu.txt nor requirements.txt
+          # declares those — only api/requirements.txt does — so 27+ test
+          # modules errored at collection on `ModuleNotFoundError: No module
+          # named 'fastapi'` before asserting anything. Separate command:
+          # resolving both graphs in one invocation trips pip's
+          # `error: resolution-too-deep`.
+          pip install -r requirements-api.txt
           pip install -e . --no-deps
 
       - name: Verify torch installation
@@ -127,6 +136,11 @@ jobs:
           elif [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
+          # api/app.py imports strawberry.fastapi and api/auth/security.py imports
+          # jose, so collecting api/tests needs the service's own requirement set
+          # — the same file api/Dockerfile installs. Without it five test modules
+          # errored at collection before a single API test ran.
+          pip install -r requirements-api.txt
           pip install -e . --no-deps
 
       - name: Run API integration tests
