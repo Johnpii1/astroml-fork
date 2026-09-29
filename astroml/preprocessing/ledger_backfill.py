@@ -167,6 +167,13 @@ def scan_backfill_dataset(
     fmt = input_format or _infer_input_format(path)
     normalized_fmt = "ndjson" if fmt == "jsonl" else fmt
 
+    # Issue #706 — an empty ledger range (zero-byte file) is valid input, not
+    # an error: the format scanners cannot infer a schema from no bytes and
+    # raise, so short-circuit to an empty frame. Downstream preprocessing
+    # treats missing columns as null and yields zero rows.
+    if path.is_file() and path.stat().st_size == 0:
+        return pl.LazyFrame()
+
     if normalized_fmt == "parquet":
         return pl.scan_parquet(_resolve_scan_target(path, ("*.parquet",)))
     if normalized_fmt == "csv":

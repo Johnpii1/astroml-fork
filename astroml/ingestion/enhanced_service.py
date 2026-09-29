@@ -220,7 +220,17 @@ class MultiHorizonService:
                 logger.warning("Service %s stopped unexpectedly", service_id)
 
     async def stop_all(self) -> None:
-        """Stop all services."""
+        """Ask every managed service to stop and release the run loop.
+
+        Requests shutdown rather than cancelling: each service notices the
+        flag at its next boundary and unwinds itself, so an in-flight ledger
+        finishes instead of being cut off mid-write.
+
+        Side effects: clears the running flag, calls ``stop()`` on every
+        service, and sets the shutdown event that the run loop waits on.
+        Idempotent — a second call, or one made before :meth:`start`, is a
+        no-op, which is what makes it safe to install as a signal handler.
+        """
         if not self._running:
             return
 
