@@ -38,11 +38,15 @@ jobs:
         run: |
           pip install -r docs/requirements.txt
 
-      - name: Install package dependencies (mock heavy ones)
+      - name: Install package dependencies
         run: |
-          pip install numpy pandas
-          pip install --no-deps torch-geometric || true
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # Sphinx autosummary imports the real package, so this job needs the
+          # same closure the code does: astroml.features -> astroml.cache ->
+          # redis/cachetools, and torch_geometric -> xxhash/tqdm/aiohttp.
+          # Installing torch-geometric with --no-deps (what this step used to
+          # do) deliberately left those out, so every docs build died on
+          # `ModuleNotFoundError: No module named 'redis'`.
+          pip install -r requirements-cpu.txt
 
       - name: Install package (editable)
         run: pip install -e . --no-deps

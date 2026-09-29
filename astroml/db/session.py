@@ -214,11 +214,6 @@ def get_engine() -> Engine:
             pool_timeout=config.pool_timeout,
             pool_recycle=config.pool_recycle,
         )
-    except Exception:
-        logger.warning(
-            "Falling back to default database pool settings",
-            extra={"pool_size": 10, "max_overflow": 20},
-            exc_info=True,
     except Exception as e:
         # Issue #970 — this previously swallowed the error silently, so a
         # malformed config/database.yaml (as opposed to the expected "no
