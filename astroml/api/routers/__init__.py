@@ -8,6 +8,7 @@ __all__ = [
     "accounts",
     "compression",
     "data_quality",
+    "feature_selection",
     "features",
     "federated",
     "fraud",

@@ -81,9 +81,7 @@ class CanaryDeployment:
     phase: CanaryPhase = CanaryPhase.INITIALIZED
     current_weight: float = 0.0
     steps: list[CanaryStep] = field(default_factory=list)
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at: str | None = None
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -396,3 +394,8 @@ class CanaryManager:
             auto_approve=dep.config.auto_rollback,
         )
         dep.error = f"Auto-rollback: error_rate={error_rate:.2%}, latency={latency_ms:.1f}ms"
+        # A rolled-back canary must stop receiving traffic.  Without this the
+        # phase says ROLLED_BACK while the weight still says "send it X%", and
+        # anything routing off ``current_weight`` keeps serving the failed
+        # version.  ``rollback()`` already zeroes it for the manual path.
+        dep.current_weight = 0.0
